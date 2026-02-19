@@ -17,6 +17,8 @@ import AuditLogs from './pages/audit/AuditLogs';
 import { syncService } from './services/syncService';
 import { notificationService } from './services/notificationService';
 
+import { useAuthStore } from './stores/authStore';
+
 // Páginas temporales para la Fase 2
 const Perfil = () => <h1>Perfil del Usuario</h1>;
 
