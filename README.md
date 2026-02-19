@@ -20,3 +20,6 @@ git init
 git add .
 git commit -m "Primer commit: Mi proyecto de Peluquerías y Perfumerías"
 
+git remote add origin https://github.com/encoder1024/PerPel.git
+git branch -M main
+git push -u origin main
