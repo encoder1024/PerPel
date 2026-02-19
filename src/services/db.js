@@ -1,6 +1,6 @@
 import { createRxDatabase, addRxPlugin } from 'rxdb';
 import { getRxStorageDexie } from 'rxdb/plugins/storage-dexie';
-import { RxDBMigrationPlugin } from 'rxdb/plugins/migration';
+import { RxDBMigrationPlugin } from 'rxdb/plugins/migration-schema'; // El nombre cambió a migration-schema en versiones nuevas
 import { RxDBQueryBuilderPlugin } from 'rxdb/plugins/query-builder';
 
 addRxPlugin(RxDBMigrationPlugin);
