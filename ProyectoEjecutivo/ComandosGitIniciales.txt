@@ -6,4 +6,4 @@ git remote add origin https://github.com/encoder1024/PerPel.git
 git branch -M main (opcional, dado que ya configuré el git localmente para que la branch principal se llamé main siempre)
 git push -u origin main
 
-prueba de otro push
+prueba de otro push, pero ahora ya está conectado el repositorio real
