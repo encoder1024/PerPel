@@ -1,0 +1,379 @@
+/************************************************************************************
+ *                                                                                  *
+ *    SCRIPT DE CREACIÓN DE BASE DE DATOS FINAL, UNIFICADO Y CON BORRADO LÓGICO     *
+ *                                                                                  *
+ ************************************************************************************/
+
+BEGIN;
+
+/******************************************************************************
+ * PASO 1: FUNCIONES AUXILIARES Y DE AUDITORÍA
+ ******************************************************************************/
+
+CREATE OR REPLACE FUNCTION public.handle_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Función de auditoría mejorada para soportar SOFT_DELETE
+CREATE OR REPLACE FUNCTION public.log_changes()
+RETURNS TRIGGER AS $$
+DECLARE
+  record_id_text TEXT;
+  action_text TEXT;
+BEGIN
+  action_text := TG_OP;
+  IF (TG_OP = 'UPDATE') THEN
+    record_id_text = NEW.id::TEXT;
+    -- Si el campo 'deleted' cambia de false a true, lo registramos como SOFT_DELETE
+    IF OLD.deleted = false AND NEW.deleted = true THEN
+      action_text := 'SOFT_DELETE';
+    END IF;
+  ELSEIF (TG_OP = 'INSERT') THEN
+    record_id_text = NEW.id::TEXT;
+  ELSE -- DELETE
+    record_id_text = OLD.id::TEXT;
+  END IF;
+
+  INSERT INTO public.audit_log (user_id, action, table_name, record_id, old_data, new_data)
+  VALUES (
+    auth.uid(),
+    action_text,
+    TG_TABLE_NAME,
+    record_id_text,
+    CASE WHEN TG_OP = 'UPDATE' OR TG_OP = 'DELETE' THEN to_jsonb(OLD) ELSE NULL END,
+    CASE WHEN TG_OP = 'INSERT' OR TG_OP = 'UPDATE' THEN to_jsonb(NEW) ELSE NULL END
+  );
+
+  RETURN COALESCE(NEW, OLD);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+
+/******************************************************************************
+ * PASO 2: TIPOS PERSONALIZADOS (ENUMS)
+ ******************************************************************************/
+
+CREATE TYPE public.app_role AS ENUM ('OWNER', 'ADMIN', 'EMPLOYEE', 'AUDITOR', 'DEVELOPER');
+CREATE TYPE public.external_api_name AS ENUM ('MERCADOPAGO', 'ARCA', 'INVOICING_API', 'ONESIGNAL', 'CAL_COM');
+CREATE TYPE public.business_type AS ENUM ('SALON', 'PERFUMERY');
+CREATE TYPE public.item_type AS ENUM ('PRODUCT', 'SERVICE');
+CREATE TYPE public.order_status AS ENUM ('PENDING', 'PAID', 'ABANDONED', 'ERROR');
+CREATE TYPE public.payment_method AS ENUM ('CASH', 'CREDIT_CARD', 'DEBIT_CARD', 'MERCADOPAGO_QR', 'MERCADOPAGO_ONLINE');
+CREATE TYPE public.sync_status AS ENUM ('PENDING', 'SUCCESS', 'FAILED');
+CREATE TYPE public.appointment_status AS ENUM ('SCHEDULED', 'COMPLETED', 'NO_SHOW', 'PENDING', 'ACCEPTED', 'REJECTED', 'CANCELLED', 'AWAITING_HOST');
+CREATE TYPE public.user_category AS ENUM ('VIP', 'CASUAL', 'NEW', 'INACTIVE', 'ONTIME');
+CREATE TYPE public.item_status AS ENUM ('ACTIVE', 'INACTIVE', 'DISCONTINUE');
+CREATE TYPE public.customer_doc_type AS ENUM ('80', '96', '99');
+CREATE TYPE public.cbte_tipo AS ENUM ('1', '6', '11');
+CREATE TYPE public.arca_status AS ENUM ('PENDING', 'APPROVED', 'REJECTED', 'ERROR');
+CREATE TYPE public.category_scope AS ENUM ('SALON', 'PERFUMERY', 'ALL');
+CREATE TYPE public.payment_status AS ENUM ('in_process', 'approved', 'rejected', 'cancelled');
+CREATE TYPE public.payment_point_type AS ENUM ('online', 'point');
+CREATE TYPE public.session_status AS ENUM ('OPEN', 'CLOSED');
+
+
+/******************************************************************************
+ * PASO 3: DEFINICIÓN DE TABLAS
+ ******************************************************************************/
+
+CREATE TABLE public.user_profiles (
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  full_name TEXT,
+  avatar_url TEXT,
+  app_role public.app_role,
+  email TEXT,
+  phone_number TEXT,
+  street TEXT,
+  city TEXT,
+  state_prov TEXT,
+  zip_code TEXT,
+  country TEXT,
+  dni TEXT UNIQUE,
+  cuil_cuit TEXT UNIQUE,
+  category public.user_category,
+  deleted BOOLEAN NOT NULL DEFAULT false,
+  CONSTRAINT name_length CHECK (char_length(full_name) > 0)
+);
+
+CREATE TABLE public.businesses (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  name TEXT NOT NULL,
+  type public.business_type NOT NULL,
+  email TEXT,
+  phone_number TEXT,
+  street TEXT,
+  city TEXT,
+  state_prov TEXT,
+  zip_code TEXT,
+  country TEXT,
+  location_coords TEXT,
+  tax_id TEXT,
+  deleted BOOLEAN NOT NULL DEFAULT false,
+  CONSTRAINT name_not_empty CHECK (char_length(name) > 0)
+);
+
+CREATE TABLE public.employee_assignments (
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  business_id UUID NOT NULL REFERENCES public.businesses(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  created_by UUID REFERENCES auth.users(id),
+  deleted BOOLEAN NOT NULL DEFAULT false,
+  PRIMARY KEY (user_id, business_id)
+);
+
+CREATE TABLE public.item_categories (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  name TEXT NOT NULL UNIQUE,
+  description TEXT,
+  applies_to public.category_scope NOT NULL,
+  deleted BOOLEAN NOT NULL DEFAULT false
+);
+
+CREATE TABLE public.inventory_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  created_by UUID REFERENCES auth.users(id),
+  category_id UUID REFERENCES public.item_categories(id) ON DELETE SET NULL,
+  item_type public.item_type NOT NULL,
+  item_status public.item_status NOT NULL,
+  sku TEXT UNIQUE,
+  name TEXT NOT NULL,
+  description TEXT,
+  image_url TEXT,
+  duration_minutes INT,
+  cost_price NUMERIC(10, 2) DEFAULT 0,
+  selling_price NUMERIC(10, 2) NOT NULL,
+  is_for_sale BOOLEAN DEFAULT true,
+  deleted BOOLEAN NOT NULL DEFAULT false,
+  CONSTRAINT selling_price_must_be_positive CHECK (selling_price > 0),
+  CONSTRAINT cost_price_must_be_positive CHECK (cost_price >= 0),
+  CONSTRAINT name_not_empty CHECK (char_length(name) > 0)
+);
+
+CREATE TABLE public.stock_levels (
+  item_id UUID NOT NULL REFERENCES public.inventory_items(id) ON DELETE CASCADE,
+  business_id UUID NOT NULL REFERENCES public.businesses(id) ON DELETE CASCADE,
+  quantity INT NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  deleted BOOLEAN NOT NULL DEFAULT false,
+  PRIMARY KEY (item_id, business_id),
+  CONSTRAINT quantity_must_be_non_negative CHECK (quantity >= 0)
+);
+
+CREATE TABLE public.appointments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  external_cal_id TEXT UNIQUE NOT NULL,
+  client_id UUID REFERENCES public.user_profiles(id),
+  employee_id UUID REFERENCES public.user_profiles(id),
+  business_id UUID REFERENCES public.businesses(id),
+  service_id UUID REFERENCES public.inventory_items(id),
+  start_time TIMESTAMPTZ NOT NULL,
+  end_time TIMESTAMPTZ NOT NULL,
+  event_type_id INTEGER,
+  service_notes TEXT,
+  cancel_reason TEXT,
+  status public.appointment_status NOT NULL DEFAULT 'PENDING',
+  deleted BOOLEAN NOT NULL DEFAULT false
+);
+
+CREATE TABLE public.orders (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  client_id UUID NOT NULL REFERENCES auth.users(id),
+  business_id UUID NOT NULL REFERENCES public.businesses(id),
+  total_amount NUMERIC(10, 2) NOT NULL,
+  currency TEXT DEFAULT 'ARS',
+  status public.order_status NOT NULL DEFAULT 'PENDING',
+  mercadopago_preference_id TEXT,
+  customer_doc_type TEXT DEFAULT '99',
+  customer_doc_number TEXT DEFAULT '0',
+  customer_name TEXT DEFAULT 'Consumidor Final',
+  iva_condition TEXT DEFAULT 'Consumidor Final',
+  deleted BOOLEAN NOT NULL DEFAULT false
+);
+
+CREATE TABLE public.order_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id UUID NOT NULL REFERENCES public.orders(id) ON DELETE CASCADE,
+  item_id UUID NOT NULL REFERENCES public.inventory_items(id),
+  quantity INT NOT NULL,
+  unit_price NUMERIC(10, 2) NOT NULL,
+  deleted BOOLEAN NOT NULL DEFAULT false,
+  CONSTRAINT quantity_must_be_positive CHECK (quantity > 0)
+);
+
+CREATE TABLE public.invoices (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  created_by UUID REFERENCES auth.users(id),
+  order_id UUID UNIQUE REFERENCES public.orders(id),
+  client_id UUID NOT NULL REFERENCES auth.users(id),
+  business_id UUID NOT NULL REFERENCES public.businesses(id),
+  total_amount NUMERIC(19, 4) NOT NULL,
+  arca_cae TEXT UNIQUE,
+  arca_status public.arca_status,
+  cae_vencimiento DATE,
+  cbte_tipo public.cbte_tipo,
+  punto_venta INTEGER,
+  cbte_nro INTEGER,
+  qr_link TEXT,
+  full_pdf_url TEXT,
+  is_printed BOOLEAN DEFAULT false,
+  printed_at TIMESTAMPTZ,
+  printer_id TEXT,
+  fch_serv_desde DATE DEFAULT CURRENT_DATE,
+  fch_serv_hasta DATE DEFAULT CURRENT_DATE,
+  fch_serv_vto_pago DATE DEFAULT CURRENT_DATE,
+  deleted BOOLEAN NOT NULL DEFAULT false
+);
+
+CREATE TABLE public.payments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id UUID NOT NULL REFERENCES public.orders(id) ON DELETE CASCADE,
+  created_by UUID REFERENCES auth.users(id),
+  mp_payment_id TEXT UNIQUE,
+  amount NUMERIC(19,4) NOT NULL,
+  status public.payment_status NOT NULL,
+  payment_type public.payment_point_type,
+  payment_method_id TEXT,
+  device_id TEXT,
+  card_last_four TEXT,
+  installments INTEGER DEFAULT 1,
+  raw_response JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  deleted BOOLEAN NOT NULL DEFAULT false,
+  CONSTRAINT amount_is_positive CHECK (amount > 0)
+);
+
+CREATE TABLE public.cash_register_sessions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  business_id UUID NOT NULL REFERENCES public.businesses(id) ON DELETE RESTRICT,
+  opened_by_user_id UUID NOT NULL REFERENCES auth.users(id),
+  closed_by_user_id UUID REFERENCES auth.users(id),
+  opening_balance NUMERIC(10, 2) NOT NULL,
+  closing_balance NUMERIC(10, 2),
+  calculated_cash_in NUMERIC(10, 2),
+  status public.session_status NOT NULL DEFAULT 'OPEN',
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  deleted BOOLEAN NOT NULL DEFAULT false,
+  CONSTRAINT opening_balance_not_negative CHECK (opening_balance >= 0)
+);
+
+CREATE TABLE public.api_logs (
+  id BIGSERIAL PRIMARY KEY,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  api_name public.external_api_name NOT NULL,
+  endpoint TEXT,
+  order_id UUID REFERENCES orders(id) ON DELETE SET NULL,
+  operation_name TEXT NOT NULL,
+  correlation_id TEXT,
+  request_payload JSONB,
+  response_payload JSONB,
+  status TEXT NOT NULL,
+  deleted BOOLEAN NOT NULL DEFAULT false
+);
+
+CREATE TABLE public.offline_sync_queue (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_by UUID NOT NULL REFERENCES auth.users(id),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  operation TEXT NOT NULL,
+  payload JSONB NOT NULL,
+  status public.sync_status NOT NULL DEFAULT 'PENDING',
+  attempts INT DEFAULT 0,
+  deleted BOOLEAN NOT NULL DEFAULT false
+);
+
+CREATE TABLE public.audit_log (
+  id BIGSERIAL PRIMARY KEY,
+  timestamp TIMESTAMPTZ DEFAULT NOW(),
+  user_id UUID,
+  action TEXT NOT NULL,
+  table_name TEXT NOT NULL,
+  record_id TEXT,
+  old_data JSONB,
+  new_data JSONB,
+  deleted BOOLEAN NOT NULL DEFAULT false
+);
+
+
+/******************************************************************************
+ * PASO 4: ÍNDICES
+ ******************************************************************************/
+
+CREATE INDEX idx_profiles_role ON public.user_profiles(app_role);
+CREATE INDEX idx_assignments_user ON public.employee_assignments(user_id);
+CREATE INDEX idx_assignments_business ON public.employee_assignments(business_id);
+CREATE INDEX idx_items_name ON public.inventory_items(name);
+CREATE INDEX idx_items_type ON public.inventory_items(item_type);
+CREATE INDEX idx_appointments_external_id ON public.appointments(external_cal_id);
+CREATE INDEX idx_orders_client ON public.orders(client_id);
+CREATE INDEX idx_orders_status ON public.orders(status);
+CREATE INDEX idx_invoices_client ON public.invoices(client_id);
+CREATE INDEX idx_invoices_order ON public.invoices(order_id);
+CREATE INDEX idx_apilogs_correlation ON public.api_logs(correlation_id);
+CREATE INDEX idx_payments_order_id ON public.payments(order_id);
+CREATE INDEX idx_payments_mp_payment_id ON public.payments(mp_payment_id);
+CREATE INDEX idx_cash_sessions_business_id ON public.cash_register_sessions(business_id);
+CREATE INDEX idx_cash_sessions_status ON public.cash_register_sessions(status);
+
+
+/******************************************************************************
+ * PASO 5: TRIGGERS
+ ******************************************************************************/
+
+CREATE TRIGGER on_profiles_update BEFORE UPDATE ON public.user_profiles FOR EACH ROW EXECUTE PROCEDURE public.handle_updated_at();
+CREATE TRIGGER on_businesses_update BEFORE UPDATE ON public.businesses FOR EACH ROW EXECUTE PROCEDURE public.handle_updated_at();
+CREATE TRIGGER on_items_update BEFORE UPDATE ON public.inventory_items FOR EACH ROW EXECUTE PROCEDURE public.handle_updated_at();
+CREATE TRIGGER on_stock_update BEFORE UPDATE ON public.stock_levels FOR EACH ROW EXECUTE PROCEDURE public.handle_updated_at();
+CREATE TRIGGER on_appointments_update BEFORE UPDATE ON public.appointments FOR EACH ROW EXECUTE PROCEDURE public.handle_updated_at();
+CREATE TRIGGER on_orders_update BEFORE UPDATE ON public.orders FOR EACH ROW EXECUTE PROCEDURE public.handle_updated_at();
+CREATE TRIGGER on_item_categories_update BEFORE UPDATE ON public.item_categories FOR EACH ROW EXECUTE PROCEDURE public.handle_updated_at();
+CREATE TRIGGER on_payments_update BEFORE UPDATE ON public.payments FOR EACH ROW EXECUTE PROCEDURE public.handle_updated_at();
+CREATE TRIGGER on_cash_register_sessions_update BEFORE UPDATE ON public.cash_register_sessions FOR EACH ROW EXECUTE PROCEDURE
+public.handle_updated_at();
+
+CREATE TRIGGER audit_inventory_items_changes AFTER INSERT OR UPDATE OR DELETE ON public.inventory_items FOR EACH ROW EXECUTE PROCEDURE
+public.log_changes();
+CREATE TRIGGER audit_stock_levels_changes AFTER INSERT OR UPDATE OR DELETE ON public.stock_levels FOR EACH ROW EXECUTE PROCEDURE public.log_changes()
+CREATE TRIGGER audit_appointments_changes AFTER INSERT OR UPDATE OR DELETE ON public.appointments FOR EACH ROW EXECUTE PROCEDURE public.log_changes()
+CREATE TRIGGER audit_orders_changes AFTER INSERT OR UPDATE OR DELETE ON public.orders FOR EACH ROW EXECUTE PROCEDURE public.log_changes();
+CREATE TRIGGER audit_invoices_changes AFTER INSERT OR UPDATE OR DELETE ON public.invoices FOR EACH ROW EXECUTE PROCEDURE public.log_changes();
+CREATE TRIGGER audit_item_categories_changes AFTER INSERT OR UPDATE OR DELETE ON public.item_categories FOR EACH ROW EXECUTE PROCEDURE
+public.log_changes();
+CREATE TRIGGER audit_payments_changes AFTER INSERT OR UPDATE OR DELETE ON public.payments FOR EACH ROW EXECUTE PROCEDURE public.log_changes();
+CREATE TRIGGER audit_cash_register_sessions_changes AFTER INSERT OR UPDATE OR DELETE ON public.cash_register_sessions FOR EACH ROW EXECUTE PROCEDURE
+public.log_changes();
+
+
+/******************************************************************************
+ * PASO 6: FUNCIONES DE SEGURIDAD PARA RLS
+ ******************************************************************************/
+
+CREATE OR REPLACE FUNCTION public.get_my_role()
+RETURNS public.app_role AS $$
+  SELECT app_role FROM public.user_profiles WHERE id = auth.uid();
+$$ LANGUAGE sql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION public.is_employee_of(business_id_to_check UUID)
+RETURNS BOOLEAN AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.employee_assignments
+    WHERE user_id = auth.uid() AND business_id = business_id_to_check
+  );
+$$
