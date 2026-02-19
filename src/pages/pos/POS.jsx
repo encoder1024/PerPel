@@ -330,16 +330,3 @@ export default function POS() {
     </Box>
   );
 }
-
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-      >
-        <Alert onClose={() => setSnackbar({ ...snackbar, open: false })} severity={snackbar.severity}>
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
-    </Box>
-  );
-}
