@@ -24,7 +24,7 @@ const inventorySchema = {
     description: { type: 'string' },
     image_url: { type: 'string' },
     updated_at: { type: 'string' },
-    deleted: { type: 'boolean', default: false }
+    is_deleted: { type: 'boolean', default: false }
   },
   required: ['id', 'account_id', 'name', 'selling_price']
 };
