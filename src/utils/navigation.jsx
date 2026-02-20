@@ -19,4 +19,5 @@ export const navigationItems = [
   { text: 'Clientes', icon: <PeopleIcon />, path: '/clientes', roles: ['OWNER', 'ADMIN', 'EMPLOYEE'] },
   { text: 'Reportes', icon: <BarChartIcon />, path: '/reportes', roles: ['OWNER', 'ADMIN', 'AUDITOR'] },
   { text: 'Configuración', icon: <SettingsIcon />, path: '/configuracion', roles: ['OWNER', 'ADMIN'] },
+  { text: 'Roles', icon: <SettingsIcon />, path: '/rolerequest', roles: ['OWNER', 'ADMIN'] },
 ];

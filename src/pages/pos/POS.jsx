@@ -22,6 +22,10 @@ import {
   Alert,
   Avatar,
   Badge,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
@@ -67,11 +71,15 @@ export default function POS() {
   // Fetch businesses for the account
   useEffect(() => {
     const fetchBusinesses = async () => {
+      console.log("POS: ", profile);
       const { data, error } = await supabase
+        .schema('core')
         .from('businesses')
         .select('*')
         .eq('account_id', profile?.account_id)
         .eq('deleted', false);
+
+      console.log("negocios: ", data)
       
       if (data) {
         setBusinesses(data);

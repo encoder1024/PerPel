@@ -76,11 +76,11 @@ export const usePOS = () => {
     if (isOnline) {
       try {
         // Create Order
-        const { error: orderError } = await supabase.from('orders').insert(order);
+        const { error: orderError } = await supabase.schema('core').from('orders').insert(order);
         if (orderError) throw orderError;
 
         // Create Order Items
-        const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
+        const { error: itemsError } = await supabase.schema('core').from('order_items').insert(orderItems);
         if (itemsError) throw itemsError;
 
         clearCart();

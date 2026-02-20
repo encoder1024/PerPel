@@ -7,6 +7,9 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
   const location = useLocation();
 
   if (loading) {
+
+    console.log("En protectedRoute: ", user, profile, loading);
+
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
         Cargando permisos de AppPerPel...
