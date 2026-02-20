@@ -80,6 +80,8 @@ export default function Inventory() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSaving(true);
+
+    console.log("Datos del item a crear:", formData);
     
     const itemToSave = selectedItem ? { ...formData, id: selectedItem.id } : formData;
     const response = await saveItem(itemToSave);
@@ -126,7 +128,7 @@ export default function Inventory() {
       headerName: 'Precio Venta', 
       width: 130,
       type: 'number',
-      valueFormatter: (params) => `$ ${params.value.toFixed(2)}`
+      // valueFormatter: (params) => `$ ${params.value.toFixed(2)}`
     },
     { 
       field: 'item_status', 

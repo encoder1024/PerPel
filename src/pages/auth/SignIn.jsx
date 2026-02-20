@@ -30,6 +30,8 @@ export default function SignIn() {
   const from = location.state?.from?.pathname || '/dashboard';
 
   const handleClickShowPassword = () => setShowPassword(!showPassword);
+  
+  console.log("SignIn: Loading: ", loading, "Login: ", login);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '../services/supabaseClient';
-import { useAuthStore } from '../stores/authStore';
-import { useOffline } from './useOffline';
-import { v4 as uuidv4 } from 'uuid';
+import { useState, useEffect, useCallback } from "react";
+import { supabase } from "../services/supabaseClient";
+import { useAuthStore } from "../stores/authStore";
+import { useOffline } from "./useOffline";
+import { v4 as uuidv4 } from "uuid";
 
 export const useInventory = () => {
   const [items, setItems] = useState([]);
@@ -18,36 +18,49 @@ export const useInventory = () => {
     if (isOnline) {
       try {
         const { data, error: fetchError } = await supabase
-          .from('inventory_items')
-          .select('*')
-          .eq('account_id', profile?.account_id)
-          .eq('deleted', false);
+          .schema("core")
+          .from("inventory_items")
+          .select("*")
+          .eq("account_id", profile?.account_id)
+          .eq("deleted", false);
 
         if (fetchError) throw fetchError;
+        // --- PASO CRÍTICO: DESCONECTAR REFERENCIAS ---
+        // Creamos una copia profunda ANTES de que cualquier otra función la toque.
+        const pureData = JSON.parse(JSON.stringify(data));
 
-        setItems(data);
-        
+        // Actualizamos el estado con datos "muertos" (JSON puro)
+        setItems(pureData);
+        // setItems(data);
+
         // Sincronizar con RxDB local (opcional/segundo plano)
         if (db) {
           // Nota: Esto se podría mejorar con un motor de sincronización más robusto
           for (const item of data) {
-             await db.inventory_items.upsert(item);
+            // Creamos el objeto para RxDB con el nombre de campo local
+            const itemForLocal = {
+              ...item,
+              is_deleted: item.deleted, // Mapeamos: deleted (Supa) -> is_deleted (RxDB)
+            };
+            await db.inventory_items.upsert(itemForLocal);
           }
         }
       } catch (err) {
-        console.error('Error fetching from Supabase:', err.message);
+        console.error("Error fetching from Supabase:", err.message);
         setError(err.message);
       } finally {
         setLoading(false);
       }
     } else if (db) {
       try {
-        const localItems = await db.inventory_items.find({
-          selector: { account_id: profile?.account_id, deleted: false }
-        }).exec();
-        setItems(localItems.map(item => item.toJSON()));
+        const localItems = await db.inventory_items
+          .find({
+            selector: { account_id: profile?.account_id, deleted: false },
+          })
+          .exec();
+        setItems(localItems.map((item) => item.toJSON()));
       } catch (err) {
-        console.error('Error fetching from RxDB:', err.message);
+        console.error("Error fetching from RxDB:", err.message);
         setError(err.message);
       } finally {
         setLoading(false);
@@ -68,23 +81,31 @@ export const useInventory = () => {
       id: itemData.id || uuidv4(),
       account_id: profile?.account_id,
       updated_at: new Date().toISOString(),
+      deleted: itemData.is_deleted || false,
     };
+
+    // Y muy importante, borramos la propiedad local antes de enviar al online
+    const itemToSupabase = { ...item };
+    delete itemToSupabase.is_deleted;
+
+    console.log("useInventory-ItemToSave: ", item);
 
     if (isOnline) {
       try {
         const { error: saveError } = await supabase
-          .from('inventory_items')
+          .schema("core")
+          .from("inventory_items")
           .upsert(item);
 
         if (saveError) throw saveError;
-        
+
         // Actualizar localmente también
         if (db) await db.inventory_items.upsert(item);
-        
+
         await fetchItems();
         return { success: true };
       } catch (err) {
-        console.error('Error saving to Supabase:', err.message);
+        console.error("Error saving to Supabase:", err.message);
         return { success: false, error: err.message };
       }
     } else {
@@ -93,15 +114,15 @@ export const useInventory = () => {
         if (db) {
           await db.inventory_items.upsert(item);
           await syncService.enqueueOperation(
-            isNew ? 'INSERT' : 'UPDATE',
-            'inventory_items',
-            item
+            isNew ? "INSERT" : "UPDATE",
+            "inventory_items",
+            item,
           );
           await fetchItems();
           return { success: true, offline: true };
         }
       } catch (err) {
-        console.error('Error saving offline:', err.message);
+        console.error("Error saving offline:", err.message);
         return { success: false, error: err.message };
       }
     }
@@ -111,17 +132,18 @@ export const useInventory = () => {
     if (isOnline) {
       try {
         const { error: deleteError } = await supabase
-          .from('inventory_items')
+          .schema("core")
+          .from("inventory_items")
           .update({ deleted: true })
-          .eq('id', id);
+          .eq("id", id);
 
         if (deleteError) throw deleteError;
-        
+
         if (db) {
           const doc = await db.inventory_items.findOne(id).exec();
           if (doc) await doc.patch({ deleted: true });
         }
-        
+
         await fetchItems();
         return { success: true };
       } catch (err) {
@@ -132,8 +154,11 @@ export const useInventory = () => {
         if (db) {
           const doc = await db.inventory_items.findOne(id).exec();
           if (doc) await doc.patch({ deleted: true });
-          
-          await syncService.enqueueOperation('UPDATE', 'inventory_items', { id, deleted: true });
+
+          await syncService.enqueueOperation("UPDATE", "inventory_items", {
+            id,
+            deleted: true,
+          });
           await fetchItems();
           return { success: true, offline: true };
         }

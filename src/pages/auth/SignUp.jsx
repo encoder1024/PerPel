@@ -71,7 +71,7 @@ export default function SignUp() {
       // para crear la core.account y el core.user_profile de forma atómica.
       // Como estamos en la Fase 2, informamos al usuario.
 
-      alert('Registro iniciado. Por favor verifica tu email (si aplica) o procede al login.');
+      alert('Registro iniciado. Por favor verifica tu email (ver el spam) o procede al login.');
       navigate('/login');
     } catch (err) {
       setError(err.message);
@@ -97,7 +97,7 @@ export default function SignUp() {
               PerPel
             </Typography>
             <Typography variant="h6" color="textSecondary">
-              Crear cuenta de negocio
+              Crear cuentas del negocio
             </Typography>
           </Box>
 
@@ -109,7 +109,7 @@ export default function SignUp() {
                 <TextField
                   fullWidth
                   name="businessName"
-                  label="Nombre de la empresa / Negocio"
+                  label="Nombre de la Empresa / Negocio"
                   variant="outlined"
                   value={formData.businessName}
                   onChange={handleChange}
@@ -119,7 +119,7 @@ export default function SignUp() {
                 <TextField
                   fullWidth
                   name="fullName"
-                  label="Nombre completo del administrador"
+                  label="Tu nombre completo..."
                   variant="outlined"
                   value={formData.fullName}
                   onChange={handleChange}
@@ -129,7 +129,7 @@ export default function SignUp() {
                 <TextField
                   fullWidth
                   name="email"
-                  label="Email corporativo"
+                  label="Tu email..."
                   type="email"
                   variant="outlined"
                   value={formData.email}
