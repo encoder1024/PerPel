@@ -78,7 +78,7 @@ export default function POS() {
         .from('businesses')
         .select('*')
         .eq('account_id', profile?.account_id)
-        .eq('deleted', false);
+        .eq('is_deleted', false);
 
       console.log("negocios: ", data)
       
