@@ -6,41 +6,47 @@ import { supabase } from '../../services/supabaseClient';
 // Note: In production, the public key should come from environment variables
 const MP_PUBLIC_KEY = import.meta.env.VITE_MP_PUBLIC_KEY;
 
-export default function PaymentGateway({ orderId, onPaymentSuccess }) {
+export default function PaymentGateway({ items, orderId, payerEmail, accountId, onPaymentSuccess }) {
   const [preferenceId, setPreferenceId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    if (MP_PUBLIC_KEY) {
-      initMercadoPago(MP_PUBLIC_KEY, { locale: 'es-AR' });
+useEffect(() => {
+  // 1. Inicializar MP solo una vez
+  if (MP_PUBLIC_KEY) {
+    initMercadoPago(MP_PUBLIC_KEY, { locale: 'es-AR' });
+  }
+
+  const createPreference = async () => {
+    // 2. GUARDAS DE SEGURIDAD: No dispares la función si no hay datos
+    if (!items || items.length === 0 || !orderId) {
+      console.log("Esperando datos válidos...", { items, orderId });
+      return; 
     }
 
-    const createPreference = async () => {
-      setLoading(true);
-      setError(null);
+    setLoading(true);
+    setError(null);
+    
+    try {
+      console.log("Enviando a Edge Function:", { items, orderId });
 
-      try {
-        // According to ERS, we invoke a Supabase Edge Function to get the preference_id
-        // This ensures the secret token is never exposed to the client.
-        const { data, error: functionError } = await supabase.functions.invoke('create-mp-preference', {
-          body: { orderId },
-        });
+      const { data, error: functionError } = await supabase.functions.invoke('create_mp_preference', {
+        body: { items, orderId, payerEmail, accountId },
+      });
 
-        if (functionError) throw functionError;
-        if (!data?.preferenceId) throw new Error('No se recibió un preferenceId válido.');
+      if (functionError) throw functionError;
+      if (data?.preferenceId) setPreferenceId(data.preferenceId);
 
-        setPreferenceId(data.preferenceId);
-      } catch (err) {
-        console.error('Error creating MP preference:', err.message);
-        setError('No se pudo iniciar el pago con MercadoPago. Por favor reintenta.');
-      } finally {
-        setLoading(false);
-      }
-    };
+    } catch (err) {
+      console.error("Error creating MP preference:", err.message);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    if (orderId) createPreference();
-  }, [orderId]);
+  createPreference();
+}, [items, orderId]); // <--- IMPORTANTE: Dependencias para re-ejecutar si cambian
 
   if (!MP_PUBLIC_KEY) {
     return <Alert severity="warning">VITE_MP_PUBLIC_KEY no configurado en .env</Alert>;
