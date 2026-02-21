@@ -1,4 +1,4 @@
-CREATE OR REPLACE FUNCTION public.adjust_stock( -- Changed from rpc.adjust_stock to public.adjust_stock
+CREATE OR REPLACE FUNCTION public.adjust_stock(
   p_item_id UUID,
   p_business_id UUID,
   p_account_id UUID,
@@ -9,10 +9,30 @@ CREATE OR REPLACE FUNCTION public.adjust_stock( -- Changed from rpc.adjust_stock
 )
 RETURNS JSONB AS $$
 DECLARE
+  current_user_role public.app_role;
+  is_assigned_employee BOOLEAN;
   current_stock INT;
   new_stock INT;
-  stock_level_item_id UUID; -- Changed from stock_level_id to stock_level_item_id to avoid conflict with table name
+  stock_level_item_id UUID;
 BEGIN
+  -- Authorization Check (because SECURITY DEFINER bypasses RLS)
+  SELECT app_role INTO current_user_role FROM core.user_profiles WHERE id = p_user_id AND account_id = p_account_id;
+
+  IF current_user_role IS NULL THEN
+    RETURN jsonb_build_object('status', 'error', 'message', 'User not found or not part of this account.');
+  END IF;
+
+  IF current_user_role IN ('EMPLOYEE') THEN
+    -- For Employees, check if they are assigned to the business
+    SELECT public.is_employee_of(p_business_id) INTO is_assigned_employee;
+    IF NOT is_assigned_employee THEN
+      RETURN jsonb_build_object('status', 'error', 'message', 'Employee is not authorized to manage stock for this business.');
+    END IF;
+  ELSIF current_user_role NOT IN ('OWNER', 'ADMIN') THEN
+    -- Only OWNER, ADMIN, EMPLOYEE (if assigned) can adjust stock
+    RETURN jsonb_build_object('status', 'error', 'message', 'Unauthorized role to adjust stock.');
+  END IF;
+
   -- Validate inputs
   IF p_quantity_change = 0 THEN
     RETURN jsonb_build_object('status', 'error', 'message', 'Quantity change cannot be zero.');
