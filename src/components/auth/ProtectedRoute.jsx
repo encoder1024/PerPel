@@ -12,7 +12,7 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
 
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        Cargando permisos de AppPerPel...
+        Cargando permisos de PerPel... por favor vuelve a refrescar la pantalla 🔄
       </div>
     );
   }

@@ -22,7 +22,7 @@ export const useInventory = () => {
           .from("inventory_items")
           .select("*")
           .eq("account_id", profile?.account_id)
-          .eq("deleted", false);
+          .eq("is_deleted", false);
 
         if (fetchError) throw fetchError;
         // --- PASO CRÍTICO: DESCONECTAR REFERENCIAS ---
@@ -33,18 +33,18 @@ export const useInventory = () => {
         setItems(pureData);
         // setItems(data);
 
-        // Sincronizar con RxDB local (opcional/segundo plano)
-        if (db) {
-          // Nota: Esto se podría mejorar con un motor de sincronización más robusto
-          for (const item of data) {
-            // Creamos el objeto para RxDB con el nombre de campo local
-            const itemForLocal = {
-              ...item,
-              is_deleted: item.deleted, // Mapeamos: deleted (Supa) -> is_deleted (RxDB)
-            };
-            await db.inventory_items.upsert(itemForLocal);
-          }
-        }
+        // // Sincronizar con RxDB local (opcional/segundo plano)
+        // if (db) {
+        //   // Nota: Esto se podría mejorar con un motor de sincronización más robusto
+        //   for (const item of data) {
+        //     // Creamos el objeto para RxDB con el nombre de campo local
+        //     const itemForLocal = {
+        //       ...item,
+        //       is_deleted: item.deleted, // Mapeamos: deleted (Supa) -> is_deleted (RxDB)
+        //     };
+        //     await db.inventory_items.upsert(itemForLocal);
+        //   }
+        // }
       } catch (err) {
         console.error("Error fetching from Supabase:", err.message);
         setError(err.message);
@@ -81,12 +81,12 @@ export const useInventory = () => {
       id: itemData.id || uuidv4(),
       account_id: profile?.account_id,
       updated_at: new Date().toISOString(),
-      deleted: itemData.is_deleted || false,
+      // deleted: itemData.is_deleted || false,
     };
 
     // Y muy importante, borramos la propiedad local antes de enviar al online
-    const itemToSupabase = { ...item };
-    delete itemToSupabase.is_deleted;
+    // const itemToSupabase = { ...item };
+    // delete itemToSupabase.is_deleted;
 
     console.log("useInventory-ItemToSave: ", item);
 

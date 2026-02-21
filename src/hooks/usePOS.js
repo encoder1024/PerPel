@@ -83,7 +83,7 @@ export const usePOS = () => {
         const { error: itemsError } = await supabase.schema('core').from('order_items').insert(orderItems);
         if (itemsError) throw itemsError;
 
-        clearCart();
+        // clearCart();
         return { success: true, orderId };
       } catch (err) {
         console.error('Error creating order in Supabase:', err.message);
@@ -98,7 +98,7 @@ export const usePOS = () => {
         for (const item of orderItems) {
           await syncService.enqueueOperation('INSERT', 'order_items', item);
         }
-        clearCart();
+        // clearCart();
         return { success: true, orderId, offline: true };
       } catch (err) {
         console.error('Error creating order offline:', err.message);
