@@ -40,6 +40,7 @@ import { supabase } from '../../services/supabaseClient';
 import { useAuthStore } from '../../stores/authStore';
 import PaymentGateway from '../../components/common/PaymentGateway';
 
+
 export default function POS() {
   const { items, loading: inventoryLoading, refresh } = useInventory();
   const {
@@ -77,7 +78,7 @@ export default function POS() {
         .from('businesses')
         .select('*')
         .eq('account_id', profile?.account_id)
-        .eq('deleted', false);
+        .eq('is_deleted', false);
 
       console.log("negocios: ", data)
       
@@ -120,6 +121,7 @@ export default function POS() {
   const handleClosePayment = () => {
     setOpenPaymentDialog(false);
     setOrderCreated(null);
+    clearCart();
   };
 
   return (
@@ -312,8 +314,12 @@ export default function POS() {
               <Typography variant="body2" sx={{ mb: 2, textAlign: 'center' }}>
                 Orden creada con éxito. Selecciona el medio de pago electrónico:
               </Typography>
+              {console.log("Datos para enviar desde el carrito:", JSON.stringify(cart))}
               <PaymentGateway 
-                orderId={orderCreated?.id} 
+                items={cart} //NOW
+                orderId={orderCreated?.id}
+                payerEmail={profile?.email}
+                accountId={profile?.account_id} 
                 onPaymentSuccess={handleClosePayment} 
               />
             </Box>
