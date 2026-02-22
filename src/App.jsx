@@ -22,6 +22,13 @@ import Appointments from "./pages/appointments/Appointments";
 import Dashboard from "./pages/dashboard/Dashboard";
 import AuditLogs from "./pages/audit/AuditLogs";
 import RoleRequest  from "./pages/auth/RoleRequest";
+import ConfigurationLayout from "./pages/configuration/ConfigurationLayout";
+import VentasConfig from "./pages/configuration/VentasConfig";
+import StockConfig from "./pages/configuration/StockConfig";
+import FacturacionConfig from "./pages/configuration/FacturacionConfig";
+import TurnosConfig from "./pages/configuration/TurnosConfig";
+import ReportesConfig from "./pages/configuration/ReportesConfig";
+import ECommerceConfig from "./pages/configuration/ECommerceConfig";
 
 import { syncService } from "./services/syncService";
 import { notificationService } from "./services/notificationService";
@@ -193,6 +200,26 @@ function App() {
                 </ProtectedRoute>
               }
             />
+
+            {/* --- Configuration Routes --- */}
+            <Route
+              path="/configuracion"
+              element={
+                <ProtectedRoute allowedRoles={["OWNER", "ADMIN"]}>
+                  <MainLayout>
+                    <ConfigurationLayout />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<Navigate to="ventas" replace />} />
+              <Route path="ventas" element={<VentasConfig />} />
+              <Route path="stock" element={<StockConfig />} />
+              <Route path="facturacion" element={<FacturacionConfig />} />
+              <Route path="turnos" element={<TurnosConfig />} />
+              <Route path="reportes" element={<ReportesConfig />} />
+              <Route path="ecommerce" element={<ECommerceConfig />} />
+            </Route>
 
             {/* Redirección por defecto para rutas inexistentes */}
             <Route path="*" element={<Navigate to="/" replace />} />
