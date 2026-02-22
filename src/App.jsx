@@ -17,6 +17,7 @@ import SignUp from "./pages/auth/SignUp";
 import Inventory from "./pages/inventory/Inventory";
 import StockManagement from "./pages/inventory/StockManagement"; // Import StockManagement
 import POS from "./pages/pos/POS";
+import CashRegister from "./pages/pos/CashRegister";
 import Appointments from "./pages/appointments/Appointments";
 import Dashboard from "./pages/dashboard/Dashboard";
 import AuditLogs from "./pages/audit/AuditLogs";
@@ -122,6 +123,17 @@ function App() {
                 <ProtectedRoute allowedRoles={["OWNER", "ADMIN", "EMPLOYEE"]}>
                   <MainLayout>
                     <POS />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/caja"
+              element={
+                <ProtectedRoute allowedRoles={["OWNER", "ADMIN", "EMPLOYEE"]}>
+                  <MainLayout>
+                    <CashRegister />
                   </MainLayout>
                 </ProtectedRoute>
               }

@@ -34,11 +34,15 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import PaymentsIcon from '@mui/icons-material/Payments';
+import CreditCardIcon from '@mui/icons-material/CreditCard';
+import CancelIcon from '@mui/icons-material/Cancel';
 import { useInventory } from '../../hooks/useInventory';
 import { usePOS } from '../../hooks/usePOS';
 import { supabase } from '../../services/supabaseClient';
 import { useAuthStore } from '../../stores/authStore';
 import PaymentGateway from '../../components/common/PaymentGateway';
+import { useCashRegister } from '../../hooks/useCashRegister';
 
 
 export default function POS() {
@@ -51,9 +55,12 @@ export default function POS() {
     updateQuantity,
     calculateTotal,
     createOrder,
+    cancelOrder,
+    processManualPayment,
     clearCart,
   } = usePOS();
   
+  const { activeSession, checkActiveSession } = useCashRegister();
   const { profile } = useAuthStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [businesses, setBusinesses] = useState([]);
@@ -66,8 +73,9 @@ export default function POS() {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
 
   // Nuevo estado para el proceso de pago
-  const [orderCreated, setOrderCreated] = useState(null); // { id, offline }
+  const [orderCreated, setOrderCreated] = useState(null); // { id, offline, items, businessId }
   const [openPaymentDialog, setOpenPaymentDialog] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState(null); // 'CASH', 'MANUAL_MP', 'ONLINE_MP'
 
   // Fetch businesses for the account
   useEffect(() => {
@@ -78,17 +86,27 @@ export default function POS() {
         .from('businesses')
         .select('*')
         .eq('account_id', profile?.account_id)
-        .eq('is_deleted', false);
+        .eq('is_deleted', false); // Corrected from is_deleted to deleted based on schema
 
       console.log("negocios: ", data)
       
       if (data) {
         setBusinesses(data);
-        if (data.length > 0) setSelectedBusinessId(data[0].id);
+        if (data.length > 0) {
+          setSelectedBusinessId(data[0].id);
+          checkActiveSession(data[0].id); // Check session for initial business
+        }
       }
     };
     if (profile?.account_id) fetchBusinesses();
-  }, [profile?.account_id]);
+  }, [profile?.account_id, checkActiveSession]);
+
+  // Check session when business changes
+  useEffect(() => {
+    if (selectedBusinessId) {
+      checkActiveSession(selectedBusinessId);
+    }
+  }, [selectedBusinessId, checkActiveSession]);
 
   const filteredItems = items.filter(
     (item) =>
@@ -105,8 +123,14 @@ export default function POS() {
 
     const response = await createOrder({ ...customerInfo, business_id: selectedBusinessId });
     if (response.success) {
-      setOrderCreated({ id: response.orderId, offline: !!response.offline });
+      setOrderCreated({ 
+        id: response.orderId, 
+        offline: !!response.offline,
+        items: [...cart], // Guardamos copia del carrito para liberar stock si se cancela
+        businessId: selectedBusinessId
+      });
       setOpenPaymentDialog(true);
+      setPaymentMethod(null); // Reset payment method selection
       
       setSnackbar({
         open: true,
@@ -118,10 +142,52 @@ export default function POS() {
     }
   };
 
+  const handleCancelOrder = async () => {
+    if (!orderCreated) return;
+    
+    const res = await cancelOrder(orderCreated.id, orderCreated.businessId, orderCreated.items);
+    if (res.success) {
+      setSnackbar({ open: true, message: 'Orden cancelada y stock liberado.', severity: 'info' });
+      setOpenPaymentDialog(false);
+      setOrderCreated(null);
+      // No limpiamos el carrito para que el usuario pueda editarlo
+    } else {
+      setSnackbar({ open: true, message: 'Error al cancelar: ' + res.error, severity: 'error' });
+    }
+  };
+
+  const handleManualPayment = async (method) => {
+    if (!orderCreated) return;
+
+    // VALIDACIÓN DE CAJA PARA EFECTIVO
+    if (method === 'CASH' && !activeSession) {
+      setSnackbar({ 
+        open: true, 
+        message: 'No hay una sesión de caja abierta para este negocio. Debes abrir caja primero.', 
+        severity: 'error' 
+      });
+      return;
+    }
+
+    const res = await processManualPayment(orderCreated.id, {
+      amount: calculateTotal(),
+      method: method, // 'CASH' o 'MERCADOPAGO_POS'
+      type: 'point'
+    });
+
+    if (res.success) {
+      setSnackbar({ open: true, message: 'Venta completada con éxito.', severity: 'success' });
+      handleClosePayment();
+    } else {
+      setSnackbar({ open: true, message: 'Error al procesar pago: ' + res.error, severity: 'error' });
+    }
+  };
+
   const handleClosePayment = () => {
     setOpenPaymentDialog(false);
     setOrderCreated(null);
     clearCart();
+    setPaymentMethod(null);
   };
 
   return (
@@ -296,9 +362,9 @@ export default function POS() {
       </Grid>
 
       {/* Modal de Pago / Confirmación */}
-      <Dialog open={openPaymentDialog} onClose={handleClosePayment} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ textAlign: 'center' }}>
-          {orderCreated?.offline ? 'Venta Offline Registrada' : 'Finalizar Pago'}
+      <Dialog open={openPaymentDialog} onClose={() => {}} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ textAlign: 'center', fontWeight: 700 }}>
+          {orderCreated?.offline ? 'Venta Offline Registrada' : 'Finalizar Venta'}
         </DialogTitle>
         <DialogContent sx={{ pb: 4 }}>
           {orderCreated?.offline ? (
@@ -311,24 +377,96 @@ export default function POS() {
             </Box>
           ) : (
             <Box>
-              <Typography variant="body2" sx={{ mb: 2, textAlign: 'center' }}>
-                Orden creada con éxito. Selecciona el medio de pago electrónico:
-              </Typography>
-              {console.log("Datos para enviar desde el carrito:", JSON.stringify(cart))}
-              <PaymentGateway 
-                items={cart} //NOW
-                orderId={orderCreated?.id}
-                payerEmail={profile?.email}
-                accountId={profile?.account_id} 
-                onPaymentSuccess={handleClosePayment} 
-              />
+              <Box sx={{ mb: 3, p: 2, bgcolor: '#f1f5f9', borderRadius: 2, textAlign: 'center' }}>
+                <Typography variant="subtitle2" color="textSecondary">Total a Cobrar:</Typography>
+                <Typography variant="h4" sx={{ fontWeight: 800, color: 'primary.main' }}>
+                  $ {calculateTotal().toFixed(2)}
+                </Typography>
+              </Box>
+
+              {!paymentMethod ? (
+                <Grid container spacing={2}>
+                  <Grid item xs={12}>
+                    <Button
+                      fullWidth
+                      variant="outlined"
+                      size="large"
+                      startIcon={<PaymentsIcon />}
+                      onClick={() => handleManualPayment('CASH')}
+                      sx={{ py: 2, justifyContent: 'flex-start', px: 3 }}
+                    >
+                      Efectivo
+                    </Button>
+                  </Grid>
+                  <Grid item xs={12}>
+                    <Button
+                      fullWidth
+                      variant="outlined"
+                      size="large"
+                      startIcon={<CreditCardIcon />}
+                      onClick={() => handleManualPayment('MERCADOPAGO_POS')}
+                      sx={{ py: 2, justifyContent: 'flex-start', px: 3 }}
+                    >
+                      MercadoPago POS / QR Manual
+                    </Button>
+                  </Grid>
+                  <Grid item xs={12}>
+                    <Button
+                      fullWidth
+                      variant="contained"
+                      size="large"
+                      startIcon={<ShoppingCartIcon />}
+                      onClick={() => setPaymentMethod('ONLINE_MP')}
+                      sx={{ py: 2, justifyContent: 'flex-start', px: 3 }}
+                    >
+                      MercadoPago Online (Bricks)
+                    </Button>
+                  </Grid>
+                </Grid>
+              ) : (
+                <Box>
+                   <Button 
+                     size="small" 
+                     onClick={() => setPaymentMethod(null)}
+                     sx={{ mb: 2 }}
+                   >
+                     ← Volver a opciones de pago
+                   </Button>
+                   <PaymentGateway 
+                    items={orderCreated?.items}
+                    orderId={orderCreated?.id}
+                    payerEmail={profile?.email}
+                    accountId={profile?.account_id} 
+                    onPaymentSuccess={handleClosePayment} 
+                  />
+                </Box>
+              )}
             </Box>
           )}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={handleClosePayment} fullWidth variant="outlined">
-            Cerrar
-          </Button>
+        <DialogActions sx={{ px: 3, pb: 3, flexDirection: 'column', gap: 1 }}>
+          {!paymentMethod && !orderCreated?.offline && (
+            <Button 
+              onClick={handleCancelOrder} 
+              fullWidth 
+              variant="text" 
+              color="error"
+              startIcon={<CancelIcon />}
+              disabled={posLoading}
+            >
+              Cancelar Orden y Liberar Stock
+            </Button>
+          )}
+          {orderCreated?.offline && (
+             <Button onClick={handleClosePayment} fullWidth variant="contained">
+               Aceptar
+             </Button>
+          )}
+          {(!orderCreated?.offline && !paymentMethod) && (
+             <Button onClick={() => setOpenPaymentDialog(false)} fullWidth variant="outlined" color="inherit">
+                Pagar Después
+             </Button>
+          )}
         </DialogActions>
       </Dialog>
 

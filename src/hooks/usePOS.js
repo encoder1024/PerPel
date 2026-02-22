@@ -43,6 +43,97 @@ export const usePOS = () => {
     return cart.reduce((total, item) => total + item.selling_price * item.quantity, 0);
   };
 
+  const cancelOrder = async (orderId, businessId, orderItems) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      if (isOnline) {
+        // 1. Release Stock in Supabase
+        for (const item of orderItems) {
+          const { data: adjResult, error: adjError } = await supabase.rpc('adjust_stock', {
+            p_item_id: item.item_id || item.id,
+            p_business_id: businessId,
+            p_account_id: profile.account_id,
+            p_quantity_change: item.quantity, // Positive to release
+            p_movement_type: 'RESERVE_RELEASE_IN',
+            p_reason: `Cancelación de orden POS: ${orderId}`,
+            p_user_id: profile.id
+          });
+
+          if (adjError || adjResult.status === 'error') {
+            console.error(`Error liberando stock para ${item.id}:`, adjError || adjResult.message);
+          }
+        }
+
+        // 2. Update Order status to ABANDONED
+        const { error: updateError } = await supabase
+          .schema('core')
+          .from('orders')
+          .update({ status: 'ABANDONED' })
+          .eq('id', orderId);
+
+        if (updateError) throw updateError;
+      } else {
+        // Offline: Enqueue cancellation
+        await syncService.enqueueOperation('UPDATE', 'orders', { id: orderId, status: 'ABANDONED' });
+        // Note: Stock release will need to be handled by a more sophisticated sync logic or server-side trigger
+      }
+      return { success: true };
+    } catch (err) {
+      console.error('Error cancelling order:', err.message);
+      setError(err.message);
+      return { success: false, error: err.message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const processManualPayment = async (orderId, paymentData) => {
+    setLoading(true);
+    setError(null);
+
+    const payment = {
+      id: uuidv4(),
+      account_id: profile.account_id,
+      order_id: orderId,
+      created_by: profile.id,
+      amount: paymentData.amount,
+      status: 'approved',
+      payment_method_id: paymentData.method, // 'CASH', 'MERCADOPAGO_POS', etc.
+      payment_type: paymentData.type || 'point',
+      created_at: new Date().toISOString(),
+    };
+
+    try {
+      if (isOnline) {
+        // 1. Register Payment
+        const { error: payError } = await supabase.schema('core').from('payments').insert(payment);
+        if (payError) throw payError;
+
+        // 2. Update Order to PAID
+        const { error: orderError } = await supabase
+          .schema('core')
+          .from('orders')
+          .update({ status: 'PAID' })
+          .eq('id', orderId);
+
+        if (orderError) throw orderError;
+      } else {
+        // Offline Flow
+        await syncService.enqueueOperation('INSERT', 'payments', payment);
+        await syncService.enqueueOperation('UPDATE', 'orders', { id: orderId, status: 'PAID' });
+      }
+      return { success: true };
+    } catch (err) {
+      console.error('Error processing manual payment:', err.message);
+      setError(err.message);
+      return { success: false, error: err.message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const createOrder = async (customerData) => {
     if (cart.length === 0) return { success: false, error: 'El carrito está vacío.' };
     if (!profile?.account_id || !profile?.id || !customerData.business_id) {
@@ -148,5 +239,7 @@ export const usePOS = () => {
     clearCart,
     calculateTotal,
     createOrder,
+    cancelOrder,
+    processManualPayment,
   };
 };
