@@ -15,6 +15,7 @@ import MainLayout from "./components/layout/MainLayout";
 import SignIn from "./pages/auth/SignIn";
 import SignUp from "./pages/auth/SignUp";
 import Inventory from "./pages/inventory/Inventory";
+import StockManagement from "./pages/inventory/StockManagement"; // Import StockManagement
 import POS from "./pages/pos/POS";
 import Appointments from "./pages/appointments/Appointments";
 import Dashboard from "./pages/dashboard/Dashboard";
@@ -132,6 +133,17 @@ function App() {
                 <ProtectedRoute allowedRoles={["OWNER", "ADMIN", "EMPLOYEE"]}>
                   <MainLayout>
                     <Inventory />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/stock"
+              element={
+                <ProtectedRoute allowedRoles={["OWNER", "ADMIN", "EMPLOYEE"]}>
+                  <MainLayout>
+                    <StockManagement />
                   </MainLayout>
                 </ProtectedRoute>
               }

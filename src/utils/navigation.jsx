@@ -14,6 +14,7 @@ export const navigationItems = [
   { text: 'Ventas (POS)', icon: <ShoppingCartIcon />, path: '/ventas', roles: ['OWNER', 'ADMIN', 'EMPLOYEE'] },
   { text: 'E-commerce', icon: <StorefrontIcon />, path: '/ecommerce', roles: ['OWNER', 'ADMIN'] },
   { text: 'Inventario', icon: <InventoryIcon />, path: '/inventario', roles: ['OWNER', 'ADMIN', 'EMPLOYEE'] },
+  { text: 'Gestión de Stock', icon: <InventoryIcon />, path: '/stock', roles: ['OWNER', 'ADMIN', 'EMPLOYEE'] }, // Added Stock Management
   { text: 'Facturación', icon: <ReceiptIcon />, path: '/facturacion', roles: ['OWNER', 'ADMIN'] },
   { text: 'Turnos', icon: <CalendarMonthIcon />, path: '/turnos', roles: ['OWNER', 'ADMIN', 'EMPLOYEE'] },
   { text: 'Clientes', icon: <PeopleIcon />, path: '/clientes', roles: ['OWNER', 'ADMIN', 'EMPLOYEE'] },
