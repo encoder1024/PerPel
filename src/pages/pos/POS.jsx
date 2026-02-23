@@ -43,6 +43,7 @@ import { supabase } from '../../services/supabaseClient';
 import { useAuthStore } from '../../stores/authStore';
 import PaymentGateway from '../../components/common/PaymentGateway';
 import { useCashRegister } from '../../hooks/useCashRegister';
+import { useMercadoPagoPoint } from '../../hooks/useMercadoPagoPoint';
 
 
 export default function POS() {
@@ -62,6 +63,8 @@ export default function POS() {
   
   const { activeSession, checkActiveSession } = useCashRegister();
   const { profile } = useAuthStore();
+  const { loading: mpPointLoading, error: mpPointError, createPointPaymentIntent } = useMercadoPagoPoint();
+  
   const [searchTerm, setSearchTerm] = useState('');
   const [businesses, setBusinesses] = useState([]);
   const [selectedBusinessId, setSelectedBusinessId] = useState('');
@@ -72,10 +75,13 @@ export default function POS() {
   });
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
 
-  // Nuevo estado para el proceso de pago
-  const [orderCreated, setOrderCreated] = useState(null); // { id, offline, items, businessId }
+  // Payment Flow State
+  const [orderCreated, setOrderCreated] = useState(null);
   const [openPaymentDialog, setOpenPaymentDialog] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState(null); // 'CASH', 'MANUAL_MP', 'ONLINE_MP'
+  const [paymentMethod, setPaymentMethod] = useState(null); // 'CASH', 'MANUAL_MP', 'ONLINE_MP', 'POINT_MP'
+  const [pointDevices, setPointDevices] = useState([]);
+  const [selectedPointDeviceId, setSelectedPointDeviceId] = useState('');
+  const [intentStatus, setIntentStatus] = useState(null); // 'WAITING', 'SUCCESS', 'ERROR'
 
   // Fetch businesses for the account
   useEffect(() => {
@@ -169,9 +175,10 @@ export default function POS() {
       return;
     }
 
+    // This is now for CASH only. The other manual button will trigger the Point flow.
     const res = await processManualPayment(orderCreated.id, {
       amount: calculateTotal(),
-      method: method, // 'CASH' o 'MERCADOPAGO_POS'
+      method: method,
       type: 'point'
     });
 
@@ -183,11 +190,56 @@ export default function POS() {
     }
   };
 
+  const handleSelectPaymentMethod = async (method) => {
+    setPaymentMethod(method);
+    if (method === 'POINT_MP') {
+      setIntentStatus(null);
+      const { data, error } = await supabase
+        .schema('core')
+        .from('point_devices')
+        .select('id, name')
+        .eq('business_id', selectedBusinessId)
+        .eq('account_id', profile?.account_id)
+        .eq('status', 'ACTIVE')
+        .eq('is_deleted', false);
+
+      if (error) {
+        setSnackbar({ open: true, message: `Error al cargar dispositivos: ${error.message}`, severity: 'error' });
+        return;
+      }
+      
+      setPointDevices(data);
+      if (data.length > 0) {
+        setSelectedPointDeviceId(data[0].id);
+      } else {
+        setSnackbar({ open: true, message: 'No hay dispositivos Point activos para este negocio. Agrégalos en la sección de Configuración.', severity: 'warning' });
+      }
+    }
+  };
+
+  const handleSendPointIntent = async () => {
+    if (!orderCreated?.id || !selectedPointDeviceId) {
+      setSnackbar({ open: true, message: 'Falta la orden o el dispositivo seleccionado.', severity: 'error' });
+      return;
+    }
+    setIntentStatus('WAITING');
+    const result = await createPointPaymentIntent(orderCreated.id, selectedPointDeviceId);
+    if (result.success) {
+      setSnackbar({ open: true, message: 'Cobro enviado a la terminal. Esperando pago del cliente...', severity: 'info' });
+    } else {
+      setIntentStatus('ERROR');
+      setSnackbar({ open: true, message: `Error al enviar cobro: ${result.error}`, severity: 'error' });
+    }
+  };
+
   const handleClosePayment = () => {
     setOpenPaymentDialog(false);
     setOrderCreated(null);
     clearCart();
     setPaymentMethod(null);
+    setPointDevices([]);
+    setSelectedPointDeviceId('');
+    setIntentStatus(null);
   };
 
   return (
@@ -387,51 +439,24 @@ export default function POS() {
               {!paymentMethod ? (
                 <Grid container spacing={2}>
                   <Grid item xs={12}>
-                    <Button
-                      fullWidth
-                      variant="outlined"
-                      size="large"
-                      startIcon={<PaymentsIcon />}
-                      onClick={() => handleManualPayment('CASH')}
-                      sx={{ py: 2, justifyContent: 'flex-start', px: 3 }}
-                    >
+                    <Button fullWidth variant="outlined" size="large" startIcon={<PaymentsIcon />} onClick={() => handleManualPayment('CASH')} sx={{ py: 2, justifyContent: 'flex-start', px: 3 }}>
                       Efectivo
                     </Button>
                   </Grid>
                   <Grid item xs={12}>
-                    <Button
-                      fullWidth
-                      variant="outlined"
-                      size="large"
-                      startIcon={<CreditCardIcon />}
-                      onClick={() => handleManualPayment('MERCADOPAGO_POS')}
-                      sx={{ py: 2, justifyContent: 'flex-start', px: 3 }}
-                    >
-                      MercadoPago POS / QR Manual
+                    <Button fullWidth variant="outlined" size="large" startIcon={<CreditCardIcon />} onClick={() => handleSelectPaymentMethod('POINT_MP')} sx={{ py: 2, justifyContent: 'flex-start', px: 3 }}>
+                      MercadoPago Point (Terminal)
                     </Button>
                   </Grid>
                   <Grid item xs={12}>
-                    <Button
-                      fullWidth
-                      variant="contained"
-                      size="large"
-                      startIcon={<ShoppingCartIcon />}
-                      onClick={() => setPaymentMethod('ONLINE_MP')}
-                      sx={{ py: 2, justifyContent: 'flex-start', px: 3 }}
-                    >
+                    <Button fullWidth variant="contained" size="large" startIcon={<ShoppingCartIcon />} onClick={() => handleSelectPaymentMethod('ONLINE_MP')} sx={{ py: 2, justifyContent: 'flex-start', px: 3 }}>
                       MercadoPago Online (Bricks)
                     </Button>
                   </Grid>
                 </Grid>
-              ) : (
+              ) : paymentMethod === 'ONLINE_MP' ? (
                 <Box>
-                   <Button 
-                     size="small" 
-                     onClick={() => setPaymentMethod(null)}
-                     sx={{ mb: 2 }}
-                   >
-                     ← Volver a opciones de pago
-                   </Button>
+                   <Button size="small" onClick={() => setPaymentMethod(null)} sx={{ mb: 2 }}>← Volver a opciones de pago</Button>
                    <PaymentGateway 
                     items={orderCreated?.items}
                     orderId={orderCreated?.id}
@@ -439,6 +464,35 @@ export default function POS() {
                     accountId={profile?.account_id} 
                     onPaymentSuccess={handleClosePayment} 
                   />
+                </Box>
+              ) : paymentMethod === 'POINT_MP' && (
+                <Box>
+                  <Button size="small" onClick={() => setPaymentMethod(null)} sx={{ mb: 2 }}>← Volver a opciones de pago</Button>
+                  <Typography variant="h6" sx={{mb: 2}}>Pagar con Terminal Point</Typography>
+                  
+                  {intentStatus === 'WAITING' ? (
+                    <Box sx={{display: 'flex', flexDirection: 'column', alignItems: 'center', p: 4}}>
+                      <CircularProgress />
+                      <Typography variant="body1" sx={{mt: 2}}>Esperando pago en la terminal...</Typography>
+                      <Typography variant="body2" color="text.secondary">El estado se actualizará automáticamente.</Typography>
+                    </Box>
+                  ) : (
+                    <Grid container spacing={2}>
+                      <Grid item xs={12}>
+                        <TextField fullWidth select label="Seleccionar Terminal" value={selectedPointDeviceId} onChange={(e) => setSelectedPointDeviceId(e.target.value)} disabled={pointDevices.length === 0}>
+                          {pointDevices.map((d) => (
+                            <MenuItem key={d.id} value={d.id}>{d.name}</MenuItem>
+                          ))}
+                        </TextField>
+                      </Grid>
+                      <Grid item xs={12}>
+                        <Button fullWidth variant="contained" onClick={handleSendPointIntent} disabled={mpPointLoading || !selectedPointDeviceId}>
+                          {mpPointLoading ? <CircularProgress size={24} /> : 'Enviar Cobro a Terminal'}
+                        </Button>
+                      </Grid>
+                      {intentStatus === 'ERROR' && <Grid item xs={12}><Alert severity="error">{mpPointError}</Alert></Grid>}
+                    </Grid>
+                  )}
                 </Box>
               )}
             </Box>

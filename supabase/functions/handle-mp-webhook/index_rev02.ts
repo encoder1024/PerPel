@@ -117,8 +117,11 @@ serve(async (req) => {
         amount: mpPayment.transaction_amount,
         status: mpPayment.status,
         payment_method_id: mpPayment.payment_method_id,
-        payment_type:
-          mpPayment.operation_type === "pos_payment" ? "point" : "online",
+        // Set payment_type to 'point' if a device_id is present, otherwise 'online'
+        payment_type: mpPayment.point_of_interaction?.device_id ? 'point' : 'online',
+        device_id: mpPayment.point_of_interaction?.device_id?.toString() || null,
+        card_last_four: mpPayment.card?.last_four_digits || null,
+        installments: mpPayment.installments || 1,
         raw_response: mpPayment,
       });
 
