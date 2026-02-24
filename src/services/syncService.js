@@ -66,5 +66,60 @@ export const syncService = {
     setInterval(() => {
       if (navigator.onLine) syncService.processQueue();
     }, 30000); // Every 30 seconds
+  },
+
+  // Pull data from Supabase to RxDB (Initial sync or refresh)
+  pullData: async (accountId) => {
+    if (!navigator.onLine) return;
+    const db = await getDatabase();
+
+    try {
+      // 1. Sync Inventory Items
+      const { data: items, error: itemsError } = await supabase
+        .schema('core')
+        .from('inventory_items')
+        .select('*')
+        .eq('account_id', accountId)
+        .eq('is_deleted', false);
+
+      if (itemsError) throw itemsError;
+      if (items) {
+        await db.inventory_items.bulkUpsert(items);
+      }
+
+      // 2. Sync Stock Levels
+      const { data: stock, error: stockError } = await supabase
+        .schema('core')
+        .from('stock_levels')
+        .select('*')
+        .eq('account_id', accountId)
+        .eq('is_deleted', false);
+
+      if (stockError) throw stockError;
+      if (stock) {
+        const stockToUpsert = stock.map(s => ({
+            ...s,
+            id: `${s.item_id}:${s.business_id}`
+        }));
+        await db.stock_levels.bulkUpsert(stockToUpsert);
+      }
+
+      // 3. Sync Customers (New central core.customers table)
+      const { data: customers, error: customerError } = await supabase
+        .schema('core')
+        .from('customers')
+        .select('*')
+        .eq('account_id', accountId)
+        .eq('is_deleted', false);
+
+      if (customerError) throw customerError;
+      if (customers) {
+        await db.customers.bulkUpsert(customers);
+      }
+
+      console.log('RxDB: Data sync from Supabase completed.');
+    } catch (error) {
+      console.error('Error pulling data to RxDB:', error.message);
+    }
   }
 };

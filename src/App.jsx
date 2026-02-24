@@ -24,6 +24,7 @@ import AuditLogs from "./pages/audit/AuditLogs";
 import RoleRequest  from "./pages/auth/RoleRequest";
 import ConfigurationLayout from "./pages/configuration/ConfigurationLayout";
 import VentasConfig from "./pages/configuration/VentasConfig";
+import CredentialsConfig from "./pages/configuration/CredentialsConfig";
 import StockConfig from "./pages/configuration/StockConfig";
 import FacturacionConfig from "./pages/configuration/FacturacionConfig";
 import TurnosConfig from "./pages/configuration/TurnosConfig";
@@ -214,6 +215,7 @@ function App() {
             >
               <Route index element={<Navigate to="ventas" replace />} />
               <Route path="ventas" element={<VentasConfig />} />
+              <Route path="credenciales" element={<CredentialsConfig />} />
               <Route path="stock" element={<StockConfig />} />
               <Route path="facturacion" element={<FacturacionConfig />} />
               <Route path="turnos" element={<TurnosConfig />} />

@@ -26,9 +26,12 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Autocomplete,
+  Tooltip
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import RemoveIcon from '@mui/icons-material/Remove';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
@@ -39,17 +42,29 @@ import CreditCardIcon from '@mui/icons-material/CreditCard';
 import CancelIcon from '@mui/icons-material/Cancel';
 import { useInventory } from '../../hooks/useInventory';
 import { usePOS } from '../../hooks/usePOS';
+import { useBarcodeScanner } from '../../hooks/useBarcodeScanner';
 import { supabase } from '../../services/supabaseClient';
 import { useAuthStore } from '../../stores/authStore';
+import { useOffline } from '../../hooks/useOffline';
 import PaymentGateway from '../../components/common/PaymentGateway';
 import { useCashRegister } from '../../hooks/useCashRegister';
 import { useMercadoPagoPoint } from '../../hooks/useMercadoPagoPoint';
 
+// Default "Consumidor Final" object
+const CONSUMIDOR_FINAL = {
+  id: '00000000-0000-0000-0000-000000000000',
+  full_name: 'Consumidor Final',
+  doc_type: '99',
+  doc_number: '0',
+  iva_condition: 'Consumidor Final'
+};
 
 export default function POS() {
   const { items, loading: inventoryLoading, refresh } = useInventory();
   const {
     cart,
+    selectedCustomer,
+    setSelectedCustomer,
     loading: posLoading,
     addToCart,
     removeFromCart,
@@ -59,21 +74,76 @@ export default function POS() {
     cancelOrder,
     processManualPayment,
     clearCart,
+    findProductBySKU,
+    findProductRemote,
+    createCustomer
   } = usePOS();
   
   const { activeSession, checkActiveSession } = useCashRegister();
   const { profile } = useAuthStore();
+  const { db } = useOffline();
   const { loading: mpPointLoading, error: mpPointError, createPointPaymentIntent } = useMercadoPagoPoint();
   
   const [searchTerm, setSearchTerm] = useState('');
   const [businesses, setBusinesses] = useState([]);
   const [selectedBusinessId, setSelectedBusinessId] = useState('');
-  const [customerInfo, setCustomerInfo] = useState({
-    name: 'Consumidor Final',
-    docType: '99',
-    docNumber: '0',
+  
+  // Customer Selector State
+  const [customerOptions, setCustomerOptions] = useState([CONSUMIDOR_FINAL]);
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [openCustomerModal, setOpenCustomerModal] = useState(false);
+  const [newCustomer, setNewCustomer] = useState({
+    full_name: '',
+    doc_type: '96',
+    doc_number: '',
+    email: '',
+    phone_number: ''
   });
+
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
+
+  // Scan state
+  const [lastScannedSku, setLastScannedSku] = useState(null);
+  const [openScanConfirm, setOpenScanConfirm] = useState(false);
+
+  // Initialize customer selector
+  useEffect(() => {
+    if (!selectedCustomer) {
+        setSelectedCustomer(CONSUMIDOR_FINAL);
+    }
+  }, [selectedCustomer, setSelectedCustomer]);
+
+  // Fetch customers from RxDB for Autocomplete
+  useEffect(() => {
+    const searchCustomers = async () => {
+      if (!db || !profile?.account_id) return;
+      
+      try {
+        const query = {
+          selector: {
+            account_id: profile.account_id,
+            is_deleted: false
+          }
+        };
+
+        if (customerSearch && customerSearch.length >= 2) {
+          query.selector.$or = [
+            { full_name: { $regex: new RegExp(customerSearch, 'i') } },
+            { doc_number: { $regex: new RegExp(customerSearch, 'i') } }
+          ];
+        }
+
+        const results = await db.customers.find(query).exec();
+        const list = results.map(d => d.toJSON());
+        
+        setCustomerOptions([CONSUMIDOR_FINAL, ...list]);
+      } catch (err) {
+        console.error("RxDB Search Error:", err);
+      }
+    };
+
+    searchCustomers();
+  }, [db, customerSearch, profile?.account_id]);
 
   // Payment Flow State
   const [orderCreated, setOrderCreated] = useState(null);
@@ -83,24 +153,70 @@ export default function POS() {
   const [selectedPointDeviceId, setSelectedPointDeviceId] = useState('');
   const [intentStatus, setIntentStatus] = useState(null); // 'WAITING', 'SUCCESS', 'ERROR'
 
+  // Barcode Scanning logic
+  useBarcodeScanner(async (code) => {
+    const res = await findProductBySKU(code);
+    if (res.success) {
+      addToCart(res.item);
+      setSnackbar({ open: true, message: `Añadido: ${res.item.name}`, severity: 'success' });
+    } else if (res.code === 'NOT_FOUND_LOCAL') {
+      setLastScannedSku(code);
+      setOpenScanConfirm(true);
+    } else {
+      setSnackbar({ open: true, message: res.error || 'Error en escaneo.', severity: 'error' });
+    }
+  });
+
+  const handleRemoteSearch = async () => {
+    if (!lastScannedSku) return;
+    const res = await findProductRemote(lastScannedSku);
+    if (res.success) {
+      addToCart(res.item);
+      setSnackbar({ open: true, message: `Encontrado en servidor y añadido: ${res.item.name}`, severity: 'success' });
+      setOpenScanConfirm(false);
+      setLastScannedSku(null);
+    } else {
+      setSnackbar({ open: true, message: res.error, severity: 'error' });
+      setOpenScanConfirm(false);
+      setLastScannedSku(null);
+    }
+  };
+
+  const handleQuickAddCustomer = async () => {
+    if (!newCustomer.full_name || !newCustomer.doc_number) {
+        setSnackbar({ open: true, message: 'Nombre y Documento son requeridos.', severity: 'error' });
+        return;
+    }
+
+    const res = await createCustomer({
+        ...newCustomer,
+        business_id: selectedBusinessId
+    });
+
+    if (res.success) {
+        setSnackbar({ open: true, message: 'Cliente registrado y seleccionado.', severity: 'success' });
+        setOpenCustomerModal(false);
+        setNewCustomer({ full_name: '', doc_type: '96', doc_number: '', email: '', phone_number: '' });
+    } else {
+        setSnackbar({ open: true, message: 'Error: ' + res.error, severity: 'error' });
+    }
+  };
+
   // Fetch businesses for the account
   useEffect(() => {
     const fetchBusinesses = async () => {
-      console.log("POS: ", profile);
       const { data, error } = await supabase
         .schema('core')
         .from('businesses')
         .select('*')
         .eq('account_id', profile?.account_id)
-        .eq('is_deleted', false); // Corrected from is_deleted to deleted based on schema
+        .eq('is_deleted', false);
 
-      console.log("negocios: ", data)
-      
       if (data) {
         setBusinesses(data);
         if (data.length > 0) {
           setSelectedBusinessId(data[0].id);
-          checkActiveSession(data[0].id); // Check session for initial business
+          checkActiveSession(data[0].id);
         }
       }
     };
@@ -127,16 +243,16 @@ export default function POS() {
       return;
     }
 
-    const response = await createOrder({ ...customerInfo, business_id: selectedBusinessId });
+    const response = await createOrder({ business_id: selectedBusinessId });
     if (response.success) {
       setOrderCreated({ 
         id: response.orderId, 
         offline: !!response.offline,
-        items: [...cart], // Guardamos copia del carrito para liberar stock si se cancela
+        items: [...cart],
         businessId: selectedBusinessId
       });
       setOpenPaymentDialog(true);
-      setPaymentMethod(null); // Reset payment method selection
+      setPaymentMethod(null);
       
       setSnackbar({
         open: true,
@@ -156,7 +272,6 @@ export default function POS() {
       setSnackbar({ open: true, message: 'Orden cancelada y stock liberado.', severity: 'info' });
       setOpenPaymentDialog(false);
       setOrderCreated(null);
-      // No limpiamos el carrito para que el usuario pueda editarlo
     } else {
       setSnackbar({ open: true, message: 'Error al cancelar: ' + res.error, severity: 'error' });
     }
@@ -165,7 +280,6 @@ export default function POS() {
   const handleManualPayment = async (method) => {
     if (!orderCreated) return;
 
-    // VALIDACIÓN DE CAJA PARA EFECTIVO
     if (method === 'CASH' && !activeSession) {
       setSnackbar({ 
         open: true, 
@@ -175,7 +289,6 @@ export default function POS() {
       return;
     }
 
-    // This is now for CASH only. The other manual button will trigger the Point flow.
     const res = await processManualPayment(orderCreated.id, {
       amount: calculateTotal(),
       method: method,
@@ -212,7 +325,7 @@ export default function POS() {
       if (data.length > 0) {
         setSelectedPointDeviceId(data[0].id);
       } else {
-        setSnackbar({ open: true, message: 'No hay dispositivos Point activos para este negocio. Agrégalos en la sección de Configuración.', severity: 'warning' });
+        setSnackbar({ open: true, message: 'No hay dispositivos Point activos para este negocio.', severity: 'warning' });
       }
     }
   };
@@ -225,7 +338,7 @@ export default function POS() {
     setIntentStatus('WAITING');
     const result = await createPointPaymentIntent(orderCreated.id, selectedPointDeviceId);
     if (result.success) {
-      setSnackbar({ open: true, message: 'Cobro enviado a la terminal. Esperando pago del cliente...', severity: 'info' });
+      setSnackbar({ open: true, message: 'Cobro enviado a la terminal.', severity: 'info' });
     } else {
       setIntentStatus('ERROR');
       setSnackbar({ open: true, message: `Error al enviar cobro: ${result.error}`, severity: 'error' });
@@ -344,40 +457,34 @@ export default function POS() {
             </List>
 
             <Box sx={{ mt: 'auto', pt: 2, borderTop: '2px solid #e2e8f0' }}>
-              <Grid container spacing={1} sx={{ mb: 2 }}>
-                <Grid item xs={12}>
-                   <TextField
-                     fullWidth
-                     label="Cliente"
-                     size="small"
-                     value={customerInfo.name}
-                     onChange={(e) => setCustomerInfo({...customerInfo, name: e.target.value})}
-                   />
-                </Grid>
-                <Grid item xs={4}>
-                   <TextField
-                     fullWidth
-                     select
-                     label="Tipo Doc"
-                     size="small"
-                     value={customerInfo.docType}
-                     onChange={(e) => setCustomerInfo({...customerInfo, docType: e.target.value})}
-                   >
-                     <MenuItem value="96">DNI</MenuItem>
-                     <MenuItem value="80">CUIT</MenuItem>
-                     <MenuItem value="99">C. Final</MenuItem>
-                   </TextField>
-                </Grid>
-                <Grid item xs={8}>
-                   <TextField
-                     fullWidth
-                     label="Nro Documento"
-                     size="small"
-                     value={customerInfo.docNumber}
-                     onChange={(e) => setCustomerInfo({...customerInfo, docNumber: e.target.value})}
-                   />
-                </Grid>
-              </Grid>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                <Autocomplete
+                  fullWidth
+                  options={customerOptions}
+                  getOptionLabel={(option) => {
+                    const name = option.full_name || '';
+                    const doc = option.doc_number || '';
+                    const displayDoc = doc.length > 3 ? doc.slice(-3) : doc;
+                    return doc ? `${name} (${displayDoc})` : name;
+                  }}
+                  isOptionEqualToValue={(option, value) => option.id === value.id}
+                  value={selectedCustomer}
+                  onChange={(event, newValue) => {
+                    setSelectedCustomer(newValue || CONSUMIDOR_FINAL);
+                  }}
+                  onInputChange={(event, newInputValue) => {
+                    setCustomerSearch(newInputValue);
+                  }}
+                  renderInput={(params) => (
+                    <TextField {...params} label="Cliente" size="small" />
+                  )}
+                />
+                <Tooltip title="Nuevo Cliente">
+                  <IconButton color="primary" onClick={() => setOpenCustomerModal(true)}>
+                    <PersonAddIcon />
+                  </IconButton>
+                </Tooltip>
+              </Box>
 
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
                 <Typography variant="h6">Total:</Typography>
@@ -412,6 +519,74 @@ export default function POS() {
           </Paper>
         </Grid>
       </Grid>
+
+      {/* Modal de Nuevo Cliente */}
+      <Dialog open={openCustomerModal} onClose={() => setOpenCustomerModal(false)}>
+        <DialogTitle>Registrar Nuevo Cliente</DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <TextField
+              fullWidth
+              label="Nombre Completo"
+              value={newCustomer.full_name}
+              onChange={(e) => setNewCustomer({...newCustomer, full_name: e.target.value})}
+            />
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <TextField
+                select
+                sx={{ width: 120 }}
+                label="Tipo Doc"
+                value={newCustomer.doc_type}
+                onChange={(e) => setNewCustomer({...newCustomer, doc_type: e.target.value})}
+              >
+                <MenuItem value="96">DNI</MenuItem>
+                <MenuItem value="80">CUIT</MenuItem>
+              </TextField>
+              <TextField
+                fullWidth
+                label="Nro Documento"
+                value={newCustomer.doc_number}
+                onChange={(e) => setNewCustomer({...newCustomer, doc_number: e.target.value})}
+              />
+            </Box>
+            <TextField
+              fullWidth
+              label="Email (Opcional)"
+              value={newCustomer.email}
+              onChange={(e) => setNewCustomer({...newCustomer, email: e.target.value})}
+            />
+            <TextField
+              fullWidth
+              label="Teléfono (Opcional)"
+              value={newCustomer.phone_number}
+              onChange={(e) => setNewCustomer({...newCustomer, phone_number: e.target.value})}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenCustomerModal(false)}>Cancelar</Button>
+          <Button onClick={handleQuickAddCustomer} variant="contained">Guardar y Seleccionar</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Diálogo de Búsqueda Remota si no se encuentra localmente */}
+      <Dialog open={openScanConfirm} onClose={() => setOpenScanConfirm(false)}>
+        <DialogTitle>Producto no encontrado localmente</DialogTitle>
+        <DialogContent>
+          <Typography>
+            El código <b>{lastScannedSku}</b> no se encontró en la base de datos local (RxDB).
+          </Typography>
+          <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
+            ¿Deseas buscarlo en el servidor de Supabase? (Requiere conexión a internet)
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenScanConfirm(false)}>Cancelar</Button>
+          <Button onClick={handleRemoteSearch} variant="contained" color="primary">
+            Buscar en Servidor
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Modal de Pago / Confirmación */}
       <Dialog open={openPaymentDialog} onClose={() => {}} maxWidth="xs" fullWidth>

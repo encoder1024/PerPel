@@ -1,0 +1,110 @@
+Has dicho
+cuando tenga mi app instalada en más de una perfumería con distintos dueños, como tengo que manejar los access token de cada una de las cuentas de mercadopago que voy a tener que configurar para que el backend hable con la cuenta que corresponda de mercadopago?
+Gemini ha dicho
+Esta es la pregunta del millón cuando pasas de un proyecto personal a un SaaS (Software as a Service). Como tu ERP va a ser usado por distintas perfumerías (dueños distintos con CUITs distintos), no puedes usar tu propio Access Token para cobrarles.
+Necesitas implementar Mercado Pago OAuth.
+1. El Concepto: OAuth
+OAuth es el protocolo que permite que una perfumería te diga: "Yo autorizo a tu ERP a crear cobros en mi nombre".
+En lugar de pedirles que te pasen su Access Token por mail (lo cual es inseguro y poco profesional), ellos harán clic en un botón de "Conectar con Mercado Pago" dentro de tu ERP, iniciarán sesión en su cuenta y MP te devolverá un token especial para ese cliente.
+2. Estructura de Base de Datos
+Debes modificar tu tabla de accounts (o la que maneje las sucursales) para guardar las credenciales de cada dueño de forma segura:
+Columna	Tipo	Descripción
+mp_access_token	text	El token que usarás para las peticiones de esa tienda.
+mp_refresh_token	text	Sirve para renovar el acceso cuando el anterior expire.
+mp_user_id	text	El ID de cuenta de Mercado Pago del dueño.
+mp_status	text	active o pending_auth.
+
+3. El Flujo de Conexión (Paso a paso)
+1. Botón de Enlace: En la configuración de tu ERP, pones un link que redirige al dueño a Mercado Pago.
+• https://auth.mercadopago.com/authorization?client_id=TU_CLIENT_ID&response_type=code&redirect_uri=TU_URL_DE_RETORNO
+2. Autorización: El dueño acepta los permisos.
+3. El Código: Mercado Pago lo devuelve a tu app con un parámetro ?code=XYZ.
+4. Intercambio: Tu backend toma ese code y lo cambia por un Access Token definitivo llamando a /oauth/token.
+5. Guardado: Guardas ese token en tu tabla de Supabase, asociado al account_id de esa perfumería.
+
+4. ¿Cómo sabe el Backend qué token usar?
+Cuando un vendedor hace una venta desde la sucursal "Perfumería VIP", tu Edge Function o Backend recibe el account_id. La lógica sería:
+JavaScript
+// Pseudocódigo del Backend
+const { data: config } = await supabase
+  .from('accounts')
+  .select('mp_access_token')
+  .eq('id', user_account_id)
+  .single();
+// Usas ese token específico para llamar a la API de MP
+const mpResponse = await fetch('https://api.mercadopago.com/point/...', {
+  headers: {
+    'Authorization': `Bearer ${config.mp_access_token}`
+  },
+  // ... resto del body
+});
+5. Seguridad: Encriptación
+¡Ojo con esto! Los Access Tokens son las llaves del dinero de tus clientes. No deberías guardarlos en texto plano.
+• Opción Pro: Usa el sistema de Vault de Supabase o encripta la columna usando pgsodium (una extensión de Postgres para encriptación) para que, aunque alguien hackeara la base de datos, no pueda usar los tokens.
+6. Webhooks Multi-cliente
+Cuando llegue un webhook de un pago, Mercado Pago te enviará el user_id de la cuenta que recibió el dinero. Deberás buscar en tu tabla de accounts quién tiene ese mp_user_id para saber a qué orden de qué perfumería pertenece ese pago.
+¿Te gustaría que te ayude a armar la URL de autorización para que puedas probar el flujo de "Conectar cuenta" en tu ERP?
+
+
+Has dicho
+si el dueño tiene varias perfumerías, debería guardar las credenciales de cada perfumería?
+Gemini ha dicho
+Depende totalmente de cómo el dueño haya organizado su negocio en Mercado Pago, pero aquí te doy la respuesta técnica basada en las mejores prácticas de arquitectura para tu ERP:
+1. El escenario ideal: Una sola cuenta (Estructura de Mercado Pago)
+Mercado Pago está diseñado para que un solo dueño (un CUIT/CUIL) tenga una única cuenta principal y, dentro de esa cuenta, cree diferentes Sucursales (Stores) y Cajas (POS).
+• Si el dueño usa una sola cuenta para todas sus perfumerías: Solo necesitas guardar un Access Token.
+• Cómo lo manejas en el ERP: En tu base de datos, asocias ese token al "Dueño" y luego identificas cada venta usando el store_id (ID de la sucursal) y el external_pos_id (ID de la caja) que Mercado Pago le asigna a cada local.
+2. El escenario "Multi-Cuenta": Cuando sí necesitas varios tokens
+Hay casos donde el dueño tiene razones legales o contables para tener cuentas de Mercado Pago distintas (por ejemplo, si cada perfumería es una sociedad anónima diferente).
+• Si cada perfumería tiene su propio CUIT y cuenta de MP: Entonces sí, debes guardar un access_token por cada perfumería.
+
+¿Cómo debería quedar tu tabla en Supabase para ser flexible?
+Para que tu sistema soporte ambos casos, te sugiero no guardar el token en la tabla de perfumerias, sino en una tabla de integrations o mp_credentials:
+Columna	Tipo	Descripción
+id	uuid	PK
+account_id	uuid	ID del dueño en tu ERP
+mp_access_token	text	El token (encriptado)
+mp_user_id	text	El ID de cuenta de MP
+label	text	Ej: "Cuenta Principal" o "Sucursal Centro"
+Luego, en tu tabla de perfumerias (sucursales), añades:
+• integration_id: Apunta a la credencial que debe usar.
+• mp_store_id: El ID físico de la sucursal en Mercado Pago.
+
+3. ¿Cómo configurarías el cobro con Point?
+Cuando el vendedor de la "Perfumería A" hace una venta:
+6. Tu backend busca qué integration_id tiene esa perfumería.
+7. Obtiene el access_token correspondiente.
+8. Envía la orden al Point aclarando el pos_id de esa sucursal específica.
+Resumen de tu arquitectura:
+• Relación 1 a N: Si un dueño usa una cuenta para todo (lo más común), ahorras espacio y complejidad.
+• Relación N a N: Si el dueño es un grupo empresarial con múltiples razones sociales, tu sistema está preparado para manejar distintos tokens sin romperse.
+¿Mi recomendación? Haz que el proceso de "Conectar con Mercado Pago" sea a nivel de Cuenta de Dueño, pero permite que él elija si quiere usar esa misma conexión para todas sus sucursales o si quiere conectar una cuenta distinta para cada una.
+
+Continuaión de los tokens… refresh tokens
+
+¡Claro que sí! Tienes mucha razón en preguntar por esto, porque el Refresh Token es lo que evita que tu sistema se "desconecte" y el dueño de la perfumería tenga que volver a iniciar sesión cada vez que el token expira (que suele ser cada 6 meses en MP, por ejemplo).
+No todas las APIs usan este mecanismo; algunas prefieren una API Key estática que no vence nunca. Aquí tienes la tabla actualizada con la columna de Refresh Token:
+💡 Tabla de Credenciales y Mecanismos de Renovación
+Plataforma	Credencial Principal	¿Necesita Refresh Token?	Duración típica del Access Token
+Mercado Pago	Access Token	SÍ	~180 días (6 meses).
+Mercado Shops	Access Token	SÍ	Comparte el de MP (6 meses).
+Cal.com	OAuth Access Token	SÍ	60 minutos (si usas OAuth).
+Alegra	API Token	NO	Es estático (no vence hasta que lo cambies).
+OneSignal	REST API Key	NO	Es estático.
+
+
+🔍 Detalle por Plataforma:
+	1. Mercado Pago / Mercado Shops:
+		○ Cómo funciona: Cuando haces el flujo de OAuth, MP te devuelve un access_token y un refresh_token.
+		○ La lógica: Debes guardar ambos. Cuando el access_token deje de funcionar (error 401), tu backend debe enviar el refresh_token a un endpoint especial de MP para recibir un par de tokens nuevos. Si pierdes el refresh token, el usuario debe volver a autorizar la app.
+	2. Cal.com:
+		○ Escenario A (API Key): Si usas tu propia "API Key" para gestionar turnos, es estática (No necesita refresh).
+		○ Escenario B (OAuth): Si permites que cada dueño de perfumería use su propia cuenta de Cal.com, entonces el token es de muy corta duración (1 hora) y necesitas obligatoriamente usar el refresh token constantemente.
+	3. Alegra y OneSignal:
+		○ Estas plataformas usan el modelo de API Keys de Larga Duración. Una vez que las generas en su panel y las pones en tu .env o base de datos, no expiran. Son mucho más fáciles de programar, pero si se filtran, son peligrosas (debes rotarlas manualmente).
+🛠️ ¿Cómo deberías manejar esto en tu base de datos?
+Para las APIs que sí usan refresh tokens (MP y Cal.com), tu tabla en Supabase debería tener una columna extra llamada expires_at:
+SQL
+
+Lógica de Pro: En tu backend, antes de hacer un cobro, chequeas: ¿Falta menos de 1 día para que el token expire? * Si sí: Ejecutas la rutina de "Refresh" antes de cobrar.
+Si no: Cobras normalmente.

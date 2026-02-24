@@ -55,7 +55,7 @@ export const useInventory = () => {
       try {
         const localItems = await db.inventory_items
           .find({
-            selector: { account_id: profile?.account_id, deleted: false },
+            selector: { account_id: profile?.account_id, is_deleted: false },
           })
           .exec();
         setItems(localItems.map((item) => item.toJSON()));
@@ -134,14 +134,14 @@ export const useInventory = () => {
         const { error: deleteError } = await supabase
           .schema("core")
           .from("inventory_items")
-          .update({ deleted: true })
+          .update({ is_deleted: true })
           .eq("id", id);
 
         if (deleteError) throw deleteError;
 
         if (db) {
           const doc = await db.inventory_items.findOne(id).exec();
-          if (doc) await doc.patch({ deleted: true });
+          if (doc) await doc.patch({ is_deleted: true });
         }
 
         await fetchItems();
@@ -153,11 +153,11 @@ export const useInventory = () => {
       try {
         if (db) {
           const doc = await db.inventory_items.findOne(id).exec();
-          if (doc) await doc.patch({ deleted: true });
+          if (doc) await doc.patch({ is_deleted: true });
 
           await syncService.enqueueOperation("UPDATE", "inventory_items", {
             id,
-            deleted: true,
+            is_deleted: true,
           });
           await fetchItems();
           return { success: true, offline: true };

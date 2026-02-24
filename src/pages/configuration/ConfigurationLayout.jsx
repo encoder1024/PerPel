@@ -8,9 +8,11 @@ import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import InventoryIcon from '@mui/icons-material/Inventory';
 import SettingsIcon from '@mui/icons-material/Settings';
+import KeyIcon from '@mui/icons-material/Key';
 
 const configSections = [
   { text: 'Ventas y Dispositivos', icon: <PointOfSaleIcon />, path: '/configuracion/ventas' },
+  { text: 'Credenciales API', icon: <KeyIcon />, path: '/configuracion/credenciales' },
   { text: 'Stock', icon: <InventoryIcon />, path: '/configuracion/stock' },
   { text: 'Facturación', icon: <ReceiptIcon />, path: '/configuracion/facturacion' },
   { text: 'Turnos', icon: <CalendarMonthIcon />, path: '/configuracion/turnos' },
