@@ -16,13 +16,16 @@ import {
   CircularProgress,
   Alert,
   MenuItem,
-  Chip
+  Chip,
+  Divider
 } from '@mui/material';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import DeleteIcon from '@mui/icons-material/Delete';
 import KeyIcon from '@mui/icons-material/Key';
+import LinkIcon from '@mui/icons-material/Link';
 import { supabase } from '../../services/supabaseClient';
 import { useAuthStore } from '../../stores/authStore';
+import config from '../../config';
 
 export default function CredentialsConfig() {
   const { profile } = useAuthStore();
@@ -34,6 +37,8 @@ export default function CredentialsConfig() {
   const [name, setName] = useState('');
   const [apiName, setApiName] = useState('MERCADOPAGO');
   const [accessToken, setAccessToken] = useState('');
+  const [clientId, setClientId] = useState('');
+  const [clientSecret, setClientSecret] = useState('');
 
   const fetchCredentials = async () => {
     if (!profile?.account_id) return;
@@ -59,10 +64,23 @@ export default function CredentialsConfig() {
     fetchCredentials();
   }, [profile?.account_id]);
 
+  const handleOAuthRedirect = (cred) => {
+    if (!cred.client_id) {
+      alert("Falta el Client ID para esta credencial.");
+      return;
+    }
+
+    // Construir la URL de Mercado Pago usando el Client ID guardado en la DB
+    // El 'state' lleva el ID de nuestra tabla para saber a quién actualizar al volver
+    const mpUrl = `https://auth.mercadopago.com/authorization?client_id=${cred.client_id}&response_type=code&platform_id=mp&redirect_uri=${encodeURIComponent(config.mercadopago.redirectUri)}&state=${cred.id}`;
+    
+    window.location.href = mpUrl;
+  };
+
   const handleAddCredential = async (e) => {
     e.preventDefault();
-    if (!name || !accessToken) {
-      setError("Nombre y Token son obligatorios.");
+    if (!name) {
+      setError("El nombre es obligatorio.");
       return;
     }
 
@@ -75,14 +93,20 @@ export default function CredentialsConfig() {
           account_id: profile.account_id,
           name,
           api_name: apiName,
-          access_token: accessToken, // In a real scenario, this should be encrypted
-          external_status: 'active'
+          access_token: accessToken || null,
+          client_id: clientId || null,
+          client_secret: clientSecret || null,
+          external_status: 'active',
+          is_deleted: false
         });
 
       if (insertError) throw insertError;
 
+      // Reset form
       setName('');
       setAccessToken('');
+      setClientId('');
+      setClientSecret('');
       await fetchCredentials();
     } catch (err) {
       setError(err.message);
@@ -110,6 +134,9 @@ export default function CredentialsConfig() {
     }
   };
 
+  // Helper to determine what fields to show
+  const isOAuthApi = apiName === 'MERCADOPAGO' || apiName === 'CAL_COM';
+
   return (
     <Box>
       <Typography variant="h6" gutterBottom>
@@ -117,22 +144,22 @@ export default function CredentialsConfig() {
         Gestión de Credenciales de API
       </Typography>
       <Typography variant="body2" color="textSecondary" sx={{ mb: 3 }}>
-        Configura aquí las cuentas de Mercado Pago, Alegra u otras APIs para tus sucursales.
+        Configura los accesos para tus integraciones. Las claves se guardan encriptadas (AES-256).
       </Typography>
 
       <Paper component="form" onSubmit={handleAddCredential} sx={{ p: 3, mb: 4 }}>
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} sm={3}>
+        <Grid container spacing={2}>
+          <Grid item xs={12} sm={4}>
             <TextField
               fullWidth
               label="Nombre descriptivo"
-              placeholder="Ej: MP Principal"
+              placeholder="Ej: MP Sucursal Centro"
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
             />
           </Grid>
-          <Grid item xs={12} sm={3}>
+          <Grid item xs={12} sm={4}>
             <TextField
               fullWidth
               select
@@ -144,27 +171,59 @@ export default function CredentialsConfig() {
               <MenuItem value="MERCADOPAGO">Mercado Pago</MenuItem>
               <MenuItem value="ALEGRA">Alegra (Facturación)</MenuItem>
               <MenuItem value="ONESIGNAL">OneSignal</MenuItem>
+              <MenuItem value="CAL_COM">Cal.com (Turnos)</MenuItem>
             </TextField>
           </Grid>
-          <Grid item xs={12} sm={4}>
-            <TextField
-              fullWidth
-              label="Access Token / API Key"
-              type="password"
-              value={accessToken}
-              onChange={(e) => setAccessToken(e.target.value)}
-              required
-            />
-          </Grid>
-          <Grid item xs={12} sm={2}>
+
+          {/* Campos dinámicos según el tipo de API */}
+          {isOAuthApi ? (
+            <>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Client ID"
+                  value={clientId}
+                  onChange={(e) => setClientId(e.target.value)}
+                  required
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Client Secret"
+                  type="password"
+                  value={clientSecret}
+                  onChange={(e) => setClientSecret(e.target.value)}
+                  required
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <Alert severity="info">
+                  Para APIs OAuth como Mercado Pago, primero guarda el ID y Secret. Luego podrás vincular la cuenta.
+                </Alert>
+              </Grid>
+            </>
+          ) : (
+            <Grid item xs={12} sm={8}>
+              <TextField
+                fullWidth
+                label="API Token / Access Token"
+                type="password"
+                value={accessToken}
+                onChange={(e) => setAccessToken(e.target.value)}
+                required
+              />
+            </Grid>
+          )}
+
+          <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'flex-end' }}>
             <Button
               type="submit"
-              fullWidth
               variant="contained"
               startIcon={<AddCircleOutlineIcon />}
               disabled={loading}
             >
-              Guardar
+              Guardar Credencial
             </Button>
           </Grid>
         </Grid>
@@ -179,7 +238,7 @@ export default function CredentialsConfig() {
               <TableCell sx={{ fontWeight: 700 }}>Nombre</TableCell>
               <TableCell sx={{ fontWeight: 700 }}>Servicio</TableCell>
               <TableCell sx={{ fontWeight: 700 }}>Estado</TableCell>
-              <TableCell sx={{ fontWeight: 700 }}>Token (Censurado)</TableCell>
+              <TableCell sx={{ fontWeight: 700 }}>Configuración</TableCell>
               <TableCell sx={{ fontWeight: 700 }} align="right">Acciones</TableCell>
             </TableRow>
           </TableHead>
@@ -200,9 +259,29 @@ export default function CredentialsConfig() {
                     <Chip label={cred.api_name} size="small" color="primary" variant="outlined" />
                   </TableCell>
                   <TableCell>
-                    <Chip label={cred.external_status} size="small" color="success" />
+                    <Chip label={cred.external_status || 'active'} size="small" color="success" />
                   </TableCell>
-                  <TableCell>••••••••••••••••</TableCell>
+                  <TableCell>
+                    {cred.client_id ? (
+                      <Box>
+                        <Typography variant="caption" display="block">ID: {cred.client_id}</Typography>
+                        {!cred.access_token && (
+                          <Button 
+                            size="small" 
+                            startIcon={<LinkIcon />} 
+                            variant="text" 
+                            color="warning"
+                            sx={{ fontSize: '0.7rem', p: 0 }}
+                            onClick={() => handleOAuthRedirect(cred)}
+                          >
+                            Vincular Cuenta
+                          </Button>
+                        )}
+                      </Box>
+                    ) : (
+                      <Typography variant="caption">Token Estático</Typography>
+                    )}
+                  </TableCell>
                   <TableCell align="right">
                     <IconButton color="error" onClick={() => handleDelete(cred.id)}>
                       <DeleteIcon />

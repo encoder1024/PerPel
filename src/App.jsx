@@ -30,6 +30,7 @@ import FacturacionConfig from "./pages/configuration/FacturacionConfig";
 import TurnosConfig from "./pages/configuration/TurnosConfig";
 import ReportesConfig from "./pages/configuration/ReportesConfig";
 import ECommerceConfig from "./pages/configuration/ECommerceConfig";
+import OAuthCallback from "./pages/configuration/OAuthCallback";
 
 import { syncService } from "./services/syncService";
 import { notificationService } from "./services/notificationService";
@@ -100,6 +101,7 @@ function App() {
             {/* Rutas de Autenticación */}
             <Route path="/login" element={<SignIn />} />
             <Route path="/register" element={<SignUp />} />
+            <Route path="/oauth/callback" element={<OAuthCallback />} />
 
             {/* Ruta Raíz con Redirección por Rol */}
             <Route path="/" element={<RoleRedirect />} />
