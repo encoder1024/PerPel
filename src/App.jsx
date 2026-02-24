@@ -15,11 +15,21 @@ import MainLayout from "./components/layout/MainLayout";
 import SignIn from "./pages/auth/SignIn";
 import SignUp from "./pages/auth/SignUp";
 import Inventory from "./pages/inventory/Inventory";
+import StockManagement from "./pages/inventory/StockManagement"; // Import StockManagement
 import POS from "./pages/pos/POS";
+import CashRegister from "./pages/pos/CashRegister";
 import Appointments from "./pages/appointments/Appointments";
 import Dashboard from "./pages/dashboard/Dashboard";
 import AuditLogs from "./pages/audit/AuditLogs";
 import RoleRequest  from "./pages/auth/RoleRequest";
+import ConfigurationLayout from "./pages/configuration/ConfigurationLayout";
+import VentasConfig from "./pages/configuration/VentasConfig";
+import CredentialsConfig from "./pages/configuration/CredentialsConfig";
+import StockConfig from "./pages/configuration/StockConfig";
+import FacturacionConfig from "./pages/configuration/FacturacionConfig";
+import TurnosConfig from "./pages/configuration/TurnosConfig";
+import ReportesConfig from "./pages/configuration/ReportesConfig";
+import ECommerceConfig from "./pages/configuration/ECommerceConfig";
 
 import { syncService } from "./services/syncService";
 import { notificationService } from "./services/notificationService";
@@ -127,11 +137,33 @@ function App() {
             />
 
             <Route
+              path="/caja"
+              element={
+                <ProtectedRoute allowedRoles={["OWNER", "ADMIN", "EMPLOYEE"]}>
+                  <MainLayout>
+                    <CashRegister />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
               path="/inventario"
               element={
                 <ProtectedRoute allowedRoles={["OWNER", "ADMIN", "EMPLOYEE"]}>
                   <MainLayout>
                     <Inventory />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/stock"
+              element={
+                <ProtectedRoute allowedRoles={["OWNER", "ADMIN", "EMPLOYEE"]}>
+                  <MainLayout>
+                    <StockManagement />
                   </MainLayout>
                 </ProtectedRoute>
               }
@@ -169,6 +201,27 @@ function App() {
                 </ProtectedRoute>
               }
             />
+
+            {/* --- Configuration Routes --- */}
+            <Route
+              path="/configuracion"
+              element={
+                <ProtectedRoute allowedRoles={["OWNER", "ADMIN"]}>
+                  <MainLayout>
+                    <ConfigurationLayout />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<Navigate to="ventas" replace />} />
+              <Route path="ventas" element={<VentasConfig />} />
+              <Route path="credenciales" element={<CredentialsConfig />} />
+              <Route path="stock" element={<StockConfig />} />
+              <Route path="facturacion" element={<FacturacionConfig />} />
+              <Route path="turnos" element={<TurnosConfig />} />
+              <Route path="reportes" element={<ReportesConfig />} />
+              <Route path="ecommerce" element={<ECommerceConfig />} />
+            </Route>
 
             {/* Redirección por defecto para rutas inexistentes */}
             <Route path="*" element={<Navigate to="/" replace />} />
