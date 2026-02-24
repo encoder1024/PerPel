@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../services/supabaseClient';
 import { useAuthStore } from '../stores/authStore';
+import { seedInitialCategories } from '../utils/initialData';
+import { syncService } from '../services/syncService';
 
 export const useDashboard = () => {
   const [snapshot, setSnapshot] = useState(null);
@@ -16,9 +18,18 @@ export const useDashboard = () => {
     setError(null);
 
     try {
+      // 0. Initialize RxDB Data (Pull from Supabase)
+      await syncService.pullData(profile.account_id);
+
+      // 0.1. Trigger initial categories seeding if it's an OWNER
+      if (profile.app_role === 'OWNER') {
+        await seedInitialCategories(profile.account_id);
+      }
+
       // 1. Get Consolidated Snapshot (KPIs)
       const { data: snapshotData, error: snapshotError } = await supabase
-        .from('consolidated_business_snapshot', { schema: 'reports' })
+        .schema('reports')
+        .from('consolidated_business_snapshot')
         .select('*')
         .eq('account_id', profile.account_id)
         .single();
@@ -28,7 +39,8 @@ export const useDashboard = () => {
 
       // 2. Get Daily Sales Summary for Chart (Last 30 days)
       const { data: salesData, error: salesError } = await supabase
-        .from('daily_sales_summary', { schema: 'reports' })
+        .schema('reports')
+        .from('daily_sales_summary')
         .select('*')
         .eq('account_id', profile.account_id)
         .order('report_date', { ascending: true })
