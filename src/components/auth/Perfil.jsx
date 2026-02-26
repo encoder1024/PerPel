@@ -31,8 +31,8 @@ export const Perfil = () => {
   const [isCodeValidated, setIsCodeValidated] = useState(false);
   const [validatingCode, setValidatingCode] = useState(false);
 
-  // Roles that a regular user can request
-  const selectableRoles = ["ADMIN", "EMPLOYEE", "AUDITOR"];
+  // Roles que un usuario puede solicitar
+  const selectableRoles = ["ADMIN", "EMPLOYEE", "AUDITOR", "CLIENT"];
 
   // Function to validate the access code
   const handleValidateCode = async () => {
@@ -119,6 +119,7 @@ export const Perfil = () => {
             user_id: user.id,
             account_id: accountId, // Use the local accountId state
             requested_role: selectedRole,
+            registration_code_used: accessCode, // Guardar el código usado
             status: "PENDING", // Default status
           },
         ]);
