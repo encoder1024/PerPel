@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { initMercadoPago, Wallet } from '@mercadopago/sdk-react';
 import { Box, CircularProgress, Typography, Alert } from '@mui/material';
 import { supabase } from '../../services/supabaseClient';
@@ -10,6 +10,7 @@ export default function PaymentGateway({ items, orderId, payerEmail, accountId, 
   const [preferenceId, setPreferenceId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const lastOrderIdRef = useRef(null);
 
 useEffect(() => {
   // 1. Inicializar MP solo una vez
@@ -23,6 +24,9 @@ useEffect(() => {
       console.log("Esperando datos válidos...", { items, orderId });
       return; 
     }
+    // Evitar duplicar preferencia en StrictMode o re-renders
+    if (lastOrderIdRef.current === orderId) return;
+    lastOrderIdRef.current = orderId;
 
     setLoading(true);
     setError(null);
