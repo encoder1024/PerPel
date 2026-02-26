@@ -496,11 +496,22 @@ CREATE INDEX IF NOT EXISTS idx_businesses_account_id
     (account_id ASC NULLS LAST)
     WITH (fillfactor=100, deduplicate_items=True)
     TABLESPACE pg_default;
--- POLICY: Allow authenticated users to read their own businesses
+-- POLICY: Owners y Admins pueden gestionar negocios de su cuenta
 
--- DROP POLICY IF EXISTS "Allow authenticated users to read their own businesses" ON core.businesses;
+-- DROP POLICY IF EXISTS "Owners y Admins pueden gestionar negocios de su cuenta" ON core.businesses;
 
-CREATE POLICY "Allow authenticated users to read their own businesses"
+CREATE POLICY "Owners y Admins pueden gestionar negocios de su cuenta"
+    ON core.businesses
+    AS PERMISSIVE
+    FOR ALL
+    TO authenticated
+    USING (((account_id = get_my_account_id()) AND ((get_my_role() = 'OWNER'::app_role) OR (get_my_role() = 'ADMIN'::app_role))))
+    WITH CHECK (((account_id = get_my_account_id()) AND ((get_my_role() = 'OWNER'::app_role) OR (get_my_role() = 'ADMIN'::app_role))));
+-- POLICY: Usuarios pueden ver negocios de su cuenta
+
+-- DROP POLICY IF EXISTS "Usuarios pueden ver negocios de su cuenta" ON core.businesses;
+
+CREATE POLICY "Usuarios pueden ver negocios de su cuenta"
     ON core.businesses
     AS PERMISSIVE
     FOR SELECT
@@ -777,8 +788,8 @@ CREATE TABLE IF NOT EXISTS core.employee_assignments
         REFERENCES auth.users (id) MATCH SIMPLE
         ON UPDATE NO ACTION
         ON DELETE NO ACTION,
-    CONSTRAINT employee_assignments_user_id_fkey FOREIGN KEY (user_id)
-        REFERENCES auth.users (id) MATCH SIMPLE
+    CONSTRAINT employee_assignments_user_profiles_fkey FOREIGN KEY (user_id)
+        REFERENCES core.user_profiles (id) MATCH SIMPLE
         ON UPDATE NO ACTION
         ON DELETE CASCADE
 )

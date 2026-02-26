@@ -12,6 +12,7 @@ import KeyIcon from '@mui/icons-material/Key';
 
 const configSections = [
   { text: 'Ventas y Dispositivos', icon: <PointOfSaleIcon />, path: '/configuracion/ventas' },
+  { text: 'Sucursales y Staff', icon: <StorefrontIcon />, path: '/configuracion/sucursales' },
   { text: 'Credenciales API', icon: <KeyIcon />, path: '/configuracion/credenciales' },
   { text: 'Stock', icon: <InventoryIcon />, path: '/configuracion/stock' },
   { text: 'Facturación', icon: <ReceiptIcon />, path: '/configuracion/facturacion' },

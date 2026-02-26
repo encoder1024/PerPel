@@ -1,0 +1,54 @@
+Tu tabla core.business_credentials tiene una estructura perfecta y muy profesional. Es el lugar ideal para guardar las credenciales de Cal.com sin ensuciar la tabla principal de cuentas.
+
+Al usar un tipo external_api_name (que asumo es un ENUM), mantienes el sistema limpio. Solo necesitamos asegurarnos de que cal_com sea una opción válida en ese ENUM y mapear los campos.
+
+1. Preparar el ENUM y los Metadatos
+Primero, asegúrate de que tu tipo external_api_name acepte a Cal.com. Si no, agrégalo:
+
+SQL
+ALTER TYPE core.external_api_name ADD VALUE 'cal_com';
+2. Mapeo de Cal.com a tu tabla
+Como Cal.com utiliza API Keys (o OAuth si eres partner), el mapeo para esta integración específica quedaría así dentro de tu tabla:
+
+Columna en tu tabla	Valor de Cal.com	Nota
+name	'Cal.com Integration'	O el nombre que prefieras.
+api_name	'cal_com'	El valor de tu ENUM.
+access_token	API_KEY_DE_CAL	Aquí va la clave privada que generamos en la Fase 0.
+external_user_id	CAL_USER_ID	El ID numérico o el "Username" de Cal.com.
+client_id	WEBHOOK_SECRET	Podrías usar este campo para guardar el secreto del Webhook y validar firmas.
+3. La pieza que falta: ¿Dónde guardo el event_type_id?
+Aquí hay un detalle técnico importante: Tu tabla business_credentials guarda la llave de acceso (la conexión), pero para mostrar el calendario en la PWA, necesitas saber qué "servicio" (Event Type) mostrar.
+
+Tienes dos opciones:
+
+Opción A (Recomendada): Usar el campo external_user_id de esta tabla para guardar el Username de Cal.com (el slug), pero guardar los IDs de los eventos específicos en una tabla de services (servicios de peluquería, manicura, etc.).
+
+Opción B (Rápida): Si cada cuenta solo tiene un gran calendario, puedes guardar el event_type_id en una columna nueva en core.accounts o crear una tabla core.business_settings.
+
+4. Implementación del "Handshake" en Supabase
+Cuando conectes Cal.com en tu ERP, el flujo sería:
+
+El usuario pega su API Key en tu PWA.
+
+Tu backend hace un "test" a https://api.cal.com/v1/me?apiKey=....
+
+Si responde OK, haces el INSERT en core.business_credentials:
+
+SQL
+INSERT INTO core.business_credentials (
+    account_id, 
+    name, 
+    api_name, 
+    access_token, -- La API Key
+    external_user_id -- El slug o ID del usuario en Cal
+) VALUES (
+    'id-de-la-perfumeria', 
+    'Agenda Principal', 
+    'cal_com', 
+    'cal_live_xxxxxxxxxxxx', 
+    'perfumeria-centro'
+);
+💡 Ventaja Pro de tu tabla:
+Al tener refresh_token y expires_at, tu estructura ya está preparada por si el día de mañana Cal.com pasa a un flujo OAuth estricto (como el de Mercado Pago que hicimos antes). ¡Te ahorraste mucho trabajo futuro!
+
+¿Quieres que armemos el código de la Edge Function que consulte esta tabla para devolver el link del calendario a tu PWA? Así el frontend nunca toca las API Keys.
