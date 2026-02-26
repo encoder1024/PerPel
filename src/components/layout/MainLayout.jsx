@@ -138,7 +138,7 @@ export default function MainLayout({ children }) {
             <MenuIcon />
           </IconButton>
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1, fontWeight: 600 }}>
-            {profile?.account_name || 'AppPerPel'}
+            {profile?.account_name || 'PerPel'}
           </Typography>
           <div>
             <IconButton
