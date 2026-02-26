@@ -1,0 +1,45 @@
+11:46 PM 2/25/2026
+
+-- POLICY: Permitir todo a usuarios autenticados
+
+-- DROP POLICY IF EXISTS "Permitir todo a usuarios autenticados" ON core.accounts;
+
+CREATE POLICY "Permitir todo a usuarios autenticados"
+    ON core.accounts
+    AS PERMISSIVE
+    FOR ALL
+    TO authenticated
+    WITH CHECK (true);
+
+-- POLICY: validar_codigo_cuenta
+
+-- DROP POLICY IF EXISTS validar_codigo_cuenta ON core.accounts;
+
+CREATE POLICY validar_codigo_cuenta
+    ON core.accounts
+    AS PERMISSIVE
+    FOR SELECT
+    TO authenticated
+    USING (true);
+
+-- POLICY: permitir_insert_solicitudes
+
+-- DROP POLICY IF EXISTS permitir_insert_solicitudes ON core.role_requests;
+
+CREATE POLICY permitir_insert_solicitudes
+    ON core.role_requests
+    AS PERMISSIVE
+    FOR INSERT
+    TO authenticated
+    WITH CHECK ((auth.uid() = user_id));
+
+-- POLICY: permitir_ver_propias_solicitudes
+
+-- DROP POLICY IF EXISTS permitir_ver_propias_solicitudes ON core.role_requests;
+
+CREATE POLICY permitir_ver_propias_solicitudes
+    ON core.role_requests
+    AS PERMISSIVE
+    FOR SELECT
+    TO authenticated
+    USING ((auth.uid() = user_id));
