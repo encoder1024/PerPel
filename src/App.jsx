@@ -43,10 +43,10 @@ import { Perfil } from "./components/auth/Perfil";
 
 // Componente para redirección dinámica basada en el ROL (Fase 7 - Final)
 const RoleRedirect = () => {
-  const { user, profile, loading } = useAuthStore();
+  const { user, profile, loading, authReady } = useAuthStore();
 
 // Mientras carga, puedes mostrar un spinner de MUI para que el usuario sepa que algo pasa
-  if (loading) {
+  if (!authReady || loading || (user && !profile)) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
         <CircularProgress />
@@ -56,7 +56,7 @@ const RoleRedirect = () => {
 
   if (!user) return <Navigate to="/login" replace />;
 
-  // Si el perfil no cargó pero el usuario sí existe, mándalo a perfil por defecto
+  // Si el perfil no cargó aún, mantenemos loader (no redirigimos)
   if (!profile) return <Navigate to="/perfil" replace />;
 
   switch (profile?.app_role) {

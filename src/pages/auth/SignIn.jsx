@@ -23,7 +23,8 @@ export default function SignIn() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const { login, loading, error, setError } = useAuthStore();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { login, error, setError } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -31,7 +32,7 @@ export default function SignIn() {
 
   const handleClickShowPassword = () => setShowPassword(!showPassword);
   
-  console.log("SignIn: Loading: ", loading, "Login: ", login);
+  console.log("SignIn: Submitting: ", isSubmitting, "Login: ", login);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -40,10 +41,13 @@ export default function SignIn() {
       return;
     }
     try {
+      setIsSubmitting(true);
       await login(email, password);
       navigate(from, { replace: true });
     } catch (err) {
       // El error ya lo maneja el store
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -125,10 +129,10 @@ export default function SignIn() {
               type="submit"
               variant="contained"
               size="large"
-              disabled={loading}
+              disabled={isSubmitting}
               sx={{ py: 1.5, mb: 3 }}
             >
-              {loading ? <CircularProgress size={24} color="inherit" /> : 'Entrar'}
+              {isSubmitting ? <CircularProgress size={24} color="inherit" /> : 'Entrar'}
             </Button>
 
             <Box sx={{ textAlign: 'center' }}>
