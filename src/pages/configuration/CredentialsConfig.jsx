@@ -72,9 +72,42 @@ export default function CredentialsConfig() {
 
     // Construir la URL de Mercado Pago usando el Client ID guardado en la DB
     // El 'state' lleva el ID de nuestra tabla para saber a quién actualizar al volver
-    const mpUrl = `https://auth.mercadopago.com/authorization?client_id=${cred.client_id}&response_type=code&platform_id=mp&redirect_uri=${encodeURIComponent(config.mercadopago.redirectUri)}&state=${cred.id}`;
+    const mpUrl = `https://auth.mercadopago.com/authorization?client_id=${cred.client_id}&response_type=code&platform_id=mp&redirect_uri=${encodeURIComponent(config.mercadopago.redirectUri)}&state=${encodeURIComponent(`mp:${cred.id}`)}`;
     
     window.location.href = mpUrl;
+  };
+
+  const handleCalcomRedirect = async (cred) => {
+    try {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !sessionData?.session?.access_token) {
+        throw new Error("Sesión inválida. Inicia sesión nuevamente.");
+      }
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+      const res = await fetch(`${supabaseUrl}/functions/v1/calcom-oauth-start`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionData.session.access_token}`,
+          apikey: anonKey,
+        },
+        body: JSON.stringify({ credentialId: cred.id, accessToken: sessionData.session.access_token }),
+      });
+
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload?.error || "Error al iniciar OAuth");
+
+      if (payload?.url) {
+        window.location.href = payload.url;
+      } else {
+        throw new Error("No se recibió URL de Cal.com");
+      }
+    } catch (err) {
+      setError(err.message);
+    }
   };
 
   const handleAddCredential = async (e) => {
@@ -265,7 +298,7 @@ export default function CredentialsConfig() {
                     {cred.client_id ? (
                       <Box>
                         <Typography variant="caption" display="block">ID: {cred.client_id}</Typography>
-                        {!cred.access_token && (
+                        {!cred.access_token && cred.api_name === 'MERCADOPAGO' && (
                           <Button 
                             size="small" 
                             startIcon={<LinkIcon />} 
@@ -275,6 +308,18 @@ export default function CredentialsConfig() {
                             onClick={() => handleOAuthRedirect(cred)}
                           >
                             Vincular Cuenta
+                          </Button>
+                        )}
+                        {!cred.access_token && cred.api_name === 'CAL_COM' && (
+                          <Button 
+                            size="small" 
+                            startIcon={<LinkIcon />} 
+                            variant="text" 
+                            color="warning"
+                            sx={{ fontSize: '0.7rem', p: 0 }}
+                            onClick={() => handleCalcomRedirect(cred)}
+                          >
+                            Vincular Cal.com
                           </Button>
                         )}
                       </Box>

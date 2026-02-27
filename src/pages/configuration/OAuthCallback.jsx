@@ -17,8 +17,15 @@ export default function OAuthCallback() {
   useEffect(() => {
     const code = searchParams.get('code');
     const state = searchParams.get('state');
+    const errorParam = searchParams.get('error');
 
     // 1. Validar parámetros
+    if (errorParam) {
+      setStatus('error');
+      setErrorMsg(errorParam);
+      return;
+    }
+
     if (!code || !state) {
       setStatus('error');
       setErrorMsg('Faltan parámetros críticos de autorización.');
@@ -36,22 +43,44 @@ export default function OAuthCallback() {
       console.log("Iniciando vinculación atómica para:", state);
 
       try {
-        const { data, error } = await supabase.functions.invoke('oauth-handler', {
-          body: { code, credentialId: state }
-        });
+        const [provider, credId] = state.includes(':')
+          ? state.split(':', 2)
+          : ['mp', state];
 
-        if (error) throw error;
-
-        if (data?.success) {
-          setStatus('success');
-          // Redirigir y limpiar flag después de un tiempo
-          setTimeout(() => {
-            isProcessingGlobally = false;
-            navigate('/configuracion/credenciales');
-          }, 3000);
+        if (provider === 'calcom') {
+          const { data: sessionData } = await supabase.auth.getSession();
+          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+          const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+          const res = await fetch(`${supabaseUrl}/functions/v1/calcom-oauth`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${sessionData?.session?.access_token ?? ""}`,
+              apikey: anonKey,
+            },
+            body: JSON.stringify({
+              code,
+              credentialId: credId,
+              accessToken: sessionData?.session?.access_token ?? "",
+            }),
+          });
+          const payload = await res.json();
+          if (!res.ok) throw new Error(payload?.message || payload?.error || "Error OAuth Cal.com");
+          if (!payload?.success) throw new Error(payload?.message || "Error en el procesamiento.");
         } else {
-          throw new Error(data?.message || 'Error en el procesamiento.');
+          const { data, error } = await supabase.functions.invoke('oauth-handler', {
+            body: { code, credentialId: credId }
+          });
+          if (error) throw error;
+          if (!data?.success) throw new Error(data?.message || "Error en el procesamiento.");
         }
+
+        setStatus('success');
+        // Redirigir y limpiar flag después de un tiempo
+        setTimeout(() => {
+          isProcessingGlobally = false;
+          navigate('/configuracion/credenciales');
+        }, 3000);
 
       } catch (err) {
         console.error('OAuth Callback Error:', err);
