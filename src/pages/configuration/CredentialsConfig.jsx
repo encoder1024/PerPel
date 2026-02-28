@@ -292,7 +292,11 @@ export default function CredentialsConfig() {
                     <Chip label={cred.api_name} size="small" color="primary" variant="outlined" />
                   </TableCell>
                   <TableCell>
-                    <Chip label={cred.external_status || 'active'} size="small" color="success" />
+                    <Chip
+                      label={cred.external_status || 'active'}
+                      size="small"
+                      color={cred.external_status === 'expired' ? 'error' : 'success'}
+                    />
                   </TableCell>
                   <TableCell>
                     {cred.client_id ? (
@@ -310,16 +314,16 @@ export default function CredentialsConfig() {
                             Vincular Cuenta
                           </Button>
                         )}
-                        {!cred.access_token && cred.api_name === 'CAL_COM' && (
+                        {cred.api_name === 'CAL_COM' && (!cred.access_token || cred.external_status === 'expired') && (
                           <Button 
                             size="small" 
                             startIcon={<LinkIcon />} 
                             variant="text" 
-                            color="warning"
+                            color={cred.external_status === 'expired' ? 'error' : 'warning'}
                             sx={{ fontSize: '0.7rem', p: 0 }}
                             onClick={() => handleCalcomRedirect(cred)}
                           >
-                            Vincular Cal.com
+                            {cred.external_status === 'expired' ? 'Re-vincular Cal.com' : 'Vincular Cal.com'}
                           </Button>
                         )}
                       </Box>

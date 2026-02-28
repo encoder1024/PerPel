@@ -43,6 +43,7 @@ serve(async (req) => {
 
     // 1. Obtener secretos desde RPC (desencriptado en DB)
     const { data: cred, error: dbError } = await supabaseClient
+      .schema("core")
       .rpc("get_credential_by_id", { p_credential_id: credentialId })
       .maybeSingle();
 
@@ -83,10 +84,12 @@ serve(async (req) => {
 
     // 3. Encriptar tokens antes de guardar
     const { data: encAccess, error: encAccessErr } = await supabaseClient
+      .schema("core")
       .rpc("encrypt_token", { plain_text: data.access_token || data.accessToken });
     if (encAccessErr) throw encAccessErr;
 
     const { data: encRefresh, error: encRefreshErr } = await supabaseClient
+      .schema("core")
       .rpc("encrypt_token", { plain_text: data.refresh_token || data.refreshToken });
     if (encRefreshErr) throw encRefreshErr;
 

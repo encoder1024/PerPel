@@ -56,9 +56,9 @@ serve(async (req) => {
     const { triggerEvent, payload } = requestBody ?? {};
 
     const calId =
+      payload?.uid?.toString() ||
       payload?.bookingId?.toString() ||
-      payload?.id?.toString() ||
-      payload?.uid?.toString();
+      payload?.id?.toString();
 
     if (!calId) {
       // Cal.com ping/test suele no traer id
