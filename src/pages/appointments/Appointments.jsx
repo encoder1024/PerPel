@@ -15,7 +15,8 @@ import {
   MenuItem,
   Select,
 } from "@mui/material";
-import { Cal as CalComponent, getCalApi as getApi } from "@calcom/embed-react"; //import { Cal,  getCalApi } from "@calcom/embed-react";
+// import Cal, { getCalApi } from "@calcom/embed-react";
+import * as CalEmbed from "@calcom/embed-react";
 import WhatsAppIcon from "@mui/icons-material/WhatsApp";
 import { useAppointments } from "../../hooks/useAppointments";
 
@@ -42,7 +43,7 @@ export default function Appointments() {
 
   useEffect(() => {
     (async function () {
-      const cal = await getApi({
+      const cal = await CalEmbed.getCalApi({
         namespace: "62edd46d-ec20-4178-b7d0-48ba8b080586",
       });
       cal("ui", { hideEventTypeDetails: false, layout: "week_view" });
@@ -109,7 +110,7 @@ export default function Appointments() {
                 height="100%"
                 frameBorder="0"
               /> */}
-              <CalComponent
+              <CalEmbed.Cal
                 namespace="62edd46d-ec20-4178-b7d0-48ba8b080586"
                 calLink="andres-ferrer-yknamm/62edd46d-ec20-4178-b7d0-48ba8b080586"
                 style={{ width: "100%", height: "100%", overflow: "scroll" }}
