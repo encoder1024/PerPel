@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Cal.com OAuth Debug</title>
+    <style>
+      body {
+        font-family: Inter, system-ui, -apple-system, sans-serif;
+        background: #f8fafc;
+        color: #0f172a;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem;
+      }
+      .card {
+        width: 100%;
+        max-width: 640px;
+        background: #fff;
+        border-radius: 16px;
+        box-shadow: 0 30px 45px rgba(15, 23, 42, 0.12);
+        padding: 2rem;
+      }
+      pre {
+        background: #0f172a;
+        color: #f8fafc;
+        padding: 1rem;
+        border-radius: 0.75rem;
+        max-height: 300px;
+        overflow-x: auto;
+        font-size: 0.9rem;
+      }
+      small {
+        display: block;
+        margin-top: 0.75rem;
+        color: #475569;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>OAuth Debug</h1>
+      <p>
+        Este archivo captura el query string que Cal.com envía al callback. Copia
+        el valor de <code>code</code> y úsalo en Postman.
+      </p>
+      <pre id="params">Esperando el redirect...</pre>
+      <small>
+        La URL visible en la barra todavía redirige a este archivo. Después
+        podés volver a usar <code>/oauth/callback</code>.
+      </small>
+    </div>
+    <script>
+      const params = new URLSearchParams(window.location.search);
+      const formatted = Array.from(params.entries())
+        .map(([key, value]) => `${key}=${value}`)
+        .join("\n");
+      document.getElementById("params").textContent =
+        formatted || "No se detectaron parámetros.";
+    </script>
+  </body>
+</html>

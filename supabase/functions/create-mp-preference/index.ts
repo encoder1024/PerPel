@@ -18,14 +18,30 @@ serve(async (req) => {
     requestBody = await req.json();
     const { orderId } = requestBody;
 
-    // 1. Fetch Order Details from Supabase
+    // 1. Fetch Order and its Items Details from Supabase
     const { data: order, error: orderError } = await supabase
+      .schema('core')
       .from('orders')
-      .select('*, account_id, total_amount')
+      .select(`
+        *,
+        order_items (
+          quantity,
+          unit_price,
+          inventory_items (name)
+        )
+      `)
       .eq('id', orderId)
       .single();
 
     if (orderError) throw orderError;
+
+    // Map items for Mercado Pago format
+    const mpItems = order.order_items.map((oi: any) => ({
+      title: oi.inventory_items.name,
+      unit_price: Number(oi.unit_price),
+      quantity: Number(oi.quantity),
+      currency_id: order.currency || 'ARS'
+    }));
 
     // 2. Call MercadoPago API to create Preference
     const mpResponse = await fetch("https://api.mercadopago.com/checkout/preferences", {
@@ -35,12 +51,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        items: [{
-          title: `Orden #${orderId.split('-')[0]}`,
-          unit_price: Number(order.total_amount),
-          quantity: 1,
-          currency_id: 'ARS'
-        }],
+        items: mpItems,
         external_reference: orderId,
         back_urls: {
           success: "https://app.perpel.com/success",

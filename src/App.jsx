@@ -24,6 +24,7 @@ import AuditLogs from "./pages/audit/AuditLogs";
 import RoleRequest  from "./pages/auth/RoleRequest";
 import ConfigurationLayout from "./pages/configuration/ConfigurationLayout";
 import VentasConfig from "./pages/configuration/VentasConfig";
+import SucursalesConfig from "./pages/configuration/SucursalesConfig";
 import CredentialsConfig from "./pages/configuration/CredentialsConfig";
 import StockConfig from "./pages/configuration/StockConfig";
 import FacturacionConfig from "./pages/configuration/FacturacionConfig";
@@ -42,10 +43,10 @@ import { Perfil } from "./components/auth/Perfil";
 
 // Componente para redirección dinámica basada en el ROL (Fase 7 - Final)
 const RoleRedirect = () => {
-  const { user, profile, loading } = useAuthStore();
+  const { user, profile, loading, authReady } = useAuthStore();
 
 // Mientras carga, puedes mostrar un spinner de MUI para que el usuario sepa que algo pasa
-  if (loading) {
+  if (!authReady || loading || (user && !profile)) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
         <CircularProgress />
@@ -55,7 +56,7 @@ const RoleRedirect = () => {
 
   if (!user) return <Navigate to="/login" replace />;
 
-  // Si el perfil no cargó pero el usuario sí existe, mándalo a perfil por defecto
+  // Si el perfil no cargó aún, mantenemos loader (no redirigimos)
   if (!profile) return <Navigate to="/perfil" replace />;
 
   switch (profile?.app_role) {
@@ -217,6 +218,7 @@ function App() {
             >
               <Route index element={<Navigate to="ventas" replace />} />
               <Route path="ventas" element={<VentasConfig />} />
+              <Route path="sucursales" element={<SucursalesConfig />} />
               <Route path="credenciales" element={<CredentialsConfig />} />
               <Route path="stock" element={<StockConfig />} />
               <Route path="facturacion" element={<FacturacionConfig />} />

@@ -8,15 +8,17 @@ export const useAuthStore = create(
       user: null,
       profile: null,
       loading: false,
+      authReady: false,
       error: null,
 
       setUser: (user) => set({ user }),
       setProfile: (profile) => set({ profile }),
       setLoading: (loading) => set({ loading }),
+      setAuthReady: (authReady) => set({ authReady }),
       setError: (error) => set({ error }),
 
       login: async (email, password) => {
-        // set({ loading: true, error: null });
+        // loading lo controla AuthProvider
         try {
           const { data, error } = await supabase.auth.signInWithPassword({
             email,
@@ -31,25 +33,21 @@ export const useAuthStore = create(
         } catch (error) {
           set({ error: error.message });
           throw error;
-        } finally {
-          set({ loading: false });
         }
       },
 
       logout: async () => {
-        // set({ loading: true });
+        // loading lo controla AuthProvider
         try {
           await supabase.auth.signOut();
           set({ user: null, profile: null });
         } catch (error) {
           set({ error: error.message });
-        } finally {
-          set({ loading: false });
         }
       },
 
       fetchProfile: async (userId) => {
-        // set({ loading: true, error: null }); 
+        // loading lo controla AuthProvider
         try {
           // Intentamos la consulta al esquema core
           const { data, error } = await supabase
@@ -80,19 +78,25 @@ export const useAuthStore = create(
           console.error('Error fetching profile:', error.message);
           set({ error: error.message });
           return null;
-        } finally {
-          set({ loading: false });
         }
       }
     }),
     {
       name: 'auth-storage', 
-      // Partially hydrate, don't rehydrate 'user' and 'profile' if they are null in localStorage
-      // This allows the App.jsx listener to be the source of truth on initial load
-      // partialize: (state) =>
-      //   Object.fromEntries(
-      //     Object.entries(state).filter(([key]) => !['user', 'profile', 'loading', 'error'].includes(key))
-      //   ),
+      // Evitamos persistir estado efímero o sensible del runtime
+      partialize: (state) =>
+        Object.fromEntries(
+          Object.entries(state).filter(
+            ([key]) => !['user', 'profile', 'loading', 'authReady', 'error'].includes(key)
+          )
+        ),
+      // Forzar estado limpio al rehidratar para evitar loading colgado
+      onRehydrateStorage: () => (state) => {
+        if (!state) return;
+        state.setLoading(false);
+        state.setAuthReady(false);
+        state.setError(null);
+      },
     }
   )
 );

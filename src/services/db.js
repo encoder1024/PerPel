@@ -75,6 +75,30 @@ const customerSchema = {
   required: ['id', 'account_id', 'full_name', 'doc_type', 'doc_number']
 };
 
+// Esquema para Turnos (Reflejo de core.appointments)
+const appointmentsSchema = {
+  title: 'appointments schema',
+  version: 0,
+  primaryKey: 'id',
+  type: 'object',
+  properties: {
+    id: { type: 'string', maxLength: 100 },
+    account_id: { type: 'string' },
+    business_id: { type: 'string' },
+    external_cal_id: { type: 'string' },
+    client_id: { type: 'string' },
+    employee_id: { type: 'string' },
+    service_id: { type: 'string' },
+    start_time: { type: 'string' },
+    end_time: { type: 'string' },
+    status: { type: 'string' },
+    created_at: { type: 'string' },
+    updated_at: { type: 'string' },
+    is_deleted: { type: 'boolean', default: false }
+  },
+  required: ['id', 'account_id', 'business_id', 'start_time', 'end_time', 'status']
+};
+
 // Esquema para la Cola de Sincronización (Offline Sync Queue)
 const syncQueueSchema = {
   title: 'sync queue schema',
@@ -96,7 +120,7 @@ let dbPromise = null;
 
 const _create = async () => {
   const db = await createRxDatabase({
-    name: 'perpel_db_v4', // Incremented version to force clean schema recreation
+    name: 'perpel_db_v5', // Incremented version to force clean schema recreation
     storage: getRxStorageDexie()
   });
 
@@ -104,6 +128,7 @@ const _create = async () => {
     inventory_items: { schema: inventorySchema },
     stock_levels: { schema: stockLevelsSchema },
     customers: { schema: customerSchema },
+    appointments: { schema: appointmentsSchema },
     sync_queue: { schema: syncQueueSchema }
   });
 
