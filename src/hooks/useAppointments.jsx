@@ -73,11 +73,15 @@ export const useAppointments = () => {
           end_time,
           status,
           inventory_items (name),
-          user_profiles!client_id (full_name)
+          client_name,
+          client_email,
+          client_phone,
+          external_booking_id
         `
         )
         .eq("account_id", profile.account_id)
         .eq("business_id", selectedBusinessId)
+        .eq("status", "SCHEDULED")
         .eq("is_deleted", false)
         .order("start_time", { ascending: true })
         .limit(20);
@@ -104,7 +108,9 @@ export const useAppointments = () => {
         .limit(1)
         .maybeSingle();
       if (credError) throw credError;
-      setCalcomExpired(data?.external_status === "expired");
+      const expired = data?.external_status === "expired";
+      console.log("[calcom-cred-check]", profile.account_id, expired);
+      setCalcomExpired(expired);
     } catch (err) {
       console.error("Error checking Cal.com credential:", err.message);
     }
@@ -132,7 +138,7 @@ export const useAppointments = () => {
 
   const markAttended = (appointmentId) =>
     updateStatus(appointmentId, "COMPLETED");
-  const markCancelled = async (appointmentId) => {
+  const markCancelled = async (appointmentId, externalBookingId) => {
     if (!appointmentId) return;
     setActionLoadingId(appointmentId);
     try {
@@ -151,37 +157,36 @@ export const useAppointments = () => {
       if (!accessToken) {
         throw new Error("Sesión inválida");
       }
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-      console.log("[calcom-cancel] supabaseUrl", supabaseUrl);
-      console.log("[calcom-cancel] anonKey?", !!anonKey);
-      if (!supabaseUrl || !anonKey) {
-        throw new Error("Config Supabase incompleta");
+      if (!externalBookingId) {
+        throw new Error("external_booking_id requerido");
       }
 
-      const res = await fetch(
-        `${supabaseUrl}/functions/v1/calcom-booking-cancel`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${anonKey}`,
-            apikey: anonKey,
-          },
-          body: JSON.stringify({
+      const { data: functionData, error: functionError } =
+        await supabase.functions.invoke("calcom-booking-cancel", {
+          body: {
             appointmentId,
+            external_booking_id: externalBookingId,
             reason: "Cancelado desde ERP",
             userAccessToken: accessToken,
-          }),
-        }
-      );
-      const data = await res.json();
-      if (!res.ok || !data?.success) {
-        throw new Error(data?.message || "Cancelación fallida");
+          },
+        });
+
+      const failMessage =
+        functionError?.message ||
+        functionData?.message ||
+        "Cancelaci�n fallida";
+      if (functionError || !functionData?.success) {
+        throw new Error(failMessage);
       }
       await loadAppointments();
     } catch (err) {
       console.error("Error cancelling appointment:", err.message);
+      const message = (err?.message || "").toString();
+      const invalidTokenRegex = /invalid\s+access\s+token|invalid\s+token|invalid_grant|expired/i;
+      if (invalidTokenRegex.test(message)) {
+        setCalcomExpired(true);
+        checkCalcomCredential();
+      }
       setError("No se pudo cancelar el turno en Cal.com.");
     } finally {
       setActionLoadingId(null);
@@ -199,6 +204,10 @@ export const useAppointments = () => {
 
   useEffect(() => {
     checkCalcomCredential();
+    const interval = setInterval(() => {
+      checkCalcomCredential();
+    }, 60 * 1000);
+    return () => clearInterval(interval);
   }, [checkCalcomCredential]);
 
   const isFinalStatus = (status) => FINAL_STATUSES.has(status);

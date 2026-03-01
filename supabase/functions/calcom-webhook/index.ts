@@ -53,12 +53,14 @@ serve(async (req) => {
   try {
     rawBody = await req.text();
     requestBody = rawBody ? JSON.parse(rawBody) : {};
-    const { triggerEvent, payload } = requestBody ?? {};
+    const { triggerEvent, payload, attendees } = requestBody ?? {};
 
-    const calId =
-      payload?.uid?.toString() ||
-      payload?.bookingId?.toString() ||
-      payload?.id?.toString();
+    const cleanId = (value: unknown) =>
+      value !== null && value !== undefined
+        ? value.toString().trim()
+        : undefined;
+    const calId = cleanId(payload?.uid);
+    const bookingId = cleanId(payload?.bookingId);
 
     if (!calId) {
       // Cal.com ping/test suele no traer id
@@ -182,6 +184,7 @@ serve(async (req) => {
       account_id: accountId,
       business_id: businessId,
       external_cal_id: calId,
+      external_booking_id: bookingId,
       start_time: startTime,
       end_time: endTime,
       status,
@@ -190,6 +193,9 @@ serve(async (req) => {
       service_id: serviceId,
       cancel_reason: payload?.reason || null,
       is_deleted: false,
+      client_name: attendees?.name || null,
+      client_email: attendees?.email || null,
+      client_phone: attendees?.phoneNumber || null,
     };
 
     const { data: existing, error: existingError } = await supabase

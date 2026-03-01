@@ -90,20 +90,14 @@ serve(async (req) => {
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || "Error refresh Cal.com");
 
-      const { data: encAccess, error: encAccessErr } = await supabase
-        .rpc("encrypt_token", { plain_text: data.access_token || data.accessToken });
-      if (encAccessErr) throw encAccessErr;
-
-      const { data: encRefresh, error: encRefreshErr } = await supabase
-        .rpc("encrypt_token", { plain_text: data.refresh_token || data.refreshToken });
-      if (encRefreshErr) throw encRefreshErr;
+      const sanitize = (value: unknown) => (value ?? "").toString().replace(/\s+/g, "");
 
       const { error: updateError } = await supabase
         .schema("core")
         .from("business_credentials")
         .update({
-          access_token: encAccess,
-          refresh_token: encRefresh,
+          access_token: sanitize(data.access_token || data.accessToken),
+          refresh_token: sanitize(data.refresh_token || data.refreshToken),
           expires_at: data.expires_in
             ? new Date(Date.now() + data.expires_in * 1000).toISOString()
             : null,

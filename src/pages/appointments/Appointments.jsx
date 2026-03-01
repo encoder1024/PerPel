@@ -16,6 +16,7 @@ import {
   Select,
 } from "@mui/material";
 import Cal, { getCalApi } from "@calcom/embed-react";
+import WhatsAppIcon from "@mui/icons-material/WhatsApp";
 import { useAppointments } from "../../hooks/useAppointments";
 
 export default function Appointments() {
@@ -70,6 +71,11 @@ export default function Appointments() {
     };
   }, []);
 
+  const normalizePhone = (phone) => {
+    const digits = (phone ?? "").toString().replace(/[^\d+]/g, "");
+    return digits.startsWith("+") ? digits.slice(1) : digits;
+  };
+
   return (
     <Box sx={{ flexGrow: 1 }}>
       <Typography variant="h5" sx={{ fontWeight: 600, mb: 3 }}>
@@ -80,8 +86,8 @@ export default function Appointments() {
         {calcomExpired && (
           <Grid item xs={12}>
             <Alert severity="warning">
-              La credencial de Cal.com estÃ¡ expirada. Re-vinculÃ¡ la cuenta en
-              ConfiguraciÃ³n â†’ Credenciales.
+              La credencial de Cal.com está expirada. Re-vinculá la cuenta en
+              Configuración → Credenciales.
             </Alert>
           </Grid>
         )}
@@ -209,7 +215,7 @@ export default function Appointments() {
                           <Typography variant="caption" sx={{ display: "block", mb: 1 }}>
                             Cliente:{" "}
                             <strong>
-                              {appt.user_profiles?.full_name || "Desconocido"}
+                              {appt.client_name + " " + appt.client_phone || "Desconocido"}
                             </strong>
                           </Typography>
                           <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
@@ -226,8 +232,14 @@ export default function Appointments() {
                               size="small"
                               variant="outlined"
                               color="error"
-                              disabled={isFinal || actionLoadingId === appt.id}
-                              onClick={() => markCancelled(appt.id)}
+                              disabled={
+                                isFinal ||
+                                actionLoadingId === appt.id ||
+                                !appt.external_booking_id
+                              }
+                              onClick={() =>
+                                markCancelled(appt.id, appt.external_booking_id)
+                              }
                             >
                               Cancelar
                             </Button>
@@ -240,6 +252,23 @@ export default function Appointments() {
                             >
                               No Show
                             </Button>
+                            {appt.client_phone && (
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                color="success"
+                                startIcon={<WhatsAppIcon />}
+                                component="a"
+                                href={`https://wa.me/${normalizePhone(
+                                  appt.client_phone
+                                )}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                sx={{ textTransform: "none" }}
+                              >
+                                WhatsApp
+                              </Button>
+                            )}
                           </Box>
                         </CardContent>
                       </Card>

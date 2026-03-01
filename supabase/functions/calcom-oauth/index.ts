@@ -82,24 +82,15 @@ serve(async (req) => {
       }));
     }
 
-    // 3. Encriptar tokens antes de guardar
-    const { data: encAccess, error: encAccessErr } = await supabaseClient
-      .schema("core")
-      .rpc("encrypt_token", { plain_text: data.access_token || data.accessToken });
-    if (encAccessErr) throw encAccessErr;
+    const sanitize = (value: unknown) => (value ?? "").toString().replace(/\s+/g, "");
 
-    const { data: encRefresh, error: encRefreshErr } = await supabaseClient
-      .schema("core")
-      .rpc("encrypt_token", { plain_text: data.refresh_token || data.refreshToken });
-    if (encRefreshErr) throw encRefreshErr;
-
-    // 4. Guardar tokens (Mapeo flexible v1)
+    // 3. Guardar tokens (Mapeo flexible v1)
     const { error: updateError } = await supabaseClient
       .schema("core")
       .from("business_credentials")
       .update({
-        access_token: encAccess,
-        refresh_token: encRefresh,
+        access_token: sanitize(data.access_token || data.accessToken),
+        refresh_token: sanitize(data.refresh_token || data.refreshToken),
         external_user_id: (data.user_id || data.ownerId || data.username)?.toString(),
         expires_at: data.expires_in ? new Date(Date.now() + data.expires_in * 1000).toISOString() : null,
         external_status: "active",

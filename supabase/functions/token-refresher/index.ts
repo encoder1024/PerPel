@@ -52,7 +52,7 @@ serve(async (req) => {
       .from('business_credentials')
       .select('id, account_id, api_name, client_id, client_secret, refresh_token, expires_at, is_locked')
       .eq('account_id', accountId)
-      .in('api_name', ['MERCADOPAGO', 'CAL_COM'])
+    .eq('api_name', 'MERCADOPAGO')
       .not('refresh_token', 'is', null)
       .eq('is_deleted', false)
       .eq('external_status', 'active')
@@ -84,9 +84,7 @@ serve(async (req) => {
         const expiresAt = cred.expires_at ? new Date(cred.expires_at).getTime() : 0;
         
         // Criterio de renovación (7 días para MP, 30 minutos para Cal.com)
-        const shouldRenew = 
-            (cred.api_name === 'MERCADOPAGO' && expiresAt < now + 7 * 24 * 60 * 60 * 1000) ||
-            (cred.api_name === 'CAL_COM' && expiresAt < now + 30 * 60 * 1000);
+        const shouldRenew = expiresAt < now + 7 * 24 * 60 * 60 * 1000;
 
         if (!cred.expires_at || !cred.access_token || shouldRenew) {
           console.log(`Renovando ${cred.api_name} para credencial ${cred.id} de cuenta ${cred.account_id}...`);
@@ -113,8 +111,7 @@ serve(async (req) => {
               .eq('id', cred.id)
             if (updateError) throw updateError
             renewed = true;
-          } 
-          // else if (cred.api_name === 'CAL_COM') { /* Lógica de renovación Cal.com */ renewed = true; }
+          }
 
           if (renewed) {
             renewalResults.push({ id: cred.id, api_name: cred.api_name, status: 'renewed' });

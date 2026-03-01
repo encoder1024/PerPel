@@ -5,12 +5,13 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Methods": "POST, DELETE, OPTIONS",
+  "Access-Control-Max-Age": "86400",
 };
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response("ok", { status: 200, headers: corsHeaders });
+    return new Response(null, { status: 204, headers: corsHeaders });
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
@@ -25,14 +26,22 @@ serve(async (req) => {
   let appointmentId: string | null = null;
 
   try {
-    const { appointmentId: apptId, reason, userAccessToken } = await req.json();
+    const body = await req.json();
+    const { appointmentId: apptId, reason } = body;
+    
+    // CAMBIO: Intentar obtener el token del Header Authorization PRIMERO, luego del body
+    const authHeader = req.headers.get("Authorization");
+    const userAccessToken = authHeader ? authHeader.replace("Bearer ", "") : body.userAccessToken;
+
     appointmentId = apptId;
     if (!appointmentId) throw new Error("appointmentId requerido");
-    if (!userAccessToken) throw new Error("userAccessToken requerido");
+    if (!userAccessToken) throw new Error("Token de usuario no encontrado en la petición");
 
+    // Validación del usuario usando el token extraído
     const { data: userData, error: userError } =
       await adminClient.auth.getUser(userAccessToken);
-    if (userError || !userData?.user) throw new Error("Unauthorized");
+      
+    if (userError || !userData?.user) throw new Error("Unauthorized: Sesión inválida");
 
     const { data: profile, error: profileError } = await adminClient
       .schema("core")
@@ -48,7 +57,9 @@ serve(async (req) => {
     const { data: appt, error: apptError } = await adminClient
       .schema("core")
       .from("appointments")
-      .select("id, account_id, business_id, external_cal_id, status")
+      .select(
+        "id, account_id, business_id, external_cal_id, external_booking_id, status"
+      )
       .eq("id", appointmentId)
       .eq("is_deleted", false)
       .single();
@@ -96,10 +107,23 @@ serve(async (req) => {
 
     const meUrl = "https://api.cal.com/v2/me";
     const bookingUrl = `https://api.cal.com/v2/bookings/${appt.external_cal_id}`;
-    const cancelUrl = `https://api.cal.com/v2/bookings/${appt.external_cal_id}/cancel`;
-    const cancelReason = reason || "Cancelado desde ERP";
     const clean = (value: unknown) =>
       (value ?? "").toString().replace(/\s+/g, "");
+    const bookingId = clean(
+      appt.external_booking_id);
+    if (!bookingId) {
+      throw new Error("BookingId no disponible para cancelación");
+    }
+    const apiKey = "cal_live_39e444ef0b8be8b391b46614c83bce3b";
+    if (!apiKey) {
+      throw new Error("API Key de Cal.com no disponible");
+    }
+    const cancelReason = reason || "Cancelado desde ERP V1";
+    const cancelUrl = new URL(`https://api.cal.com/v1/bookings/${bookingId}/cancel`);
+    cancelUrl.searchParams.set("apiKey", apiKey);
+    cancelUrl.searchParams.set("cancellationReason", cancelReason);
+    cancelUrl.searchParams.set("allRemainingBookings", "false");
+    
     let accessToken = clean(credRow.access_token);
     const refreshToken = clean(credRow.refresh_token);
     const clientId = clean(credRow.client_id);
@@ -129,7 +153,6 @@ serve(async (req) => {
 
     let meRespResult = await callMe(accessToken);
     if (meRespResult.resp.status === 401) {
-      // Attempt token refresh
       const refreshUrl = "https://app.cal.com/api/auth/oauth/refreshToken";
       const refreshResp = await fetch(refreshUrl, {
         method: "POST",
@@ -154,25 +177,12 @@ serve(async (req) => {
         status: refreshResp.ok ? "SUCCESS" : "FAILED",
       });
       if (refreshResp.ok) {
-        const { data: encAccess, error: encAccessErr } = await adminClient
-          .schema("core")
-          .rpc("encrypt_token", {
-            plain_text: refreshData.access_token || refreshData.accessToken,
-          });
-        if (encAccessErr) throw encAccessErr;
-        const { data: encRefresh, error: encRefreshErr } = await adminClient
-          .schema("core")
-          .rpc("encrypt_token", {
-            plain_text: refreshData.refresh_token || refreshData.refreshToken,
-          });
-        if (encRefreshErr) throw encRefreshErr;
-
         await adminClient
           .schema("core")
           .from("business_credentials")
           .update({
-            access_token: encAccess,
-            refresh_token: encRefresh,
+            access_token: clean(refreshData.access_token || refreshData.accessToken),
+            refresh_token: clean(refreshData.refresh_token || refreshData.refreshToken),
             expires_at: refreshData.expires_in
               ? new Date(Date.now() + refreshData.expires_in * 1000).toISOString()
               : null,
@@ -180,10 +190,9 @@ serve(async (req) => {
           })
           .eq("id", assign.credential_id);
 
-        const newAccessToken = clean(
+        accessToken = clean(
           refreshData.access_token || refreshData.accessToken || ""
         );
-        accessToken = newAccessToken;
         meRespResult = await callMe(accessToken);
       } else {
         if (refreshData?.error === "invalid_grant") {
@@ -214,24 +223,22 @@ serve(async (req) => {
       response_payload: { status: bookingResp.status, body: bookingData },
       status: bookingResp.ok ? "SUCCESS" : "FAILED",
     });
-    const cancelResp = await fetch(cancelUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "cal-api-version": "2024-08-13",
-        "Authorization": `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({ cancellationReason: cancelReason }),
+    const cancelResp = await fetch(cancelUrl.toString(), {
+      method: "DELETE",
     });
     const cancelData = await cancelResp.json();
     if (!cancelResp.ok) {
       await adminClient.schema("logs").from("api_logs").insert({
         account_id: accountId,
         api_name: "CAL_COM",
-        endpoint: cancelUrl,
+        endpoint: cancelUrl.toString(),
         operation_name: "booking_cancel_http_error",
         correlation_id: correlationId,
-        request_payload: { appointmentId, reason: cancelReason },
+        request_payload: {
+          appointmentId,
+          reason: cancelReason,
+          cancellationMethod: "v1",
+        },
         response_payload: { status: cancelResp.status, body: cancelData },
         status: "FAILED",
       });
@@ -251,10 +258,10 @@ serve(async (req) => {
     await adminClient.schema("logs").from("api_logs").insert({
       account_id: accountId,
       api_name: "CAL_COM",
-      endpoint: cancelUrl,
+      endpoint: cancelUrl.toString(),
       operation_name: "booking_cancel",
       correlation_id: correlationId,
-      request_payload: { appointmentId, reason: cancelReason },
+      request_payload: { appointmentId, reason: cancelReason, method: "v1" },
       response_payload: cancelData,
       status: "SUCCESS",
     });
@@ -274,8 +281,9 @@ serve(async (req) => {
       response_payload: { message },
       status: "FAILED",
     });
+    
     return new Response(JSON.stringify({ success: false, message }), {
-      status: 400,
+      status: 401, // Cambiado a 401 para reflejar errores de autorización si ocurren
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
