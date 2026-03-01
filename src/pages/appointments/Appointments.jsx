@@ -37,13 +37,17 @@ export default function Appointments() {
     calcomExpired,
   } = useAppointments();
 
+  // Extraemos lo que necesitamos del namespace
+  const Cal = CalEmbed.Cal;
+  const getCalApi = CalEmbed.getCalApi;
+
   // In a real scenario, this would be the Cal.com link of the business or employee
   const CAL_COM_LINK =
     "https://cal.com/andres-ferrer-yknamm/62edd46d-ec20-4178-b7d0-48ba8b080586";
 
   useEffect(() => {
     (async function () {
-      const cal = await CalEmbed.getCalApi({
+      const cal = await getCalApi({
         namespace: "62edd46d-ec20-4178-b7d0-48ba8b080586",
       });
       cal("ui", { hideEventTypeDetails: false, layout: "week_view" });
@@ -110,7 +114,7 @@ export default function Appointments() {
                 height="100%"
                 frameBorder="0"
               /> */}
-              <CalEmbed.Cal
+              <Cal
                 namespace="62edd46d-ec20-4178-b7d0-48ba8b080586"
                 calLink="andres-ferrer-yknamm/62edd46d-ec20-4178-b7d0-48ba8b080586"
                 style={{ width: "100%", height: "100%", overflow: "scroll" }}
