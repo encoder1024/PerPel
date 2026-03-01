@@ -50,7 +50,7 @@ export default function Appointments() {
       const cal = await getCalApi({
         namespace: "62edd46d-ec20-4178-b7d0-48ba8b080586",
       });
-      cal("ui", { hideEventTypeDetails: false, layout: "week_view" });
+      cal("ui", { hideEventTypeDetails: false, layout: "week_view", elementOrSelector: "#my-cal-inline", });
     })();
   }, []);
 
@@ -114,7 +114,8 @@ export default function Appointments() {
                 height="100%"
                 frameBorder="0"
               /> */}
-              <Cal
+              <div
+                id="my-cal-inline"
                 namespace="62edd46d-ec20-4178-b7d0-48ba8b080586"
                 calLink="andres-ferrer-yknamm/62edd46d-ec20-4178-b7d0-48ba8b080586"
                 style={{ width: "100%", height: "100%", overflow: "scroll" }}
