@@ -15,7 +15,7 @@ import {
   MenuItem,
   Select,
 } from "@mui/material";
-import Cal, { getCalApi } from "@calcom/embed-react";
+import { Cal,  getCalApi } from "@calcom/embed-react";
 import WhatsAppIcon from "@mui/icons-material/WhatsApp";
 import { useAppointments } from "../../hooks/useAppointments";
 
