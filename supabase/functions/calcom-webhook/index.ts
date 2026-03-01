@@ -193,9 +193,9 @@ serve(async (req) => {
       service_id: serviceId,
       cancel_reason: payload?.reason || null,
       is_deleted: false,
-      client_name: attendees?.name || null,
-      client_email: attendees?.email || null,
-      client_phone: attendees?.phoneNumber || null,
+      client_name: payload?.attendees[0]?.name || "Sin nombre",
+      client_email: payload?.attendees[0]?.email || "Sin email",
+      client_phone: payload?.attendees[0]?.phoneNumber || "Sin teléfono",
     };
 
     const { data: existing, error: existingError } = await supabase

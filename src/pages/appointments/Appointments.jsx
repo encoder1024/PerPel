@@ -15,7 +15,8 @@ import {
   MenuItem,
   Select,
 } from "@mui/material";
-import Cal, { getCalApi } from "@calcom/embed-react";
+// import Cal, { getCalApi } from "@calcom/embed-react";
+import * as CalEmbed from "@calcom/embed-react";
 import WhatsAppIcon from "@mui/icons-material/WhatsApp";
 import { useAppointments } from "../../hooks/useAppointments";
 
@@ -36,16 +37,56 @@ export default function Appointments() {
     calcomExpired,
   } = useAppointments();
 
+  // Extraemos lo que necesitamos del namespace
+  const getCalApi = CalEmbed.getCalApi;
+
   // In a real scenario, this would be the Cal.com link of the business or employee
   const CAL_COM_LINK =
-    "https://cal.com/andres-ferrer-yknamm/62edd46d-ec20-4178-b7d0-48ba8b080586";
+    "andres-ferrer-yknamm/62edd46d-ec20-4178-b7d0-48ba8b080586";
 
   useEffect(() => {
     (async function () {
       const cal = await getCalApi({
         namespace: "62edd46d-ec20-4178-b7d0-48ba8b080586",
       });
-      cal("ui", { hideEventTypeDetails: false, layout: "week_view" });
+      cal("inline", { 
+        calLink: CAL_COM_LINK,
+        elementOrSelector: "#my-cal-inlines",
+        config: { layout: "week_view" },
+      });
+    })();
+  }, []);
+
+  useEffect(() => {
+    let calInstance;
+
+    (async function initCal() {
+      try {
+        const cal = await getCalApi();
+        calInstance = cal;
+
+        // Limpiamos el contenedor antes de renderizar (evita duplicados)
+        const container = document.getElementById("cal-inline-container");
+        if (container) container.innerHTML = "";
+
+        // Ejecutamos la carga "inline"
+        cal("inline", {
+          elementOrSelector: "#cal-inline-container",
+          calLink: CAL_COM_LINK, // Aquí definimos el link
+          config: { 
+            layout: "month_view",
+            theme: "light" 
+          }
+        });
+
+        cal("ui", {
+          styles: { branding: { brandColor: "#000000" } },
+          hideEventTypeDetails: false,
+          layout: "month_view"
+        });
+      } catch (err) {
+        console.error("Error al inicializar Cal.com:", err);
+      }
     })();
   }, []);
 
@@ -109,14 +150,15 @@ export default function Appointments() {
                 height="100%"
                 frameBorder="0"
               /> */}
-              <Cal
-                namespace="62edd46d-ec20-4178-b7d0-48ba8b080586"
-                calLink="andres-ferrer-yknamm/62edd46d-ec20-4178-b7d0-48ba8b080586"
+              <div
+                id="cal-inline-container"
+                // namespace="62edd46d-ec20-4178-b7d0-48ba8b080586"
+                // calLink="andres-ferrer-yknamm/62edd46d-ec20-4178-b7d0-48ba8b080586"
                 style={{ width: "100%", height: "100%", overflow: "scroll" }}
-                config={{
-                  layout: "week_view",
-                  useSlotsViewOnSmallScreen: "true",
-                }}
+                // config={{
+                //   layout: "week_view",
+                //   useSlotsViewOnSmallScreen: "true",
+                // }}
               />;
             </Box>
           </Paper>
