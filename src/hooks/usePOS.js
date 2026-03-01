@@ -55,18 +55,21 @@ export const usePOS = () => {
       if (isOnline) {
         // 1. Release Stock in Supabase
         for (const item of orderItems) {
-          const { data: adjResult, error: adjError } = await supabase.rpc('adjust_stock', {
-            p_item_id: item.item_id || item.id,
-            p_business_id: businessId,
-            p_account_id: profile.account_id,
-            p_quantity_change: item.quantity, // Positive to release
-            p_movement_type: 'RESERVE_RELEASE_IN',
-            p_reason: `Cancelación de orden POS: ${orderId}`,
-            p_user_id: profile.id
-          });
+          // Solo liberar stock si es un PRODUCTO
+          if (item.item_type === 'PRODUCT' || !item.item_type) { // Fallback por si item_type no viene en la orden simplificada
+            const { data: adjResult, error: adjError } = await supabase.rpc('adjust_stock', {
+              p_item_id: item.item_id || item.id,
+              p_business_id: businessId,
+              p_account_id: profile.account_id,
+              p_quantity_change: item.quantity, // Positive to release
+              p_movement_type: 'RESERVE_RELEASE_IN',
+              p_reason: `Cancelación de orden POS: ${orderId}`,
+              p_user_id: profile.id
+            });
 
-          if (adjError || adjResult.status === 'error') {
-            console.error(`Error liberando stock para ${item.id}:`, adjError || adjResult.message);
+            if (adjError || adjResult.status === 'error') {
+              console.error(`Error liberando stock para ${item.id}:`, adjError || adjResult.message);
+            }
           }
         }
 
@@ -147,18 +150,21 @@ export const usePOS = () => {
       if (isOnline) {
         // --- STEP 1: Reserve Stock (Online Only) ---
         for (const item of cart) {
-            const { data: stockAdjResult, error: stockAdjError } = await supabase.rpc('adjust_stock', {
-                p_item_id: item.id,
-                p_business_id: customerData.business_id,
-                p_account_id: profile.account_id,
-                p_quantity_change: -item.quantity, // Negative for RESERVE_OUT
-                p_movement_type: 'RESERVE_OUT',
-                p_reason: `Reserva para orden POS: ${orderId}`,
-                p_user_id: profile.id
-            });
+            // SOLO reservar stock si es un PRODUCTO
+            if (item.item_type === 'PRODUCT') {
+                const { data: stockAdjResult, error: stockAdjError } = await supabase.rpc('adjust_stock', {
+                    p_item_id: item.id,
+                    p_business_id: customerData.business_id,
+                    p_account_id: profile.account_id,
+                    p_quantity_change: -item.quantity, // Negative for RESERVE_OUT
+                    p_movement_type: 'RESERVE_OUT',
+                    p_reason: `Reserva para orden POS: ${orderId}`,
+                    p_user_id: profile.id
+                });
 
-            if (stockAdjError) throw new Error(`Error reservando stock: ${stockAdjError.message}`);
-            if (stockAdjResult.status === 'error') throw new Error(`Stock insuficiente: ${stockAdjResult.message}`);
+                if (stockAdjError) throw new Error(`Error reservando stock: ${stockAdjError.message}`);
+                if (stockAdjResult.status === 'error') throw new Error(`Stock insuficiente: ${stockAdjResult.message}`);
+            }
         }
 
         // --- STEP 2: Create Order in Supabase ---

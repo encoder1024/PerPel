@@ -3,16 +3,16 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 
 const ProtectedRoute = ({ children, allowedRoles = [] }) => {
-  const { user, profile, loading } = useAuthStore();
+  const { user, profile, loading, authReady } = useAuthStore();
   const location = useLocation();
 
-  if (loading) {
+  if (!authReady || (loading && !(user && profile))) {
 
     console.log("En protectedRoute: ", user, profile, loading);
 
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        Cargando permisos de PerPel... por favor vuelve a refrescar la pantalla 🔄
+        Cargando permisos de PerPel ERP...
       </div>
     );
   }

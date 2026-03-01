@@ -496,11 +496,22 @@ CREATE INDEX IF NOT EXISTS idx_businesses_account_id
     (account_id ASC NULLS LAST)
     WITH (fillfactor=100, deduplicate_items=True)
     TABLESPACE pg_default;
--- POLICY: Allow authenticated users to read their own businesses
+-- POLICY: Owners y Admins pueden gestionar negocios de su cuenta
 
--- DROP POLICY IF EXISTS "Allow authenticated users to read their own businesses" ON core.businesses;
+-- DROP POLICY IF EXISTS "Owners y Admins pueden gestionar negocios de su cuenta" ON core.businesses;
 
-CREATE POLICY "Allow authenticated users to read their own businesses"
+CREATE POLICY "Owners y Admins pueden gestionar negocios de su cuenta"
+    ON core.businesses
+    AS PERMISSIVE
+    FOR ALL
+    TO authenticated
+    USING (((account_id = get_my_account_id()) AND ((get_my_role() = 'OWNER'::app_role) OR (get_my_role() = 'ADMIN'::app_role))))
+    WITH CHECK (((account_id = get_my_account_id()) AND ((get_my_role() = 'OWNER'::app_role) OR (get_my_role() = 'ADMIN'::app_role))));
+-- POLICY: Usuarios pueden ver negocios de su cuenta
+
+-- DROP POLICY IF EXISTS "Usuarios pueden ver negocios de su cuenta" ON core.businesses;
+
+CREATE POLICY "Usuarios pueden ver negocios de su cuenta"
     ON core.businesses
     AS PERMISSIVE
     FOR SELECT
@@ -777,8 +788,8 @@ CREATE TABLE IF NOT EXISTS core.employee_assignments
         REFERENCES auth.users (id) MATCH SIMPLE
         ON UPDATE NO ACTION
         ON DELETE NO ACTION,
-    CONSTRAINT employee_assignments_user_id_fkey FOREIGN KEY (user_id)
-        REFERENCES auth.users (id) MATCH SIMPLE
+    CONSTRAINT employee_assignments_user_profiles_fkey FOREIGN KEY (user_id)
+        REFERENCES core.user_profiles (id) MATCH SIMPLE
         ON UPDATE NO ACTION
         ON DELETE CASCADE
 )
@@ -1640,8 +1651,8 @@ CREATE TABLE IF NOT EXISTS core.role_requests
         REFERENCES auth.users (id) MATCH SIMPLE
         ON UPDATE NO ACTION
         ON DELETE SET NULL,
-    CONSTRAINT role_requests_user_id_fkey FOREIGN KEY (user_id)
-        REFERENCES auth.users (id) MATCH SIMPLE
+    CONSTRAINT role_requests_user_profiles_fkey FOREIGN KEY (user_id)
+        REFERENCES core.user_profiles (id) MATCH SIMPLE
         ON UPDATE NO ACTION
         ON DELETE CASCADE
 )
@@ -2427,7 +2438,7 @@ GRANT ALL ON TABLE reports.product_performance TO authenticated;
 GRANT ALL ON TABLE reports.product_performance TO postgres;
 
 
--- FUNCTION: core.approve_role_request(uuid, uuid, uuid)
+-- FUNCTION: REVA1-core.approve_role_request(uuid, uuid, uuid)
 
 -- DROP FUNCTION IF EXISTS core.approve_role_request(uuid, uuid, uuid);
 
@@ -2444,56 +2455,37 @@ AS $BODY$
 DECLARE
     v_approver_profile RECORD;
     v_request_details RECORD;
-    v_target_user_profile RECORD;
     v_approver_account_id UUID;
     v_success BOOLEAN := FALSE;
     v_message TEXT := 'No autorizado para aprobar la solicitud.';
-    v_audit_log_id BIGINT;
 BEGIN
-    -- 1. Obtener perfil del aprobador
+    -- 1. Validaciones de seguridad
     SELECT * INTO v_approver_profile FROM core.user_profiles WHERE id = p_approver_user_id AND is_deleted = false;
-    IF v_approver_profile IS NULL THEN
-        RAISE EXCEPTION 'Aprobador no encontrado o inactivo.';
-    END IF;
+    IF v_approver_profile IS NULL THEN RAISE EXCEPTION 'Aprobador no encontrado.'; END IF;
 
-    -- Obtener account_id del aprobador
     v_approver_account_id := v_approver_profile.account_id;
 
-    -- 2. Obtener detalles de la solicitud
     SELECT * INTO v_request_details FROM core.role_requests WHERE id = p_request_id AND is_deleted = false;
-    IF v_request_details IS NULL THEN
-        RAISE EXCEPTION 'Solicitud de rol no encontrada o inactiva.';
-    END IF;
+    IF v_request_details IS NULL THEN RAISE EXCEPTION 'Solicitud no encontrada.'; END IF;
 
-    -- Verificar que la solicitud está PENDING y pertenece a la misma cuenta del aprobador
     IF v_request_details.status <> 'PENDING' OR v_request_details.account_id <> v_approver_account_id THEN
-        RAISE EXCEPTION 'La solicitud no está PENDING o no pertenece a la cuenta del aprobador.';
+        RAISE EXCEPTION 'La solicitud no es válida para esta cuenta.';
     END IF;
 
-    -- 3. Validar permisos del aprobador para el rol solicitado
+    -- 2. Validar quién aprueba qué
     IF v_approver_profile.app_role = 'OWNER' THEN
-        -- OWNER puede aprobar cualquier rol
         v_success := TRUE;
     ELSIF v_approver_profile.app_role = 'ADMIN' THEN
-        -- ADMIN puede aprobar CLIENT y EMPLOYEE, pero NO ADMIN
         IF v_request_details.requested_role IN ('CLIENT', 'EMPLOYEE') THEN
             v_success := TRUE;
         ELSE
-            v_message := 'Un ADMIN no puede aprobar solicitudes para el rol ADMIN.';
+            v_message := 'Solo el OWNER puede aprobar a un nuevo ADMIN.';
         END IF;
     END IF;
 
-    IF NOT v_success THEN
-        RETURN json_build_object('success', FALSE, 'message', v_message);
-    END IF;
+    IF NOT v_success THEN RETURN json_build_object('success', FALSE, 'message', v_message); END IF;
 
-    -- 4. Obtener perfil del usuario target
-    SELECT * INTO v_target_user_profile FROM core.user_profiles WHERE id = v_request_details.user_id AND is_deleted = false;
-    IF v_target_user_profile IS NULL THEN
-        RAISE EXCEPTION 'Usuario solicitante no encontrado o inactivo.';
-    END IF;
-
-    -- 5. Actualizar user_profiles
+    -- 3. Actualizar perfil del usuario (Cambio de cuenta y rol)
     UPDATE core.user_profiles
     SET
         account_id = v_request_details.account_id,
@@ -2501,72 +2493,35 @@ BEGIN
         updated_at = NOW()
     WHERE id = v_request_details.user_id;
 
-    -- 6. Insertar en employee_assignments si es EMPLEADO
-    IF v_request_details.requested_role = 'EMPLOYEE' THEN
+    -- 4. Asignación obligatoria a negocio para ADMIN, EMPLOYEE y CLIENT
+    IF v_request_details.requested_role IN ('ADMIN', 'EMPLOYEE', 'CLIENT') THEN
         IF p_business_id IS NULL THEN
-            RAISE EXCEPTION 'Se requiere business_id para asignar un rol de EMPLEADO.';
+            RAISE EXCEPTION 'Se requiere seleccionar un negocio para este rol.';
         END IF;
         
-        -- Verificar que el business_id pertenece a la misma cuenta
         IF NOT EXISTS (SELECT 1 FROM core.businesses WHERE id = p_business_id AND account_id = v_request_details.account_id AND is_deleted = false) THEN
-             RAISE EXCEPTION 'El business_id proporcionado no existe o no pertenece a esta cuenta.';
+             RAISE EXCEPTION 'El negocio no pertenece a esta cuenta.';
         END IF;
 
         INSERT INTO core.employee_assignments (user_id, business_id, account_id, created_by, created_at)
-        VALUES (
-            v_request_details.user_id,
-            p_business_id,
-            v_request_details.account_id,
-            p_approver_user_id,
-            NOW()
-        )
-        ON CONFLICT (account_id, user_id, business_id) DO UPDATE SET is_deleted = false, updated_at = NOW(); -- Si ya estaba asignado, lo reactiva
+        VALUES (v_request_details.user_id, p_business_id, v_request_details.account_id, p_approver_user_id, NOW())
+        ON CONFLICT (account_id, user_id, business_id) DO UPDATE SET is_deleted = false, updated_at = NOW();
     END IF;
 
-    -- 7. Actualizar status de la solicitud
+    -- 5. Finalizar solicitud
     UPDATE core.role_requests
-    SET
-        status = 'APPROVED',
-        approved_by_user_id = p_approver_user_id,
-        approved_at = NOW(),
-        updated_at = NOW()
+    SET status = 'APPROVED', approved_by_user_id = p_approver_user_id, approved_at = NOW(), updated_at = NOW()
     WHERE id = p_request_id;
 
-    v_success := TRUE;
-    v_message := 'Solicitud de rol aprobada con éxito.';
-
-    -- 8. Logear en audit_log (manual para mayor detalle)
+    -- 6. Log de Auditoría
     INSERT INTO logs.audit_log (user_id, account_id, action, table_name, record_id, new_data)
-    VALUES (
-        p_approver_user_id,
-        v_approver_account_id,
-        'ROLE_REQUEST_APPROVED',
-        'role_requests',
-        p_request_id::TEXT,
-        json_build_object(
-            'approved_user_id', v_request_details.user_id,
-            'approved_role', v_request_details.requested_role,
-            'approved_account_id', v_request_details.account_id,
-            'approved_business_id', p_business_id
-        )
-    ) RETURNING id INTO v_audit_log_id;
+    VALUES (p_approver_user_id, v_approver_account_id, 'ROLE_REQUEST_APPROVED', 'role_requests', p_request_id::TEXT, 
+        json_build_object('user', v_request_details.user_id, 'role', v_request_details.requested_role, 'business', p_business_id));
 
-    RETURN json_build_object('success', v_success, 'message', v_message);
+    RETURN json_build_object('success', TRUE, 'message', 'Solicitud aprobada y usuario asignado al negocio.');
 
-EXCEPTION
-    WHEN OTHERS THEN
-        v_message := SQLERRM;
-        -- Logear el error en audit_log
-        INSERT INTO logs.audit_log (user_id, account_id, action, table_name, record_id, new_data)
-        VALUES (
-            p_approver_user_id,
-            v_approver_account_id,
-            'ROLE_REQUEST_APPROVAL_FAILED',
-            'role_requests',
-            p_request_id::TEXT,
-            json_build_object('error_message', v_message)
-        );
-        RETURN json_build_object('success', FALSE, 'message', v_message);
+EXCEPTION WHEN OTHERS THEN
+    RETURN json_build_object('success', FALSE, 'message', SQLERRM);
 END;
 $BODY$;
 
@@ -3454,35 +3409,43 @@ CREATE OR REPLACE FUNCTION public.log_changes()
     COST 100
     VOLATILE NOT LEAKPROOF SECURITY DEFINER
 AS $BODY$
+
 DECLARE
   record_id_text TEXT;
+  action_text TEXT;
   account_id_to_log UUID;
-  action_text TEXT := TG_OP;
   _data JSONB;
 BEGIN
-  -- Usamos to_jsonb para evitar el error "record new has no field..."
-  _data := to_jsonb(COALESCE(NEW, OLD));
+  action_text := TG_OP;
   
-  -- 1. Determinar el ID del registro
+  -- 1. Determinar qué registro usar y convertir a JSONB
+  IF (TG_OP = 'DELETE') THEN
+    _data := to_jsonb(OLD);
+  ELSE
+    _data := to_jsonb(NEW);
+  END IF;
+
+  -- 2. Obtener el ID del registro (siempre existe como 'id')
   record_id_text := (_data->>'id')::TEXT;
 
-  -- 2. Lógica inteligente para el account_id
-  -- Si es la tabla accounts, el account_id es el propio ID del registro.
-  -- Si es cualquier otra tabla, busca la columna account_id.
-  IF (TG_TABLE_NAME = 'accounts') THEN
+  -- 3. Determinar el account_id para el log
+  -- Caso especial: en la tabla 'accounts', el 'id' es el identificador de la cuenta.
+  IF TG_TABLE_NAME = 'accounts' THEN
     account_id_to_log := (_data->>'id')::UUID;
   ELSE
+    -- En las demás tablas buscamos la columna 'account_id' de forma segura
     account_id_to_log := (_data->>'account_id')::UUID;
   END IF;
 
-  -- 3. Detectar Soft Delete
+  -- 4. Detección de SOFT_DELETE (usando is_deleted)
   IF (TG_OP = 'UPDATE') THEN
     IF (to_jsonb(OLD)->>'is_deleted')::BOOLEAN = false AND (_data->>'is_deleted')::BOOLEAN = true THEN
       action_text := 'SOFT_DELETE';
     END IF;
   END IF;
 
-  -- 4. Insertar en logs
+  -- 5. Insertar en el log de auditoría
+  -- Se usa SECURITY DEFINER para asegurar permisos sobre el esquema logs
   INSERT INTO logs.audit_log (user_id, account_id, action, table_name, record_id, old_data, new_data)
   VALUES (
     auth.uid(),
@@ -3510,6 +3473,7 @@ GRANT EXECUTE ON FUNCTION public.log_changes() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.log_changes() TO postgres;
 
 GRANT EXECUTE ON FUNCTION public.log_changes() TO service_role;
+
 
 -- FUNCTION: public.rls_auto_enable()
 

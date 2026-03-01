@@ -3,70 +3,86 @@ import { useAuthStore } from "../../stores/authStore";
 import { supabase } from "../../services/supabaseClient";
 
 export const AuthProvider = ({ children }) => {
-  const { setUser, setProfile, setLoading, fetchProfile, loading } = useAuthStore(); // Added 'loading' to destructure for clarity
+  const { setUser, setProfile, setLoading, setAuthReady, fetchProfile } = useAuthStore();
+
+  const withTimeout = (promise, ms, message) =>
+    new Promise((resolve, reject) => {
+      const id = setTimeout(() => reject(new Error(message)), ms);
+      promise
+        .then((value) => {
+          clearTimeout(id);
+          resolve(value);
+        })
+        .catch((error) => {
+          clearTimeout(id);
+          reject(error);
+        });
+    });
+
+  const recheckSession = async () => {
+    const {
+      data: { session },
+    } = await withTimeout(
+      supabase.auth.getSession(),
+      8000,
+      "Auth session timeout",
+    );
+    return session;
+  };
 
   useEffect(() => {
-    // This initial call is good for first load or refresh to get current session
-    const initAuth = async () => {
-      setLoading(true); // Start loading state
-      try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-
-        if (session) {
-          setUser(session.user);
-          await fetchProfile(session.user.id);
-        } else {
-          // No active session found
-          setUser(null);
-          setProfile(null);
-        }
-      } catch (error) {
-        console.error("Error during initial auth check:", error);
-        // Optionally set error state in store
-      } finally {
-        setLoading(false); // Ensure loading is turned off after initial check
-      }
-    };
-
-    initAuth();
+    const safetyTimeout = setTimeout(() => {
+      setLoading(false);
+      setAuthReady(true);
+    }, 3000);
 
     // Set up the listener for auth state changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      // Log event and session for debugging
-      console.log('onAuthStateChange event:', event);
-      console.log('onAuthStateChange session:', session);
-
-      // Always show loading state while processing auth changes
-      // This is crucial as session processing (e.g., fetchProfile) can take time
-      setLoading(true); 
+      if (event === 'INITIAL_SESSION') {
+        setLoading(true);
+        setAuthReady(false);
+      }
+      const shouldBlock =
+        event === 'INITIAL_SESSION' ||
+        event === 'SIGNED_IN' ||
+        event === 'SIGNED_OUT';
+      if (shouldBlock) setLoading(true);
 
       try {
         if (session) {
           setUser(session.user);
-          // If profile is already being fetched or is available, avoid refetching immediately
-          // This check prevents redundant calls if fetchProfile is called elsewhere (e.g., in login)
-          if (!loading || !session.user || !useAuthStore.getState().profile) { // Check if profile is not already loading or set
-              await fetchProfile(session.user.id);
+          // Evitar refetch pesado si el evento es solo refresh de token
+          if (event !== 'TOKEN_REFRESHED') {
+            await withTimeout(
+              fetchProfile(session.user.id),
+              8000,
+              "Profile fetch timeout",
+            );
           }
         } else {
-          // User logged out or session expired
-          setUser(null);
-          setProfile(null);
+          // Recheck once before clearing (avoid transient null session)
+          const confirmedSession = await recheckSession();
+          if (!confirmedSession) {
+            setUser(null);
+            setProfile(null);
+          }
         }
       } catch (error) {
         console.error("Error during onAuthStateChange processing:", error);
         // Optionally set error state in store
       } finally {
-        setLoading(false); // Ensure loading is turned off after processing the auth change
+        if (shouldBlock) setLoading(false);
+        if (event === 'INITIAL_SESSION') setAuthReady(true);
       }
     });
 
     // Clean up the subscription on component unmount
-    return () => subscription.unsubscribe();
+    return () => {
+      clearTimeout(safetyTimeout);
+      subscription.unsubscribe();
+    };
   }, []); // Empty dependency array means this runs once on mount
 
   return <>{children}</>;
