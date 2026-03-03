@@ -37,6 +37,7 @@ export default function CredentialsConfig() {
   const [name, setName] = useState('');
   const [apiName, setApiName] = useState('MERCADOPAGO');
   const [accessToken, setAccessToken] = useState('');
+  const [refreshToken, setRefreshToken] = useState(''); // Added for TFA
   const [clientId, setClientId] = useState('');
   const [clientSecret, setClientSecret] = useState('');
 
@@ -127,6 +128,7 @@ export default function CredentialsConfig() {
           name,
           api_name: apiName,
           access_token: accessToken || null,
+          refresh_token: refreshToken || null, // Map User Token
           client_id: clientId || null,
           client_secret: clientSecret || null,
           external_status: 'active',
@@ -138,6 +140,7 @@ export default function CredentialsConfig() {
       // Reset form
       setName('');
       setAccessToken('');
+      setRefreshToken('');
       setClientId('');
       setClientSecret('');
       await fetchCredentials();
@@ -169,6 +172,7 @@ export default function CredentialsConfig() {
 
   // Helper to determine what fields to show
   const isOAuthApi = apiName === 'MERCADOPAGO' || apiName === 'CAL_COM';
+  const isTFA = apiName === 'TUS_FACTURAS_APP';
 
   return (
     <Box>
@@ -202,7 +206,8 @@ export default function CredentialsConfig() {
               required
             >
               <MenuItem value="MERCADOPAGO">Mercado Pago</MenuItem>
-              <MenuItem value="ALEGRA">Alegra (Facturación)</MenuItem>
+              <MenuItem value="TUS_FACTURAS_APP">Tus Facturas App</MenuItem>
+              <MenuItem value="ALEGRA">Alegra (Legacy)</MenuItem>
               <MenuItem value="ONESIGNAL">OneSignal</MenuItem>
               <MenuItem value="CAL_COM">Cal.com (Turnos)</MenuItem>
             </TextField>
@@ -234,6 +239,31 @@ export default function CredentialsConfig() {
                 <Alert severity="info">
                   Para APIs OAuth como Mercado Pago, primero guarda el ID y Secret. Luego podrás vincular la cuenta.
                 </Alert>
+              </Grid>
+            </>
+          ) : isTFA ? (
+            <>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="API Token"
+                  type="password"
+                  value={accessToken}
+                  onChange={(e) => setAccessToken(e.target.value)}
+                  required
+                  helperText="Corresponde al API Token proporcionado por TFA"
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="User Token"
+                  type="password"
+                  value={refreshToken}
+                  onChange={(e) => setRefreshToken(e.target.value)}
+                  required
+                  helperText="Corresponde al User Token proporcionado por TFA"
+                />
               </Grid>
             </>
           ) : (
