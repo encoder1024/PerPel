@@ -235,7 +235,7 @@ export const useInvoices = () => {
   };
 
   /**
-   * Lista órdenes pagadas sin factura emitida.
+   * Lista órdenes pagadas o pendientes sin factura emitida.
    */
   const fetchPendingOrders = useCallback(async (businessId = null) => {
     if (!profile?.account_id) return [];
@@ -254,7 +254,7 @@ export const useInvoices = () => {
           )
         `)
         .eq('account_id', profile.account_id)
-        .eq('status', 'PAID')
+        .in('status', ['PAID', 'PENDING'])
         .eq('is_deleted', false);
 
       if (businessId) {
@@ -280,6 +280,23 @@ export const useInvoices = () => {
       return [];
     }
   }, [profile?.account_id]);
+
+  /**
+   * Marca una orden como pagada manualmente.
+   */
+  const markOrderAsPaid = async (orderId) => {
+    try {
+      const { error } = await supabase
+        .schema('core')
+        .from('orders')
+        .update({ status: 'PAID' })
+        .eq('id', orderId);
+      if (error) throw error;
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  };
 
   /**
    * Obtiene las provincias desde TusFacturasApp.
@@ -345,6 +362,103 @@ export const useInvoices = () => {
     }
   };
 
+  /**
+   * Obtiene los tipos de documentos desde TusFacturasApp.
+   */
+  const fetchDocumentTypes = async (businessId) => {
+    try {
+      const { data, error: invokeError } = await supabase.functions.invoke('tfa-invoice-generator', {
+        body: { action: 'documentos_tipos', businessId }
+      });
+      if (invokeError) throw invokeError;
+      return data.datos?.map(item => ({ id: item.valor, nombre: item.nombre })) || [];
+    } catch (err) {
+      console.error('Error fetching document types:', err.message);
+      return [];
+    }
+  };
+
+  /**
+   * Busca clientes en la base de datos por nombre o documento.
+   */
+  const searchCustomers = async (search) => {
+    if (!profile?.account_id) return [];
+    try {
+      let query = supabase
+        .schema('core')
+        .from('customers')
+        .select('*')
+        .eq('account_id', profile.account_id)
+        .eq('is_deleted', false);
+
+      if (search) {
+        query = query.or(`full_name.ilike.%${search}%,doc_number.ilike.%${search}%`);
+      }
+
+      const { data, error: searchError } = await query.limit(10);
+      if (searchError) throw searchError;
+      return data || [];
+    } catch (err) {
+      console.error('Error searching customers:', err.message);
+      return [];
+    }
+  };
+
+  /**
+   * Crea un nuevo cliente en core.customers.
+   */
+  const createCustomer = async (customerData) => {
+    if (!profile?.account_id) return { success: false, error: 'No account session' };
+    try {
+      const { data, error } = await supabase
+        .schema('core')
+        .from('customers')
+        .insert({ ...customerData, account_id: profile.account_id })
+        .select()
+        .single();
+      if (error) throw error;
+      return { success: true, data };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  };
+
+  /**
+   * Actualiza un cliente existente en core.customers.
+   */
+  const updateCustomer = async (customerId, customerData) => {
+    try {
+      const { data, error } = await supabase
+        .schema('core')
+        .from('customers')
+        .update(customerData)
+        .eq('id', customerId)
+        .select()
+        .single();
+      if (error) throw error;
+      return { success: true, data };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  };
+
+  /**
+   * Actualiza el cliente vinculado a una orden.
+   */
+  const updateOrderCustomer = async (orderId, customerId, customerName) => {
+    try {
+      const { error } = await supabase
+        .schema('core')
+        .from('orders')
+        .update({ client_id: customerId, customer_name: customerName })
+        .eq('id', orderId);
+      if (error) throw error;
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  };
+
   return {
     invoices,
     loading,
@@ -361,6 +475,12 @@ export const useInvoices = () => {
     fetchProvinces,
     fetchInvoiceTypes,
     fetchPaymentConditions,
-    fetchIvaConditions
+    fetchIvaConditions,
+    fetchDocumentTypes,
+    searchCustomers,
+    createCustomer,
+    updateCustomer,
+    updateOrderCustomer,
+    markOrderAsPaid
   };
 };
