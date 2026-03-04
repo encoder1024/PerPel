@@ -26,6 +26,7 @@ export const useInvoices = () => {
           *,
           businesses:business_id (name),
           order:order_id (
+            status,
             customer_name,
             customer_doc_number,
             customer_doc_type,
@@ -282,19 +283,40 @@ export const useInvoices = () => {
   }, [profile?.account_id]);
 
   /**
-   * Marca una orden como pagada manualmente.
+   * Registra un pago y actualiza el estado de la orden.
    */
-  const markOrderAsPaid = async (orderId) => {
+  const registerPayment = async (paymentData) => {
+    setLoading(true);
     try {
-      const { error } = await supabase
+      // 1. Insertar el pago
+      const { data: payment, error: pError } = await supabase
+        .schema('core')
+        .from('payments')
+        .insert({
+          ...paymentData,
+          account_id: profile.account_id,
+          created_by: profile.id
+        })
+        .select()
+        .single();
+
+      if (pError) throw pError;
+
+      // 2. Actualizar la orden a PAID
+      const { error: oError } = await supabase
         .schema('core')
         .from('orders')
         .update({ status: 'PAID' })
-        .eq('id', orderId);
-      if (error) throw error;
-      return { success: true };
+        .eq('id', paymentData.order_id);
+
+      if (oError) throw oError;
+
+      return { success: true, data: payment };
     } catch (err) {
+      console.error('Error registering payment:', err.message);
       return { success: false, error: err.message };
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -481,6 +503,6 @@ export const useInvoices = () => {
     createCustomer,
     updateCustomer,
     updateOrderCustomer,
-    markOrderAsPaid
+    registerPayment
   };
 };

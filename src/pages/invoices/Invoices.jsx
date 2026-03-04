@@ -41,8 +41,14 @@ import ListAltIcon from "@mui/icons-material/ListAlt";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import PaymentsIcon from "@mui/icons-material/Payments";
+import CreditCardIcon from "@mui/icons-material/CreditCard";
+import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
+import CancelIcon from "@mui/icons-material/Cancel";
+import PaymentGateway from "../../components/common/PaymentGateway";
 import { useInvoices } from "../../hooks/useInvoices";
 import { useAuthStore } from "../../stores/authStore";
+import { useMercadoPagoPoint } from "../../hooks/useMercadoPagoPoint";
+import { supabase } from "../../services/supabaseClient";
 
 export default function Invoices() {
   const {
@@ -66,8 +72,14 @@ export default function Invoices() {
     createCustomer,
     updateCustomer,
     updateOrderCustomer,
-    markOrderAsPaid,
+    registerPayment,
   } = useInvoices();
+
+  const {
+    loading: mpPointLoading,
+    error: mpPointError,
+    createPointPaymentIntent,
+  } = useMercadoPagoPoint();
 
   const { profile } = useAuthStore();
   const [pendingOrders, setPendingOrders] = useState([]);
@@ -83,6 +95,13 @@ export default function Invoices() {
   const [openDetailDialog, setOpenDetailDialog] = useState(false);
   const [openOptionsDialog, setOpenOptionsDialog] = useState(false);
   const [openCustomerDialog, setOpenCustomerDialog] = useState(false);
+  const [openPaymentDialog, setOpenPaymentDialog] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState(null);
+  const [invoiceToPay, setInvoiceToPay] = useState(null);
+  
+  const [pointDevices, setPointDevices] = useState([]);
+  const [selectedPointDeviceId, setSelectedPointDeviceId] = useState('');
+  const [intentStatus, setIntentStatus] = useState(null); // 'WAITING', 'SUCCESS', 'ERROR'
   
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
@@ -164,14 +183,92 @@ export default function Invoices() {
     setOpenPendingDialog(true);
   };
 
-  const handleMarkPaid = async (orderId) => {
-    if (window.confirm("¿Confirmar que esta factura ha sido cobrada?")) {
-      const result = await markOrderAsPaid(orderId);
-      if (result.success) {
-        setSnackbar({ open: true, message: "Orden marcada como pagada.", severity: "success" });
-        loadData();
-      }
+  const handleMarkPaid = async (invoice) => {
+    setInvoiceToPay(invoice);
+    setPaymentMethod(null);
+    setOpenPaymentDialog(true);
+  };
+
+  const handleManualPayment = async (method) => {
+    setIsProcessing(true);
+    const paymentData = {
+      order_id: invoiceToPay.order_id,
+      amount: invoiceToPay.total_amount,
+      payment_method_id: method, // CASH, etc.
+      payment_type: 'point', // 'point' para manual/fisico segun usePOS
+      status: 'approved',
+      notes: "Pago registrado desde módulo de facturación"
+    };
+
+    const result = await registerPayment(paymentData);
+    if (result.success) {
+      setSnackbar({ open: true, message: "Pago registrado con éxito.", severity: "success" });
+      setOpenPaymentDialog(false);
+      loadData();
+    } else {
+      setSnackbar({ open: true, message: "Error: " + result.error, severity: "error" });
     }
+    setIsProcessing(false);
+  };
+
+  const fetchPointDevices = async (businessId) => {
+    if (!businessId || !profile?.account_id) return;
+    
+    const { data, error } = await supabase
+      .schema('core')
+      .from('point_devices')
+      .select('*')
+      .eq('business_id', businessId)
+      .eq('account_id', profile.account_id)
+      .eq('status', 'ACTIVE')
+      .eq('is_deleted', false);
+
+    if (error) {
+      setSnackbar({ open: true, message: `Error al cargar dispositivos: ${error.message}`, severity: 'error' });
+      return;
+    }
+
+    setPointDevices(data);
+    if (data.length > 0) {
+      setSelectedPointDeviceId(data[0].id);
+    }
+  };
+
+  const handleSelectPaymentMethod = (method) => {
+    setPaymentMethod(method);
+    if (method === 'POINT_MP') {
+      fetchPointDevices(invoiceToPay.business_id);
+    }
+  };
+
+  const handleSendPointIntent = async () => {
+    if (!invoiceToPay?.order_id || !selectedPointDeviceId) {
+      setSnackbar({ open: true, message: 'Faltan datos para procesar el cobro', severity: 'error' });
+      return;
+    }
+
+    setIntentStatus('WAITING');
+    const result = await createPointPaymentIntent(invoiceToPay.order_id, selectedPointDeviceId);
+    
+    if (result.success) {
+      // El webhook se encargará de actualizar el estado de la orden, pero podemos simular éxito aquí
+      // o esperar a que el usuario cierre el modal tras ver el éxito en la terminal.
+      setIntentStatus('SUCCESS');
+      setSnackbar({ open: true, message: "Cobro enviado a la terminal.", severity: "success" });
+    } else {
+      setIntentStatus('ERROR');
+      setSnackbar({ open: true, message: `Error al enviar cobro: ${result.error}`, severity: 'error' });
+    }
+  };
+
+  const handleClosePayment = () => {
+    setOpenPaymentDialog(false);
+    setInvoiceToPay(null);
+    setPaymentMethod(null);
+    setPointDevices([]);
+    setSelectedPointDeviceId('');
+    setIntentStatus(null);
+    loadData();
   };
 
   const handleOpenCustomerModal = (customer = null) => {
@@ -379,7 +476,7 @@ export default function Invoices() {
               <IconButton 
                 size="small" 
                 color="success" 
-                onClick={() => handleMarkPaid(p.row.order_id)} 
+                onClick={() => handleMarkPaid(p.row)} 
                 disabled={p.row.order?.status === "PAID"}
               >
                 <PaymentsIcon fontSize="small" />
@@ -418,7 +515,19 @@ export default function Invoices() {
       </Box>
 
       <Paper sx={{ height: 600, width: "100%" }}>
-        <DataGrid rows={filteredInvoices} columns={columns} loading={loading} pageSizeOptions={[10, 25, 50]} initialState={{ pagination: { paginationModel: { pageSize: 10 } } }} disableRowSelectionOnClick />
+        <DataGrid 
+          rows={filteredInvoices} 
+          columns={columns} 
+          loading={loading} 
+          pageSizeOptions={[10, 25, 50]} 
+          initialState={{ 
+            pagination: { paginationModel: { pageSize: 10 } },
+            sorting: {
+              sortModel: [{ field: 'created_at', sort: 'desc' }],
+            },
+          }} 
+          disableRowSelectionOnClick 
+        />
       </Paper>
 
       {/* Modal Opciones */}
@@ -543,6 +652,109 @@ export default function Invoices() {
         </DialogContent>
         <DialogActions><Button onClick={() => setOpenCustomerDialog(false)}>Cancelar</Button><Button variant="contained" onClick={handleSaveCustomer} disabled={isProcessing}>{isProcessing ? <CircularProgress size={20} /> : "Guardar y Vincular"}</Button></DialogActions>
       </Dialog>
+
+      {/* Modal Cobro (Mismo del POS) */}
+      <Dialog open={openPaymentDialog} onClose={handleClosePayment} fullWidth maxWidth="sm">
+        <DialogTitle sx={{ fontWeight: 600 }}>Registrar Cobro</DialogTitle>
+        <DialogContent dividers>
+          <Box sx={{ mb: 3, p: 2, bgcolor: '#f1f5f9', borderRadius: 2, textAlign: 'center' }}>
+            <Typography variant="subtitle2" color="textSecondary">Total a Cobrar:</Typography>
+            <Typography variant="h4" sx={{ fontWeight: 800, color: 'primary.main' }}>
+              $ {invoiceToPay?.total_amount ? parseFloat(invoiceToPay.total_amount).toFixed(2) : '0.00'}
+            </Typography>
+          </Box>
+
+          {!paymentMethod ? (
+            <Grid container spacing={2}>
+              <Grid item xs={12}>
+                <Button fullWidth variant="outlined" size="large" startIcon={<PaymentsIcon />} onClick={() => handleManualPayment('CASH')} sx={{ py: 2, justifyContent: 'flex-start', px: 3 }}>
+                  Efectivo
+                </Button>
+              </Grid>
+              <Grid item xs={12}>
+                <Button fullWidth variant="outlined" size="large" startIcon={<CreditCardIcon />} onClick={() => handleSelectPaymentMethod('POINT_MP')} sx={{ py: 2, justifyContent: 'flex-start', px: 3 }}>
+                  MercadoPago Point (Terminal)
+                </Button>
+              </Grid>
+              <Grid item xs={12}>
+                <Button fullWidth variant="contained" size="large" startIcon={<ShoppingCartIcon />} onClick={() => handleSelectPaymentMethod('ONLINE_MP')} sx={{ py: 2, justifyContent: 'flex-start', px: 3 }}>
+                  MercadoPago Online (Bricks)
+                </Button>
+              </Grid>
+            </Grid>
+          ) : paymentMethod === 'ONLINE_MP' ? (
+            <Box>
+                <Button size="small" onClick={() => setPaymentMethod(null)} sx={{ mb: 2 }}>← Volver a opciones de pago</Button>
+                <PaymentGateway 
+                items={invoiceToPay?.order?.order_items?.map(i => ({ 
+                    title: i.inventory_items?.name, 
+                    quantity: i.quantity, 
+                    unit_price: i.unit_price 
+                }))}
+                orderId={invoiceToPay?.order_id}
+                payerEmail={profile?.email}
+                accountId={profile?.account_id} 
+                onPaymentSuccess={handleClosePayment} 
+                />
+            </Box>
+          ) : paymentMethod === 'POINT_MP' && (
+            <Box>
+              <Button size="small" onClick={() => setPaymentMethod(null)} sx={{ mb: 2 }}>← Volver a opciones de pago</Button>
+              <Typography variant="h6" sx={{mb: 2}}>Pagar con Terminal Point</Typography>
+
+              {intentStatus === 'WAITING' ? (
+                <Box sx={{display: 'flex', flexDirection: 'column', alignItems: 'center', p: 4}}>
+                  <CircularProgress />
+                  <Typography variant="body1" sx={{mt: 2}}>Esperando pago en la terminal...</Typography>
+                  <Typography variant="body2" color="text.secondary">El estado se actualizará automáticamente.</Typography>
+                </Box>
+              ) : intentStatus === 'SUCCESS' ? (
+                <Box sx={{textAlign: 'center', p: 3}}>
+                  <Alert severity="success" sx={{mb: 2}}>Cobro procesado correctamente.</Alert>
+                  <Button variant="contained" onClick={handleClosePayment}>Aceptar</Button>
+                </Box>
+              ) : (
+                <Grid container spacing={2}>
+                  <Grid item xs={12}>
+                    <TextField fullWidth select label="Seleccionar Terminal" value={selectedPointDeviceId} onChange={(e) => setSelectedPointDeviceId(e.target.value)} disabled={pointDevices.length === 0}>
+                      {pointDevices.map((d) => (
+                        <MenuItem key={d.id} value={d.id}>{d.name}</MenuItem>
+                      ))}
+                    </TextField>
+                  </Grid>
+                  <Grid item xs={12}>
+                    <Button fullWidth variant="contained" onClick={handleSendPointIntent} disabled={mpPointLoading || !selectedPointDeviceId}>
+                      {mpPointLoading ? <CircularProgress size={24} /> : 'Enviar Cobro a Terminal'}
+                    </Button>
+                  </Grid>
+                  {intentStatus === 'ERROR' && <Grid item xs={12}><Alert severity="error">{mpPointError}</Alert></Grid>}
+                </Grid>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          {!paymentMethod && (
+             <Button onClick={handleClosePayment} fullWidth variant="outlined" color="inherit">
+                Pagar Después
+             </Button>
+          )}
+        </DialogActions>
+      </Dialog>
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+      >
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity}
+          sx={{ width: "100%" }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }
