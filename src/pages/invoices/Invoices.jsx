@@ -48,6 +48,7 @@ import PaymentGateway from "../../components/common/PaymentGateway";
 import { useInvoices } from "../../hooks/useInvoices";
 import { useAuthStore } from "../../stores/authStore";
 import { useMercadoPagoPoint } from "../../hooks/useMercadoPagoPoint";
+import { useCashRegister } from "../../hooks/useCashRegister";
 import { supabase } from "../../services/supabaseClient";
 
 export default function Invoices() {
@@ -80,6 +81,8 @@ export default function Invoices() {
     error: mpPointError,
     createPointPaymentIntent,
   } = useMercadoPagoPoint();
+
+  const { activeSession, checkActiveSession } = useCashRegister();
 
   const { profile } = useAuthStore();
   const [pendingOrders, setPendingOrders] = useState([]);
@@ -188,12 +191,32 @@ export default function Invoices() {
   };
 
   const handleMarkPaid = async (invoice) => {
+    // Validar si la caja está abierta antes de abrir el modal de cobro
+    const session = await checkActiveSession(invoice.business_id);
+    if (!session) {
+      setSnackbar({
+        open: true,
+        message: "No hay una sesión de caja abierta para este negocio. Debes abrir caja primero.",
+        severity: "error",
+      });
+      return;
+    }
+
     setInvoiceToPay(invoice);
     setPaymentMethod(null);
     setOpenPaymentDialog(true);
   };
 
   const handleManualPayment = async (method) => {
+    if (method === "CASH" && !activeSession) {
+      setSnackbar({
+        open: true,
+        message: "No hay una sesión de caja abierta para este negocio. Debes abrir caja primero.",
+        severity: "error",
+      });
+      return;
+    }
+
     setIsProcessing(true);
     const paymentData = {
       order_id: invoiceToPay.order_id,
