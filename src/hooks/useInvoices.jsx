@@ -35,7 +35,8 @@ export const useInvoices = () => {
               quantity,
               unit_price,
               inventory_items (name)
-            )
+            ),
+            payments (id, amount, status)
           )
         `)
         .eq('account_id', profile.account_id)
@@ -345,7 +346,8 @@ export const useInvoices = () => {
         body: { action: 'comprobantes_tipos', businessId }
       });
       if (invokeError) throw invokeError;
-      return data.datos?.map(item => ({ id: item.valor, nombre: item.nombre })) || [];
+      return data.datos?.map(item => ({ id: item.valor, nombre: item.nombre }))
+        .sort((a, b) => a.nombre.localeCompare(b.nombre)) || [];
     } catch (err) {
       console.error('Error fetching invoice types:', err.message);
       return [];
@@ -361,7 +363,8 @@ export const useInvoices = () => {
         body: { action: 'condiciones_venta', businessId }
       });
       if (invokeError) throw invokeError;
-      return data.datos?.map(item => ({ id: item.valor, nombre: item.nombre })) || [];
+      return data.datos?.map(item => ({ id: item.valor, nombre: item.nombre }))
+        .sort((a, b) => a.nombre.localeCompare(b.nombre)) || [];
     } catch (err) {
       console.error('Error fetching payment conditions:', err.message);
       return [];
@@ -377,7 +380,8 @@ export const useInvoices = () => {
         body: { action: 'condiciones_iva', businessId }
       });
       if (invokeError) throw invokeError;
-      return data.datos?.map(item => ({ id: item.valor, nombre: item.nombre })) || [];
+      return data.datos?.map(item => ({ id: item.valor, nombre: item.nombre }))
+        .sort((a, b) => a.nombre.localeCompare(b.nombre)) || [];
     } catch (err) {
       console.error('Error fetching IVA conditions:', err.message);
       return [];
@@ -393,7 +397,8 @@ export const useInvoices = () => {
         body: { action: 'documentos_tipos', businessId }
       });
       if (invokeError) throw invokeError;
-      return data.datos?.map(item => ({ id: item.valor, nombre: item.nombre })) || [];
+      return data.datos?.map(item => ({ id: item.valor, nombre: item.nombre }))
+        .sort((a, b) => a.nombre.localeCompare(b.nombre)) || [];
     } catch (err) {
       console.error('Error fetching document types:', err.message);
       return [];
