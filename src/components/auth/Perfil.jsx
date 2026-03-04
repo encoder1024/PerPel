@@ -16,7 +16,8 @@ import { supabase } from "../../services/supabaseClient"; // Assuming this path
 import { useAuthStore } from "../../stores/authStore"; // Assuming this path for Zustand store
 
 export const Perfil = () => {
-  const { user, app_role } = useAuthStore(); // Get user and app_role from authStore. account_id will be handled locally after code validation.
+  const { user, profile } = useAuthStore(); // Get user and profile from authStore.
+  const app_role = profile?.app_role;
   const [selectedRole, setSelectedRole] = useState("");
   const [requestStatus, setRequestStatus] = useState(null); // null, 'success', 'error'
   const [loading, setLoading] = useState(false);
