@@ -1,0 +1,2 @@
+[functions.tfa-invoice-generator]
+verify_jwt = false

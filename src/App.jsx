@@ -19,6 +19,7 @@ import StockManagement from "./pages/inventory/StockManagement"; // Import Stock
 import POS from "./pages/pos/POS";
 import CashRegister from "./pages/pos/CashRegister";
 import Appointments from "./pages/appointments/Appointments";
+import Invoices from "./pages/invoices/Invoices";
 import Dashboard from "./pages/dashboard/Dashboard";
 import AuditLogs from "./pages/audit/AuditLogs";
 import RoleRequest  from "./pages/auth/RoleRequest";
@@ -167,6 +168,17 @@ function App() {
                 <ProtectedRoute allowedRoles={["OWNER", "ADMIN", "EMPLOYEE"]}>
                   <MainLayout>
                     <StockManagement />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/facturacion"
+              element={
+                <ProtectedRoute allowedRoles={["OWNER", "ADMIN", "EMPLOYEE"]}>
+                  <MainLayout>
+                    <Invoices />
                   </MainLayout>
                 </ProtectedRoute>
               }

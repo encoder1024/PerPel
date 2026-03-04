@@ -1,0 +1,171 @@
+ > Cuando uso el botón de registro de pago, primero me deba abrir un modal que me muestre las opciones de pago apra que la pueda elegir y debe registrar el
+   pago que recibimos en la tabla payments con todos los atributos obligatorios y los mas quye se pueda de los opcionales.
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+✦ I'll start by examining the core.payments table definition in ScriptDb_revA0.sql to identify all mandatory and optional fields, ensuring that the new
+  payment registration modal captures all necessary information.
+
+
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ✓  SearchText 'CREATE TABLE IF NOT EXISTS core.payments' within ./                                                                                   │
+│                                                                                                                                                      │
+│ Found 1 match                                                                                                                                        │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+✦ I'll update the markOrderAsPaid method in src/hooks/useInvoices.jsx to registerPayment, making it more comprehensive. This new function will handle
+  inserting a record into the core.payments table with detailed payment information and updating the order status to PAID, ensuring all financial records
+  are accurately maintained.
+
+
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ x  Edit {"instruction":"Replace markOrderAsPaid with registerPayment to include detailed payment information and update the order status.","new_str… │
+│                                                                                                                                                      │
+│ Error: Failed to edit, could not find the string to replace.                                                                                         │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+✦ I'll read the src/hooks/useInvoices.jsx file around line 300 to find the correct content for the markOrderAsPaid function and ensure a successful
+  replacement with registerPayment.
+
+
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ✓  ReadFile src\hooks\useInvoices.jsx                                                                                                                │
+│                                                                                                                                                      │
+│ Read lines 281-380 of 488 from src/hooks/useInvoices.jsx                                                                                             │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+✦ I'll update the src/hooks/useInvoices.jsx file to replace the markOrderAsPaid method with a more comprehensive registerPayment function. This new function
+  will handle inserting a detailed payment record into the core.payments table and updating the order status to PAID, ensuring accurate financial tracking.
+  I'll also update the hook's return object to export registerPayment.
+
+
+
+ℹ Request cancelled.
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ -  Edit src\hooks\useInvoices.jsx:   /**... =>   /**...                                                                                              │
+│                                                                                                                                                      │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+ > Utiliza el mismo modal que muestras cuando genero la order en el carrito, para poder elegir la forma de pago.
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+✦ I'll first examine the POS.jsx file to identify the specific payment selection modal and ensure consistency in the user experience.
+
+
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ✓  ReadFile src\pages\pos\POS.jsx                                                                                                                    │
+│                                                                                                                                                      │
+│ Read lines 451-600 of 714 from src/pages/pos/POS.jsx                                                                                                 │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+✦ I'll read the remaining part of POS.jsx to identify the specific payment methods and the logic used when one is selected, ensuring I can accurately
+  replicate this in the invoicing module.
+
+
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ✓  ReadFile src\pages\pos\POS.jsx                                                                                                                    │
+│                                                                                                                                                      │
+│ Read lines 601-714 of 714 from src/pages/pos/POS.jsx                                                                                                 │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+✦ He analizado el modal de pago de POS.jsx. Replicaré esa misma estructura en Invoices.jsx para mantener la consistencia visual y funcional.
+
+
+  Implementación en Invoices.jsx:
+   1. Nuevo Diálogo de Pago: Mostrará las opciones: Efectivo, MercadoPago Point (Terminal) y MercadoPago Online.
+   2. Integración con TFA: Si el usuario elige Efectivo o Point (y el pago se aprueba), el sistema registrará el pago en core.payments, marcará la orden
+      como PAID y refrescará la lista.
+   3. Componentes Adicionales: Importaré CreditCardIcon y ShoppingCartIcon para los botones.
+
+  Procedo con la actualización de Invoices.jsx.
+
+
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ✓  Edit src\pages\invoices\Invoices.jsx: import PaymentsIcon from "@mui... => import PaymentsIcon from "@mui...                                      │
+│                                                                                                                                                      │
+│ 41   import AddIcon from "@mui/icons-material/Add";                                                                                                  │
+│ 42   import EditIcon from "@mui/icons-material/Edit";                                                                                                │
+│ 43   import PaymentsIcon from "@mui/icons-material/Payments";                                                                                        │
+│ 44 + import CreditCardIcon from "@mui/icons-material/CreditCard";                                                                                    │
+│ 45 + import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";                                                                                │
+│ 46 + import PaymentGateway from "../../components/common/PaymentGateway";                                                                            │
+│ 47   import { useInvoices } from "../../hooks/useInvoices";                                                                                          │
+│ 48   import { useAuthStore } from "../../stores/authStore";                                                                                          │
+│ 49                                                                                                                                                   │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+✦ I'll add the necessary state variables for the payment flow in src/pages/invoices/Invoices.jsx, including openPaymentDialog, paymentMethod, and
+  invoiceToPay. I'll then implement the handleInitiatePayment function to set up the payment process, ensuring a smooth and consistent user experience for
+  recording payments.
+
+
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ✓  Edit src\pages\invoices\Invoices.jsx:   const [openCustomerDialog, s... =>   const [openCustomerDialog, s...                                      │
+│                                                                                                                                                      │
+│ 86   const [openDetailDialog, setOpenDetailDialog] = useState(false);                                                                                │
+│ 87   const [openOptionsDialog, setOpenOptionsDialog] = useState(false);                                                                              │
+│ 88   const [openCustomerDialog, setOpenCustomerDialog] = useState(false);                                                                            │
+│ 89 + const [openPaymentDialog, setOpenPaymentDialog] = useState(false);                                                                              │
+│ 90 + const [paymentMethod, setPaymentMethod] = useState(null);                                                                                       │
+│ 91 + const [invoiceToPay, setInvoiceToPay] = useState(null);                                                                                         │
+│ 92                                                                                                                                                   │
+│ 93   const [selectedOrder, setSelectedOrder] = useState(null);                                                                                       │
+│ 94   const [selectedInvoice, setSelectedInvoice] = useState(null);                                                                                   │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+✦ I'll implement the handleInitiatePayment and handleManualPayment functions in src/pages/invoices/Invoices.jsx to manage the payment registration process.
+  handleInitiatePayment will set up the payment dialog, and handleManualPayment will use the registerPayment hook to record manual payments like cash,
+  updating both the database and the UI to reflect the new payment status.
+
+
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ✓  Edit src\pages\invoices\Invoices.jsx:   const handleMarkPaid = async... =>   const handleMarkPaid = async...                                      │
+│                                                                                                                                                      │
+│ 170     setOpenPendingDialog(true);                                                                                                                  │
+│ 171   };                                                                                                                                             │
+│ 172                                                                                                                                                  │
+│ 173 - const handleMarkPaid = async (orderId) => {                                                                                                    │
+│ 174 -   if (window.confirm("¿Confirmar que esta factura ha sido cobrada?")) {                                                                        │
+│ 175 -     const result = await markOrderAsPaid(orderId);                                                                                             │
+│ 176 -     if (result.success) {                                                                                                                      │
+│ 177 -       setSnackbar({ open: true, message: "Orden marcada como pagada.", severity: "success" });                                                 │
+│ 178 -       loadData();                                                                                                                              │
+│ 179 -     }                                                                                                                                          │
+│ 173 + const handleMarkPaid = async (invoice) => {                                                                                                    │
+│ 174 +   setInvoiceToPay(invoice);                                                                                                                    │
+│ 175 +   setPaymentMethod(null);                                                                                                                      │
+│ 176 +   setOpenPaymentDialog(true);                                                                                                                  │
+│ 177 + };                                                                                                                                             │
+│ 178 +                                                                                                                                                │
+│ 179 + const handleManualPayment = async (method) => {                                                                                                │
+│ 180 +   setIsProcessing(true);                                                                                                                       │
+│ 181 +   const paymentData = {                                                                                                                        │
+│ 182 +     order_id: invoiceToPay.order_id,                                                                                                           │
+│ 183 +     amount: invoiceToPay.total_amount,                                                                                                         │
+│ 184 +     payment_method_id: method, // CASH, etc.                                                                                                   │
+│ 185 +     payment_type: 'MANUAL',                                                                                                                    │
+│ 186 +     notes: "Pago registrado desde módulo de facturación"                                                                                       │
+│ 187 +   };                                                                                                                                           │
+│ 188 +                                                                                                                                                │
+│ 189 +   const result = await registerPayment(paymentData);                                                                                           │
+│ 190 +   if (result.success) {                                                                                                                        │
+│ 191 +     setSnackbar({ open: true, message: "Pago registrado con éxito.", severity: "success" });                                                   │
+│ 192 +     setOpenPaymentDialog(false);                                                                                                               │
+│ 193 +     loadData();                                                                                                                                │
+│ 194 +   } else {                                                                                                                                     │
+│ 195 +     setSnackbar({ open: true, message: "Error: " + result.error, severity: "error" });                                                         │
+│ 196     }                                                                                                                                            │
+│ 197 +   setIsProcessing(false);                                                                                                                      │
+│ 198   };                                                                                                                                             │
+│ 199                                                                                                                                                  │
+│ 200   const handleOpenCustomerModal = (customer = null) => {                                                                                         │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+✦ I'll update the actions column in src/pages/invoices/Invoices.jsx to pass the entire row object to the handleMarkPaid function, ensuring it has all the
+  necessary data to initiate the payment process for a specific invoice.
+
+
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ✓  Edit src\pages\invoices\Invoices.jsx:           <Tooltip title="Regi... =>           <Tooltip title="Regi...                                      │
+│                                                                                                                                                      │
+│ 402   <IconButton                                                                                                                                    │
+│ 403     size="small"                                                                                                                                 │
+│ 404     color="success"                                                                                                                              │
+│ 405 -   onClick={() => handleMarkPaid(p.row.order_id)}                                                                                               │
+│ 405 +   onClick={() => handleMarkPaid(p.row)}                                                                                                        │
+│ 406     disabled={p.row.order?.status === "PAID"}                                                                                                    │
+│ 407   >                                                                                                                                              │
+│ 408     <PaymentsIcon fontSize="small" />                                                                                                            │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+✦ I'll add the PaymentDialog component to the end of src/pages/invoices/Invoices.jsx, providing users with a selection of payment methods including Cash,
+  MercadoPago Point, and MercadoPago Online. This component will mirror the look and feel of the POS payment dialog, ensuring a consistent and intuitive
+  experience for recording payments directly from the invoicing module.

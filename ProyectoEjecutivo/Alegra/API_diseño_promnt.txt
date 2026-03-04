@@ -1,0 +1,379 @@
+cambio de temas, API Alegra de facturación en Argenitna, necesido acceder a su documentación para desarrolladores
+Gemini ha dicho
+Para integrar la facturación de Alegra en Argentina, el portal centralizado para desarrolladores es el mismo para todos los países, pero con especificaciones críticas para cumplir con la AFIP.
+Aquí tienes los enlaces y puntos clave para tu ERP:
+1. Enlaces Principales
+• Documentación Oficial: Alegra API Documentation
+• Referencia de Facturas (POST): Crear Factura de Venta
+• Catálogo Específico de Argentina: Parámetros Argentina (Aquí encontrarás los códigos de condición de IVA, tipos de comprobantes y documentos de identidad válidos para AFIP).
+
+2. Autenticación
+Alegra utiliza Basic Auth. Necesitarás:
+1. El correo electrónico de la cuenta.
+2. El API Token (lo generas en Configuración -> API dentro de tu cuenta de Alegra).
+Bash
+# Ejemplo de Header
+Authorization: Basic base64(email:api_token)
+
+3. Consideraciones Críticas para Argentina (AFIP)
+Para que una factura sea válida ante la AFIP desde la API, debes prestar atención a estos campos en el JSON que envíes:
+• stamp: Debe estar en true si quieres que la factura se emita y autorice automáticamente ante la AFIP (obteniendo el CAE).
+• numberTemplate: Debes enviar el id de la numeración que configuraste como "Factura Electrónica" en Alegra.
+• Datos del Cliente: El campo idIdentification debe ser CUIT, CUIL o DNI y el identification debe ser el número sin guiones.
+• Condición de IVA: Es obligatorio enviar la condición tanto del emisor como del receptor (ej: Responsable Inscripto, Monotributista).
+4. Flujo de Implementación Recomendado
+1. Obtener Numeraciones: Llama a GET /api/v1/number-templates para identificar cuál es la que corresponde a Factura A, B o C electrónica.
+2. Sincronizar Ítems: Usa GET /api/v1/items para obtener los IDs de tus servicios/productos.
+3. Emitir Factura: Realiza el POST /api/v1/invoices con el flag stamp: true.
+¿Te gustaría que te ayude a escribir una Edge Function en Supabase para enviar automáticamente la factura a Alegra cuando se confirme un turno en tu ERP? Solo necesitaría saber si ya tienes los productos creados en Alegra.
+
+
+Has dicho
+los producto que venderé en las perfumerías y los servicios que vendo en las peluquerías están registrados en mi base de datos en supabase, con alegra solo quiero resolver la creación de la factura electrónica y que me la envíe al store de supabase.
+Gemini ha dicho
+Esta es una excelente estrategia para mantener Supabase como tu "única fuente de verdad". Para lograr que Alegra emita la factura electrónica (CAE de AFIP) usando tus datos de Supabase y luego guarde el PDF resultante en tu Storage, el flujo técnico es el siguiente:
+1. El Concepto: Ítems "On-the-fly"
+A diferencia de otros países, en la API de Alegra para Argentina, no necesitas crear el producto previamente en Alegra. Puedes enviar los datos de tus servicios (peluquería) o productos (perfumería) directamente en el array de items al crear la factura.
+2. Estructura de la Petición (Edge Function)
+Deberás crear una Edge Function que tome los datos de tu tabla appointments o sales y haga un POST a Alegra.
+Campos obligatorios para AFIP:
+• stamp: true: Es lo que le dice a Alegra: "conéctate con AFIP ahora mismo y pide el CAE".
+• numberTemplate: El ID del punto de venta electrónico configurado en Alegra.
+• client: Debes enviar el CUIT/CUIL del cliente. Si es consumidor final, Alegra ya tiene un ID por defecto para eso.
+TypeScript
+// Ejemplo del JSON que enviaría tu Edge Function a Alegra
+{
+  "date": "2026-03-01",
+  "dueDate": "2026-03-01",
+  "client": { "id": "ID_DEL_CLIENTE_EN_ALEGRA" },
+  "items": [
+    {
+      "name": "Corte de Cabello + Estilismo", // Traído de Supabase
+      "price": 15000,
+      "quantity": 1,
+      "tax": [{ "id": "1" }] // ID del IVA 21% en Alegra Argentina
+    }
+  ],
+  "stamp": true, // <--- CRÍTICO para Factura Electrónica
+  "type": "sale",
+  "numberTemplate": { "id": "1" } // ID de tu punto de venta AFIP
+}
+
+3. Obtener el PDF y guardarlo en Supabase
+Una vez que el POST es exitoso, Alegra te devolverá el id de la factura y el objeto stamp con los datos de AFIP.
+Para llevar el PDF a tu Storage:
+1. Obtener URL del PDF: Llama al endpoint GET /api/v1/invoices/{id}. En la respuesta, busca el campo pdfUrl (o usa fields=url).
+2. Descargar y Subir: Tu Edge Function debe hacer un fetch a esa URL para obtener el archivo como un blob y luego usar el cliente de Supabase para subirlo:
+TypeScript
+const pdfBlob = await fetch(alegraResponse.url).then(r => r.blob());
+
+await supabase.storage
+  .from('invoices')
+  .upload(`${invoiceId}.pdf`, pdfBlob);
+4. Configuración Previa en Alegra
+Antes de programar, debes hacer esto manualmente en el portal de Alegra:
+1. Habilitar API: En Configuración -> API, obtén tu correo y API Token.
+2. Configurar AFIP: Asegúrate de que Alegra ya esté vinculado con tus certificados de AFIP y que tengas un "Número de comprobante" (Punto de Venta) activo.
+3. Identificar Impuestos: Haz un GET /api/v1/taxes para saber cuál es el ID del IVA 21%, 10.5%, etc., en tu cuenta.
+¿Te gustaría que te redacte el código completo de la Edge Function de Supabase que hace este proceso (Facturar -> Descargar PDF -> Guardar en Storage)? Solo necesitaría confirmar si quieres que la factura se dispare manualmente con un botón o automáticamente al cambiar un estado en la base de datos.
+
+También tener en cuenta que:
+
+1. La única fuente de verdad para la información  de las facturas es la base de datos en supabase.
+2. Que se podrá configurar en la configuración si la facturación se emite automáticamente al confirmar una venta o se espera que se dé el ok en un botón en un modal donde figuran las ordenes confirmadas que no han sido pagadas todavía y se gestionan los pagos.
+3. Hay que generar una estructura de carpetas en el store de supabase por account_id, business_id, order_id que permita almacenar los pdf de las facturas emitidas y desde allí enviarlas por email o por whatsapp a los clientes.
+4. Ver en el esquema scriptDB_RevA0 como está organizada la tabla invoices para registrar los datos de la factura y del proceso con Alegra.
+5. Registrar en api_logs las comunicaciones con la API Alegra con éxito o con errores.
+6. Crear las Edge Functions necesarias, callbacks y WebHook necesarios para atender y utilizar la API Alegra y que sean completamente independientes de las ya creadas para las API Mercadopago y Cal.com.
+7. Tener en cuanta al importar módulos que los mismos deben ser compatibles con Vite (dev) y Vercel (prod).
+Siempre utilizar invoke para llamar a las funciones rcp de supabase.
+
+Leer los textos de estas páginas web:
+
+https://developer.alegra.com/reference/get_invoices
+
+https://developer.alegra.com/reference/autenticaci%C3%B3n
+
+https://developer.alegra.com/reference/respuestas-del-api-y-manejo-de-errores
+
+Crear factura de venta
+post
+https://api.alegra.com/api/v1/invoices
+
+Endpoint que permite crear una factura de venta desde cero.
+Recent Requests
+Log in to see full request history
+Time
+Status
+User Agent
+Make a request to see history.
+0 Requests This Month
+Body Params
+Objeto JSON que contiene la información de una factura de venta
+status
+string
+Estado de la factura, las opciones posibles son: open o draft. Si no se envía este atributo y no se envían pagos asociados la factura se crea en "draft". Si se envían pagos a la factura, la factura queda creada en "open".
+numberTemplate
+object
+Objeto que contiene la información de la numeración de la factura. Para numeraciones automáticas solo debe incluir el id de la numeración, para numeraciones manuales se debe enviar como mínimo el id de la numeración y el número de la factura. Si no se envía este atributo la aplicación intenta crear la factura con la numeración preferida que tiene configurada la empresa. Si no es posible retorna error.
+numberTemplate object
+items
+array of objects
+required
+Array de objetos item (productos/servicios) asociados a la factura. Cada objeto debe incluir: id (number, obligatorio): identificador del producto o servicio que se vende; price (double, obligatorio): precio de venta; reference (string) : referencia del producto/servicio; description (string): descripción del producto/servicio; tax (objeto) : array de objetos tax que indican la información del impuesto; quantity (obligatorio): cantidad vendida del producto o servicio. El precio del producto/servicio no debe incluir impuestos ni descuentos.
+object
+id
+string
+Identificador del producto
+name
+string
+Nombre del producto
+discount
+number
+Porcentaje de descuento aplicado al producto
+observations
+string
+Observaciones acerca del producto
+tax
+array of objects
+Array de objetos tax que indican los impuestos aplicados al producto al momento de la compra
+object
+id
+string
+Identificador único que representa un impuesto específico.
+ADD object
+price
+number
+Precio de compra del producto
+quantity
+number
+Cantidad de productos que fueron comprados.
+description
+string
+Descripción del producto/servicio.
+object
+id
+string
+Identificador del producto
+name
+string
+Nombre del producto
+discount
+number
+Porcentaje de descuento aplicado al producto
+observations
+string
+Observaciones acerca del producto
+tax
+array of objects
+Array de objetos tax que indican los impuestos aplicados al producto al momento de la compra
+object
+id
+string
+Identificador único que representa un impuesto específico.
+ADD object
+price
+number
+Precio de compra del producto
+quantity
+number
+Cantidad de productos que fueron comprados.
+description
+string
+Descripción del producto/servicio.
+ADD object
+payments
+array of objects
+Array de objetos que indican los pagos que se han realizado a la factura. Cada objeto debe contener los siguientes atributos: date (string, obligatorio): fecha del pago. Formato yyyy-mm-dd; account (object, obligatorio): objeto que incluye el id de la cuenta banco a la cual debe ingresar el dinero; amount (number, obligatorio): valor pagado.; paymentMethod (string): método de pago, las opciones posibles son: transefer, cash, deposit, check, credit-card, debit-card; anotations (string): notas del pago; observations (string): observaciones del pago; retentions (array): array de objetos que indican las retenciones a la factura que se realizaron en el pago; currency (object): objeto que incluye la información de la moneda y la tasa de cambio asociada al pago.
+object
+date
+date
+Fecha del pago
+account
+object
+Objeto que incluye el id de la cuenta banco a la cual debe ingresar el dinero
+account object
+amount
+number
+Valor pagado
+paymentMethod
+string
+enum
+Metodo de pago
+Allowed:
+cashchecktransferdepositcredit-carddebit-card
+annotations
+string
+Notas del pago
+observations
+string
+Observaciones del pago
+retentions
+array of objects
+Array de objetos que indican las retenciones a la factura que se realizaron el pago
+object
+id
+string
+Identificador de la retención
+amount
+number
+Valor retenido
+ADD object
+currency
+object
+Objeto que incluye la información de la moneda y la tasa de cambio asociada al pago
+currency object
+ADD object
+estimate
+string
+Especifica el identificador de la cotización que desea asociar a la factura de venta, de esta forma, la cotización queda facturada y se asocian los ítems que se especifiquen en el parametro items no los que tiene la cotización.
+termsConditions
+string
+Términos y condiciones de la factura. Longitud máxima permitida: 500.
+anotation
+string
+Notas de la factura, visibles en el PDF o documento impreso. Longitud máxima permitida: 500.
+dueDate
+date
+required
+Fecha de vencimiento de la factura. Formato yyyy-MM-dd.
+date
+date
+required
+Fecha de la factura. Formato yyyy-MM-dd.
+observations
+string
+length ≤ 500
+Observaciones de la factura (no visibles en el pdf o documento impreso). Longitud máxima permitida: 500.
+client
+object
+required
+Objecto que contiene el id del cliente asociado a la factura. Se puede enviar directamente el id del cliente en este atributo.
+client object
+seller
+Objeto que indica el id del vendedor asociado a la factura. Se puede enviar directamente el id del vendedor en este atributo.
+priceList
+Objeto que indica el id de la lista de precios asociada a la factura. Se puede enviar directamente el id de la lista de precios en este atributo.
+currency
+object
+Objecto que incluye la información de la moneda y tasa de cambio asociada a la factura. Solo se debe incluir si la compañía tiene activa la funcionalidad de multimoneda y tiene configurada la moneda seleccionada. Debe incluir el código de la moneda (de tres letras según ISO) y la tasa de cambio.
+currency object
+retentions
+array of objects
+Array de objetos retention que indican las retenciones de la factura de venta. Cada objeto debe contener: id (number, obligatorio): Identificador de la retención que se desea asociar a la factura; amount (double, obligatorio): valor retenido.
+ADD object
+warehouse
+Objeto que indica el id de la bodega/almacén asociada a la factura. Se puede enviar directamente el id de la bodega/almacén en este atributo. Si no se envía este parámetro la factura queda asociada a la bodega/almacén Principal.
+remissions
+array of objects
+Array de identificadores de las remisiones que se desean facturar, puedes asociar una o varias remisiones tan solo indicando el id de cada una en un array. El cliente de las remisiones y de la factura de venta debe ser el mismo. Solo las remisiones abiertas pueden ser facturadas. De esta forma, los ítems de cada una de las remisiones serán facturados, además también podrás especificar otros ítems con el parametroitems.
+object
+id
+string
+Identificador de la remisión
+items
+array of objects
+Items adicionales
+ADD object
+object
+id
+string
+Identificador de la remisión
+items
+array of objects
+Items adicionales
+ADD object
+ADD object
+costCenter
+Objeto que indica el id del centro de costo asociado. Se puede enviar directamente el id del centro de costo en este atributo o enviarlo como objeto.
+comments
+array of strings
+Arreglo de strings con cada uno de los comentarios que se desean asociar. Los comentarios se pueden actualizar aun si la factura de venta no se puede editar.
+ADD string
+periodicity
+string
+enum
+Indica la periodicidad de los pagos de las cuotas de la factura. Si se desea emitir la factura, la forma de pago es a crédito este atributo se vuelve obligatorio.
+Allowed:
+BIWEEKLYMONTHLYBIMONTHLYQUARTERLYSEMIANNUALLYMANUAL
+Responses
+200
+Retorna información de una factura
+
+400
+Bad request
+
+
+
+From <https://developer.alegra.com/reference/post_invoices> 
+
+se realicen deben incluir el header Authorization.
+El acceso al API se realiza utilizando el correo y el token otorgado al usuario registrado en Alegra.
+Obtener token de acceso
+Debes seguir los siguientes pasos para obtener el token de acceso:
+	1. Ingresar a aplicación Alegra.
+	2. Haz clic sobre el vínculo "Configuración" en la parte superior derecha de la pantalla de Alegra y haz clic en la sección "API - Integraciones con otros sistemas"
+	3. En la nueva pantalla puedes encontrar el correo con el cual debes acceder al API y el token. Si aún no cuentas con un token puedes generarlo también.
+¿Cómo utilizar el token?
+En el header Authorization se debe poner el correo y el token del usuario separado por dos puntos (:), todo en base64.
+Por ejemplo, si el correo del usuario es ejemploapi@alegra.com y el token es tokenejemploapi12345 el header Authorization debe quedar así :
+Authorization: Basic ZWplbXBsb2FwaUBhbGVncmEuY29tOnRva2VuZWplbXBsb2FwaTEyMzQ1
+Donde ZWplbXBsb2FwaUBhbGVncmEuY29tOnRva2VuZWplbXBsb2FwaTEyMzQ1 es base_64('ejemploapi@alegra.com:tokenejemploapi12345')
+Errores en autenticación
+Si el API encuentra algún inconveniente con la autenticación retorna un código 401 y el error encontrado.
+
+From <https://developer.alegra.com/reference/post_invoices> 
+
+import alegraswaggerTest from '@api/alegraswagger-test';
+
+alegraswaggerTest.postInvoices({
+  date: '2015-11-15',
+  dueDate: '2015-12-15',
+  observations: 'Observaciones de la factura.',
+  anotation: 'Nota : Favor consignar a la cuenta XXXXXX',
+  termsConditions: 'Términos y condiciones de mi empresa',
+  status: 'draft',
+  client: {id: '2'},
+  numberTemplate: {id: '1', prefix: 'A-', number: 525},
+  seller: {id: '52'},
+  currency: {code: 'USD', exchangeRate: 3100},
+  items: [
+    {
+      id: '1',
+      description: 'Billetera de cuero negro',
+      reference: 'REF-005',
+      discount: 0,
+      tax: [{id: '6'}],
+      price: 120,
+      quantity: 5
+    },
+    {
+      id: '2',
+      description: 'Cartera de cuero color café',
+      reference: 'CAR-195',
+      price: 85,
+      discount: 10,
+      tax: [{id: '6'}],
+      quantity: 1
+    }
+  ],
+  payments: [
+    {
+      date: '2015-11-20',
+      account: {id: '2'},
+      amount: 100,
+      paymentMethod: 'cash',
+      retentions: [{id: '1', amount: 50}],
+      currency: {code: 'USD', exchangeRate: 3250}
+    }
+  ],
+  remissions: [10, 20],
+  estimate: 5,
+  costCenter: {id: '2'},
+  paymentMethod: 'CREDIT',
+  periodicity: 'BIWEEKLY',
+  numberQuotas: 2,
+  quotas: [{amount: 1000, dueDate: '2021-09-15'}, {amount: 1000, dueDate: '2021-09-30'}]
+})
+  .then(({ data }) => console.log(data))
+  .catch(err => console.error(err));
