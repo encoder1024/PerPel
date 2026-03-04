@@ -57,6 +57,55 @@ export const useCashRegister = () => {
     }
   }, []);
 
+  const fetchSessionPayments = useCallback(async (openedAt, businessId) => {
+    if (!openedAt || !businessId) return [];
+    setLoading(true);
+    try {
+      // Definimos los métodos que queremos mostrar siempre por defecto
+      const defaultSummary = {
+        'CASH': 0,
+        'POINT_MP': 0,
+        'ONLINE_MP': 0
+      };
+
+      const { data, error: payError } = await supabase
+        .schema('core')
+        .from('payments')
+        .select(`
+          payment_method_id, 
+          amount,
+          orders!inner(business_id)
+        `)
+        .eq('account_id', profile.account_id)
+        .eq('orders.business_id', businessId)
+        .eq('status', 'approved')
+        .gte('created_at', openedAt);
+
+      if (payError) throw payError;
+
+      // Agrupar por método de pago sobre los valores por defecto
+      const summary = data.reduce((acc, curr) => {
+        const method = curr.payment_method_id || 'OTROS';
+        if (!acc[method]) acc[method] = 0;
+        acc[method] += parseFloat(curr.amount);
+        return acc;
+      }, defaultSummary);
+
+      return Object.entries(summary).map(([method, total]) => ({ method, total }));
+    } catch (err) {
+      console.error('Error fetching session payments:', err.message);
+      setError(err.message);
+      // Retornar al menos los ceros para que la UI los muestre
+      return [
+        { method: 'CASH', total: 0 },
+        { method: 'POINT_MP', total: 0 },
+        { method: 'ONLINE_MP', total: 0 }
+      ];
+    } finally {
+      setLoading(false);
+    }
+  }, [profile?.account_id]);
+
   const openSession = async (businessId, openingBalance, notes = '') => {
     setLoading(true);
     try {
@@ -118,13 +167,38 @@ export const useCashRegister = () => {
     }
   };
 
+  const fetchAllActiveSessions = useCallback(async () => {
+    if (!profile?.account_id) return [];
+    setLoading(true);
+    try {
+      const { data, error: fetchError } = await supabase
+        .schema('core')
+        .from('cash_register_sessions')
+        .select('*')
+        .eq('account_id', profile.account_id)
+        .eq('status', 'OPEN')
+        .eq('is_deleted', false);
+
+      if (fetchError) throw fetchError;
+      return data || [];
+    } catch (err) {
+      console.error('Error fetching all active sessions:', err.message);
+      setError(err.message);
+      return [];
+    } finally {
+      setLoading(false);
+    }
+  }, [profile?.account_id]);
+
   return {
     activeSession,
     sessionSummary,
     loading,
     error,
     checkActiveSession,
+    fetchAllActiveSessions,
     fetchSessionSummary,
+    fetchSessionPayments,
     openSession,
     closeSession
   };

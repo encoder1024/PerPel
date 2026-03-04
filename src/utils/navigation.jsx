@@ -20,7 +20,7 @@ export const navigationItems = [
   { text: 'Facturación', icon: <ReceiptIcon />, path: '/facturacion', roles: ['OWNER', 'ADMIN', 'EMPLOYEE'] },
   { text: 'Turnos', icon: <CalendarMonthIcon />, path: '/turnos', roles: ['OWNER', 'ADMIN', 'EMPLOYEE'] },
   { text: 'Clientes', icon: <PeopleIcon />, path: '/clientes', roles: ['OWNER', 'ADMIN', 'EMPLOYEE'] },
-  { text: 'Reportes', icon: <BarChartIcon />, path: '/reportes', roles: ['OWNER', 'ADMIN', 'AUDITOR'] },
+  { text: 'Reportes', icon: <BarChartIcon />, path: '/reportes', roles: ['OWNER', 'AUDITOR'] },
   { text: 'Configuración', icon: <SettingsIcon />, path: '/configuracion', roles: ['OWNER', 'ADMIN'] },
   { text: 'Roles', icon: <SettingsIcon />, path: '/rolerequest', roles: ['OWNER', 'ADMIN'] },
 ];

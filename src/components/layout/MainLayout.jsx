@@ -138,7 +138,7 @@ export default function MainLayout({ children }) {
             <MenuIcon />
           </IconButton>
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1, fontWeight: 600 }}>
-            {profile?.account_name || 'PerPel'}
+            {profile?.account_name || 'PerPel ERP'}
           </Typography>
           <div>
             <IconButton
@@ -183,7 +183,7 @@ export default function MainLayout({ children }) {
       <Drawer variant="permanent" open={open}>
         <DrawerHeader>
           <Typography variant="h6" sx={{ color: 'white', flexGrow: 1, textAlign: 'center', fontWeight: 700 }}>
-            PerPel
+            
           </Typography>
           <IconButton onClick={handleDrawerClose} sx={{ color: 'white' }}>
             {theme.direction === 'rtl' ? <ChevronRightIcon /> : <ChevronLeftIcon />}
