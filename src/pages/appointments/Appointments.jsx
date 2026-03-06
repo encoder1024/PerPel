@@ -183,7 +183,7 @@ export default function Appointments() {
             <Typography variant="h6" sx={{ fontWeight: 600 }}>
               Próximos Turnos
             </Typography>
-            {isOwnerAdmin && businesses.length > 0 && (
+            {businesses.length > 0 && (
               <FormControl size="small" sx={{ minWidth: 220 }}>
                 <InputLabel>Negocio</InputLabel>
                 <Select
