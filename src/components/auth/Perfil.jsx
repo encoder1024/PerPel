@@ -44,7 +44,7 @@ export const Perfil = () => {
     setAccountId(""); // Clear previous accountId
 
     if (!accessCode) {
-      setValidationError("Por favo ingrese un código de cuenta.");
+      setValidationError("Por favor ingrese un código de cuenta.");
       setValidatingCode(false);
       return;
     }
@@ -70,7 +70,7 @@ export const Perfil = () => {
       if (error) {
         throw error;
       }
-
+      console.log("Validation query result:", data);
       if (data) {
         setValidatedAccountName(data.account_name);
         setAccountId(data.id); // Set the accountId from the validated code
