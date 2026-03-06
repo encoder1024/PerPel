@@ -35,7 +35,6 @@ import ECommerceConfig from "./pages/configuration/ECommerceConfig";
 import OAuthCallback from "./pages/configuration/OAuthCallback";
 
 import { syncService } from "./services/syncService";
-import { notificationService } from "./services/notificationService";
 
 import { useAuthStore } from "./stores/authStore";
 
@@ -82,17 +81,7 @@ function App() {
   React.useEffect(() => {
     // Inicializar el servicio de sincronización offline
     syncService.init();
-
-    // Inicializar OneSignal
-    notificationService.init();
   }, []);
-
-  // Efecto para vincular el player_id de OneSignal con el usuario logueado
-  React.useEffect(() => {
-    if (user?.id) {
-      notificationService.linkUser(user.id);
-    }
-  }, [user?.id]);
 
   return (
     <ThemeProvider theme={theme}>
