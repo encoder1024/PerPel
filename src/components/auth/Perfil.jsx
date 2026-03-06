@@ -66,11 +66,11 @@ export const Perfil = () => {
         .eq("registration_code", accessCode) // Assuming 'registration_code' is the column name
         // .eq('id', account_id) // This filter is intentionally commented out as per user's instruction.
         .maybeSingle();
-
+      console.log("Validation query result:", data);
       if (error) {
         throw error;
       }
-      console.log("Validation query result:", data);
+      
       if (data) {
         setValidatedAccountName(data.account_name);
         setAccountId(data.id); // Set the accountId from the validated code
