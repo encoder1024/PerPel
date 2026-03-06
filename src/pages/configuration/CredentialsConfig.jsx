@@ -208,7 +208,6 @@ export default function CredentialsConfig() {
               <MenuItem value="MERCADOPAGO">Mercado Pago</MenuItem>
               <MenuItem value="TUS_FACTURAS_APP">Tus Facturas App</MenuItem>
               <MenuItem value="ALEGRA">Alegra (Legacy)</MenuItem>
-              <MenuItem value="ONESIGNAL">OneSignal</MenuItem>
               <MenuItem value="CAL_COM">Cal.com (Turnos)</MenuItem>
             </TextField>
           </Grid>
