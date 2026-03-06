@@ -79,7 +79,7 @@ export const Perfil = () => {
       console.log("Validation query error 1:", error);
       if (error) {
         console.log("Validation query error 2:", error);
-        // throw error;
+        throw error;
       }
       console.log("Validation query error 3:", error);
       
