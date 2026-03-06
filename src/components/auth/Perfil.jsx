@@ -49,6 +49,15 @@ export const Perfil = () => {
       return;
     }
 
+    console.log("Starting code validation for code:", accessCode);
+    console.log("Current user ID:", user?.id);
+    console.log("Current accountId before validation:", accountId);
+    console.log("Current isCodeValidated before validation:", isCodeValidated);
+    console.log("Current validatedAccountName before validation:", validatedAccountName);
+    console.log("Current validationError before validation:", validationError);
+    console.log("Current requestStatus before validation:", requestStatus);
+    console.log("Current loading state before validation:", profile?.loading);
+
     if (!user?.id) {
       setValidationError(
         "La información del usuario no está. Por favor haga login de nuevo.",
