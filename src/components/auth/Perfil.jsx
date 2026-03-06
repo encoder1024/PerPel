@@ -67,10 +67,12 @@ export const Perfil = () => {
         // .eq('id', account_id) // This filter is intentionally commented out as per user's instruction.
         .maybeSingle();
       console.log("Validation query result:", data);
-      console.log("Validation query error:", error);
+      console.log("Validation query error 1:", error);
       if (error) {
-        throw error;
+        console.log("Validation query error 2:", error);
+        // throw error;
       }
+      console.log("Validation query error 3:", error);
       
       if (data) {
         setValidatedAccountName(data.account_name);
@@ -82,6 +84,7 @@ export const Perfil = () => {
         setValidationError("Código invalido. Por favor intenta de nuevo.");
         setSnackbarMessage("Código no valido!");
         setRequestStatus("error");
+        console.log("Validation query error 4:", error);
       }
     } catch (error) {
       console.error("Error validating access code:", error.message);
