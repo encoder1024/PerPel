@@ -67,22 +67,15 @@ export const Perfil = () => {
     }
 
     try {
-      // Query the accounts table for the given code. The user explicitely stated: "se verifique solo por este código"
+      // Query the accounts table via RPC to bypass RLS for new users
       const { data, error } = await supabase
-        .schema("core")
-        .from("accounts")
-        .select("id, account_name")
-        .eq("registration_code", accessCode) // Assuming 'registration_code' is the column name
-        // .eq('id', account_id) // This filter is intentionally commented out as per user's instruction.
+        .rpc('get_account_by_code', { p_code: accessCode })
         .maybeSingle();
-      console.log("Validation query result:", data);
-      console.log("Validation query error 1:", error);
+      
       if (error) {
-        console.log("Validation query error 2:", error);
         throw error;
       }
-      console.log("Validation query error 3:", error);
-      
+
       if (data) {
         setValidatedAccountName(data.account_name);
         setAccountId(data.id); // Set the accountId from the validated code
@@ -93,7 +86,6 @@ export const Perfil = () => {
         setValidationError("Código invalido. Por favor intenta de nuevo.");
         setSnackbarMessage("Código no valido!");
         setRequestStatus("error");
-        console.log("Validation query error 4:", error);
       }
     } catch (error) {
       console.error("Error validating access code:", error.message);
