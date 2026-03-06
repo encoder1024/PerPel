@@ -66,11 +66,14 @@ export const Perfil = () => {
         .eq("registration_code", accessCode) // Assuming 'registration_code' is the column name
         // .eq('id', account_id) // This filter is intentionally commented out as per user's instruction.
         .maybeSingle();
-
-      if (error) {
-        throw error;
-      }
       console.log("Validation query result:", data);
+      console.log("Validation query error 1:", error);
+      if (error) {
+        console.log("Validation query error 2:", error);
+        // throw error;
+      }
+      console.log("Validation query error 3:", error);
+      
       if (data) {
         setValidatedAccountName(data.account_name);
         setAccountId(data.id); // Set the accountId from the validated code
@@ -81,6 +84,7 @@ export const Perfil = () => {
         setValidationError("Código invalido. Por favor intenta de nuevo.");
         setSnackbarMessage("Código no valido!");
         setRequestStatus("error");
+        console.log("Validation query error 4:", error);
       }
     } catch (error) {
       console.error("Error validating access code:", error.message);
