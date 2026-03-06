@@ -84,13 +84,13 @@ function App() {
     syncService.init();
 
     // Inicializar OneSignal
-    //notificationService.init();
+    notificationService.init();
   }, []);
 
   // Efecto para vincular el player_id de OneSignal con el usuario logueado
   React.useEffect(() => {
     if (user?.id) {
-      //notificationService.linkUser(user.id);
+      notificationService.linkUser(user.id);
     }
   }, [user?.id]);
 
