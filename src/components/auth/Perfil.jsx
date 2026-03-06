@@ -67,6 +67,7 @@ export const Perfil = () => {
         // .eq('id', account_id) // This filter is intentionally commented out as per user's instruction.
         .maybeSingle();
       console.log("Validation query result:", data);
+      console.log("Validation query error:", error);
       if (error) {
         throw error;
       }
