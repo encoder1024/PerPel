@@ -68,12 +68,9 @@ export const Perfil = () => {
 
     try {
       // Query the accounts table via RPC to bypass RLS for new users
-      console.log("Invoking get_account_by_code RPC...");
       const { data, error } = await supabase
         .rpc('get_account_by_code', { p_code: accessCode })
         .maybeSingle();
-      
-      console.log("RPC result:", data);
       
       if (error) {
         throw error;
