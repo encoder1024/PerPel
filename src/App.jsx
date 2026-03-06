@@ -42,6 +42,8 @@ import { useAuthStore } from "./stores/authStore";
 // Páginas temporales para la Fase 2
 import { Perfil } from "./components/auth/Perfil";
 
+import { Analytics } from "@vercel/analytics/next"
+
 // Componente para redirección dinámica basada en el ROL (Fase 7 - Final)
 const RoleRedirect = () => {
   const { user, profile, loading, authReady } = useAuthStore();
@@ -97,6 +99,7 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
+      <Analytics />
       <AuthProvider>
         <Router>
           <Routes>
