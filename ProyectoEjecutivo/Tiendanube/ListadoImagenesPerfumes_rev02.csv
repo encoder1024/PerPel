@@ -1,0 +1,39 @@
+﻿custom;picture file;picture file;picture_file;picture_file
+custom;picture;picture;picture;picture
+tiendanube;Identificador de URL;identificador de url;identificador_de_url;identificador_de_url
+tiendanube;Nombre;nombre;nombre;nombre
+tiendanube;Categorías;categorías;categorías;categorias
+tiendanube;Nombre de propiedad 1;nombre de propiedad 1;nombre_de_propiedad_1;nombre_de_propiedad_1
+tiendanube;Valor de propiedad 1;valor de propiedad 1;valor_de_propiedad_1;valor_de_propiedad_1
+tiendanube;Nombre de propiedad 2;nombre de propiedad 2;nombre_de_propiedad_2;nombre_de_propiedad_2
+tiendanube;Valor de propiedad 2;valor de propiedad 2;valor_de_propiedad_2;valor_de_propiedad_2
+tiendanube;Nombre de propiedad 3;nombre de propiedad 3;nombre_de_propiedad_3;nombre_de_propiedad_3
+tiendanube;Valor de propiedad 3;valor de propiedad 3;valor_de_propiedad_3;valor_de_propiedad_3
+tiendanube;Precio;precio;precio;precio
+tiendanube;Precio promocional;precio promocional;precio_promocional;precio_promocional
+tiendanube;Peso (kg);peso (kg);peso_(kg);peso_kg
+tiendanube;Alto (cm);alto (cm);alto_(cm);alto_cm
+tiendanube;Ancho (cm);ancho (cm);ancho_(cm);ancho_cm
+tiendanube;Profundidad (cm);profundidad (cm);profundidad_(cm);profundidad_cm
+tiendanube;Stock;stock;stock;stock
+tiendanube;SKU;sku;sku;sku
+tiendanube;Código de barras;código de barras;código_de_barras;codigo_de_barras
+tiendanube;Mostrar en tienda;mostrar en tienda;mostrar_en_tienda;mostrar_en_tienda
+tiendanube;Envío sin cargo;envío sin cargo;envío_sin_cargo;envio_sin_cargo
+tiendanube;Descripción;descripción;descripción;descripcion
+tiendanube;Tags;tags;tags;tags
+tiendanube;Título para SEO;título para seo;título_para_seo;titulo_para_seo
+tiendanube;Descripción para SEO;descripción para seo;descripción_para_seo;descripcion_para_seo
+tiendanube;Marca;marca;marca;marca
+tiendanube;Producto Fásico;producto fásico;producto_fásico;producto_fasico
+tiendanube;MPN (Número de pieza del fabricante);mpn (número de pieza del fabricante);mpn_(número_de_pieza_del_fabricante);mpn_numero_de_pieza_del_fabricante
+tiendanube;Sexo;sexo;sexo;sexo
+tiendanube;Rango de edad;rango de edad;rango_de_edad;rango_de_edad
+tiendanube;Costo;costo;costo;costo
+custom;Imagen url;imagen url;imagen_url;imagen_url
+custom;item id;item id;item_id;item_id
+;;;;account_id
+;;;;business_id
+;;;;created_at
+;;;;updated_at
+;;;;is_deleted
