@@ -1,0 +1,790 @@
+[
+    {
+        "id": 37322929,
+        "parent": 0,
+        "subcategories": [
+            37323044,
+            37323070,
+            37323076,
+            37323066,
+            37323067,
+            37323068,
+            37323069,
+            37323060,
+            37323055,
+            37323050,
+            37323045,
+            37323065
+        ],
+        "google_shopping_category": "",
+        "created_at": "2026-03-05T02:39:53+00:00",
+        "updated_at": "2026-03-05T02:39:53+00:00",
+        "visibility": "visible",
+        "visibility_updated_at": null,
+        "name": {
+            "es": "Fragancias"
+        },
+        "handle": {
+            "es": "fragancias"
+        },
+        "description": {
+            "es": ""
+        },
+        "seo_title": {
+            "es": ""
+        },
+        "seo_description": {
+            "es": ""
+        }
+    },
+    {
+        "id": 37323044,
+        "parent": 37322929,
+        "subcategories": [],
+        "google_shopping_category": "",
+        "created_at": "2026-03-05T02:52:27+00:00",
+        "updated_at": "2026-03-05T02:52:27+00:00",
+        "visibility": "visible",
+        "visibility_updated_at": null,
+        "name": {
+            "es": "Femeninas"
+        },
+        "handle": {
+            "es": "femeninas"
+        },
+        "description": {
+            "es": ""
+        },
+        "seo_title": {
+            "es": ""
+        },
+        "seo_description": {
+            "es": ""
+        }
+    },
+    {
+        "id": 37323070,
+        "parent": 37322929,
+        "subcategories": [],
+        "google_shopping_category": "",
+        "created_at": "2026-03-05T02:52:27+00:00",
+        "updated_at": "2026-03-05T12:39:19+00:00",
+        "visibility": "visible",
+        "visibility_updated_at": null,
+        "name": {
+            "es": "Masculinas"
+        },
+        "handle": {
+            "es": "masculinas"
+        },
+        "description": {
+            "es": ""
+        },
+        "seo_title": {
+            "es": ""
+        },
+        "seo_description": {
+            "es": ""
+        }
+    },
+    {
+        "id": 37323076,
+        "parent": 37322929,
+        "subcategories": [],
+        "google_shopping_category": "",
+        "created_at": "2026-03-05T02:52:27+00:00",
+        "updated_at": "2026-03-05T12:39:19+00:00",
+        "visibility": "visible",
+        "visibility_updated_at": null,
+        "name": {
+            "es": "Infantiles"
+        },
+        "handle": {
+            "es": "infantiles"
+        },
+        "description": {
+            "es": ""
+        },
+        "seo_title": {
+            "es": ""
+        },
+        "seo_description": {
+            "es": ""
+        }
+    },
+    {
+        "id": 37323066,
+        "parent": 37322929,
+        "subcategories": [],
+        "google_shopping_category": "",
+        "created_at": "2026-03-05T02:52:27+00:00",
+        "updated_at": "2026-03-05T12:39:18+00:00",
+        "visibility": "visible",
+        "visibility_updated_at": null,
+        "name": {
+            "es": "Parfum: Máxima persistencia (20-40% esencia)"
+        },
+        "handle": {
+            "es": "parfum-maxima-persistencia-20-40-esencia4"
+        },
+        "description": {
+            "es": ""
+        },
+        "seo_title": {
+            "es": ""
+        },
+        "seo_description": {
+            "es": ""
+        }
+    },
+    {
+        "id": 37323067,
+        "parent": 37322929,
+        "subcategories": [],
+        "google_shopping_category": "",
+        "created_at": "2026-03-05T02:52:27+00:00",
+        "updated_at": "2026-03-05T12:39:18+00:00",
+        "visibility": "visible",
+        "visibility_updated_at": null,
+        "name": {
+            "es": "Eau de Parfum (EDP): Alta duración (15-20%)"
+        },
+        "handle": {
+            "es": "eau-de-parfum-edp-alta-duracion-15-204"
+        },
+        "description": {
+            "es": ""
+        },
+        "seo_title": {
+            "es": ""
+        },
+        "seo_description": {
+            "es": ""
+        }
+    },
+    {
+        "id": 37323068,
+        "parent": 37322929,
+        "subcategories": [],
+        "google_shopping_category": "",
+        "created_at": "2026-03-05T02:52:27+00:00",
+        "updated_at": "2026-03-05T12:39:18+00:00",
+        "visibility": "visible",
+        "visibility_updated_at": null,
+        "name": {
+            "es": "Eau de Toilette (EDT): Uso diario (5-15%)"
+        },
+        "handle": {
+            "es": "eau-de-toilette-edt-uso-diario-5-154"
+        },
+        "description": {
+            "es": ""
+        },
+        "seo_title": {
+            "es": ""
+        },
+        "seo_description": {
+            "es": ""
+        }
+    },
+    {
+        "id": 37323069,
+        "parent": 37322929,
+        "subcategories": [],
+        "google_shopping_category": "",
+        "created_at": "2026-03-05T02:52:27+00:00",
+        "updated_at": "2026-03-05T12:39:19+00:00",
+        "visibility": "visible",
+        "visibility_updated_at": null,
+        "name": {
+            "es": "Eau de Cologne / Body Splash: Refrescantes y ligeros"
+        },
+        "handle": {
+            "es": "eau-de-cologne-body-splash-refrescantes-y-ligeros4"
+        },
+        "description": {
+            "es": ""
+        },
+        "seo_title": {
+            "es": ""
+        },
+        "seo_description": {
+            "es": ""
+        }
+    },
+    {
+        "id": 37323060,
+        "parent": 37322929,
+        "subcategories": [],
+        "google_shopping_category": "",
+        "created_at": "2026-03-05T02:52:27+00:00",
+        "updated_at": "2026-03-05T12:39:18+00:00",
+        "visibility": "visible",
+        "visibility_updated_at": null,
+        "name": {
+            "es": "Orientales / Ambaradas: Notas cálidas y especiadas"
+        },
+        "handle": {
+            "es": "orientales-ambaradas-notas-calidas-y-especiadas"
+        },
+        "description": {
+            "es": ""
+        },
+        "seo_title": {
+            "es": ""
+        },
+        "seo_description": {
+            "es": ""
+        }
+    },
+    {
+        "id": 37323055,
+        "parent": 37322929,
+        "subcategories": [],
+        "google_shopping_category": "",
+        "created_at": "2026-03-05T02:52:27+00:00",
+        "updated_at": "2026-03-05T12:39:18+00:00",
+        "visibility": "visible",
+        "visibility_updated_at": null,
+        "name": {
+            "es": "Amaderadas: Sándalo, cedro, pachulí"
+        },
+        "handle": {
+            "es": "amaderadas-sandalo-cedro-pachuli"
+        },
+        "description": {
+            "es": ""
+        },
+        "seo_title": {
+            "es": ""
+        },
+        "seo_description": {
+            "es": ""
+        }
+    },
+    {
+        "id": 37323050,
+        "parent": 37322929,
+        "subcategories": [],
+        "google_shopping_category": "",
+        "created_at": "2026-03-05T02:52:27+00:00",
+        "updated_at": "2026-03-05T12:39:18+00:00",
+        "visibility": "visible",
+        "visibility_updated_at": null,
+        "name": {
+            "es": "Florales: Rosa, jazmín, flores blancas"
+        },
+        "handle": {
+            "es": "florales-rosa-jazmin-flores-blancas"
+        },
+        "description": {
+            "es": ""
+        },
+        "seo_title": {
+            "es": ""
+        },
+        "seo_description": {
+            "es": ""
+        }
+    },
+    {
+        "id": 37323045,
+        "parent": 37322929,
+        "subcategories": [],
+        "google_shopping_category": "",
+        "created_at": "2026-03-05T02:52:27+00:00",
+        "updated_at": "2026-03-05T12:39:18+00:00",
+        "visibility": "visible",
+        "visibility_updated_at": null,
+        "name": {
+            "es": "Cítricas / Hespérides: Limón, bergamota"
+        },
+        "handle": {
+            "es": "citricas-hesperides-limon-bergamota"
+        },
+        "description": {
+            "es": ""
+        },
+        "seo_title": {
+            "es": ""
+        },
+        "seo_description": {
+            "es": ""
+        }
+    },
+    {
+        "id": 37323065,
+        "parent": 37322929,
+        "subcategories": [],
+        "google_shopping_category": "",
+        "created_at": "2026-03-05T02:52:27+00:00",
+        "updated_at": "2026-03-05T12:39:18+00:00",
+        "visibility": "visible",
+        "visibility_updated_at": null,
+        "name": {
+            "es": "Gourmand: Notas dulces (vainilla, chocolate)"
+        },
+        "handle": {
+            "es": "gourmand-notas-dulces-vainilla-chocolate"
+        },
+        "description": {
+            "es": ""
+        },
+        "seo_title": {
+            "es": ""
+        },
+        "seo_description": {
+            "es": ""
+        }
+    },
+    {
+        "id": 37322932,
+        "parent": 0,
+        "subcategories": [
+            37323118,
+            37323119,
+            37323120,
+            37323121
+        ],
+        "google_shopping_category": "",
+        "created_at": "2026-03-05T02:40:12+00:00",
+        "updated_at": "2026-03-05T12:39:18+00:00",
+        "visibility": "visible",
+        "visibility_updated_at": null,
+        "name": {
+            "es": "Cosmética y Maquillaje"
+        },
+        "handle": {
+            "es": "cosmetica-y-maquillaje"
+        },
+        "description": {
+            "es": ""
+        },
+        "seo_title": {
+            "es": ""
+        },
+        "seo_description": {
+            "es": ""
+        }
+    },
+    {
+        "id": 37323118,
+        "parent": 37322932,
+        "subcategories": [
+            37323357,
+            37323358,
+            37323359
+        ],
+        "google_shopping_category": "",
+        "created_at": "2026-03-05T02:55:24+00:00",
+        "updated_at": "2026-03-05T12:39:19+00:00",
+        "visibility": "visible",
+        "visibility_updated_at": null,
+        "name": {
+            "es": "Rostro"
+        },
+        "handle": {
+            "es": "rostro"
+        },
+        "description": {
+            "es": ""
+        },
+        "seo_title": {
+            "es": ""
+        },
+        "seo_description": {
+            "es": ""
+        }
+    },
+    {
+        "id": 37323357,
+        "parent": 37323118,
+        "subcategories": [],
+        "google_shopping_category": "",
+        "created_at": "2026-03-05T03:02:21+00:00",
+        "updated_at": "2026-03-05T12:39:20+00:00",
+        "visibility": "visible",
+        "visibility_updated_at": null,
+        "name": {
+            "es": "Bases (líquidas, crema, polvo)"
+        },
+        "handle": {
+            "es": "bases-liquidas-crema-polvo"
+        },
+        "description": {
+            "es": ""
+        },
+        "seo_title": {
+            "es": ""
+        },
+        "seo_description": {
+            "es": ""
+        }
+    },
+    {
+        "id": 37323358,
+        "parent": 37323118,
+        "subcategories": [],
+        "google_shopping_category": "",
+        "created_at": "2026-03-05T03:02:21+00:00",
+        "updated_at": "2026-03-05T12:39:20+00:00",
+        "visibility": "visible",
+        "visibility_updated_at": null,
+        "name": {
+            "es": "Correctores y polvos compactos"
+        },
+        "handle": {
+            "es": "correctores-y-polvos-compactos"
+        },
+        "description": {
+            "es": ""
+        },
+        "seo_title": {
+            "es": ""
+        },
+        "seo_description": {
+            "es": ""
+        }
+    },
+    {
+        "id": 37323359,
+        "parent": 37323118,
+        "subcategories": [],
+        "google_shopping_category": "",
+        "created_at": "2026-03-05T03:02:21+00:00",
+        "updated_at": "2026-03-05T12:39:20+00:00",
+        "visibility": "visible",
+        "visibility_updated_at": null,
+        "name": {
+            "es": "Rubores e iluminadores"
+        },
+        "handle": {
+            "es": "rubores-e-iluminadores"
+        },
+        "description": {
+            "es": ""
+        },
+        "seo_title": {
+            "es": ""
+        },
+        "seo_description": {
+            "es": ""
+        }
+    },
+    {
+        "id": 37323119,
+        "parent": 37322932,
+        "subcategories": [
+            37323385,
+            37323386
+        ],
+        "google_shopping_category": "",
+        "created_at": "2026-03-05T02:55:24+00:00",
+        "updated_at": "2026-03-05T12:39:19+00:00",
+        "visibility": "visible",
+        "visibility_updated_at": null,
+        "name": {
+            "es": "Ojos"
+        },
+        "handle": {
+            "es": "ojos"
+        },
+        "description": {
+            "es": ""
+        },
+        "seo_title": {
+            "es": ""
+        },
+        "seo_description": {
+            "es": ""
+        }
+    },
+    {
+        "id": 37323385,
+        "parent": 37323119,
+        "subcategories": [],
+        "google_shopping_category": "",
+        "created_at": "2026-03-05T03:03:55+00:00",
+        "updated_at": "2026-03-05T12:39:20+00:00",
+        "visibility": "visible",
+        "visibility_updated_at": null,
+        "name": {
+            "es": "Máscaras de pestañas"
+        },
+        "handle": {
+            "es": "mascaras-de-pestanas"
+        },
+        "description": {
+            "es": ""
+        },
+        "seo_title": {
+            "es": ""
+        },
+        "seo_description": {
+            "es": ""
+        }
+    },
+    {
+        "id": 37323386,
+        "parent": 37323119,
+        "subcategories": [],
+        "google_shopping_category": "",
+        "created_at": "2026-03-05T03:03:55+00:00",
+        "updated_at": "2026-03-05T12:39:20+00:00",
+        "visibility": "visible",
+        "visibility_updated_at": null,
+        "name": {
+            "es": "Sombras y delineadores"
+        },
+        "handle": {
+            "es": "sombras-y-delineadores"
+        },
+        "description": {
+            "es": ""
+        },
+        "seo_title": {
+            "es": ""
+        },
+        "seo_description": {
+            "es": ""
+        }
+    },
+    {
+        "id": 37323120,
+        "parent": 37322932,
+        "subcategories": [
+            37323387,
+            37323388
+        ],
+        "google_shopping_category": "",
+        "created_at": "2026-03-05T02:55:24+00:00",
+        "updated_at": "2026-03-05T12:39:19+00:00",
+        "visibility": "visible",
+        "visibility_updated_at": null,
+        "name": {
+            "es": "Labios"
+        },
+        "handle": {
+            "es": "labios"
+        },
+        "description": {
+            "es": ""
+        },
+        "seo_title": {
+            "es": ""
+        },
+        "seo_description": {
+            "es": ""
+        }
+    },
+    {
+        "id": 37323387,
+        "parent": 37323120,
+        "subcategories": [],
+        "google_shopping_category": "",
+        "created_at": "2026-03-05T03:03:55+00:00",
+        "updated_at": "2026-03-05T12:39:20+00:00",
+        "visibility": "visible",
+        "visibility_updated_at": null,
+        "name": {
+            "es": "Labiales (mate, satinados, gloss)"
+        },
+        "handle": {
+            "es": "labiales-mate-satinados-gloss"
+        },
+        "description": {
+            "es": ""
+        },
+        "seo_title": {
+            "es": ""
+        },
+        "seo_description": {
+            "es": ""
+        }
+    },
+    {
+        "id": 37323388,
+        "parent": 37323120,
+        "subcategories": [],
+        "google_shopping_category": "",
+        "created_at": "2026-03-05T03:03:55+00:00",
+        "updated_at": "2026-03-05T12:39:20+00:00",
+        "visibility": "visible",
+        "visibility_updated_at": null,
+        "name": {
+            "es": "Bálsamos e hidratantes"
+        },
+        "handle": {
+            "es": "balsamos-e-hidratantes"
+        },
+        "description": {
+            "es": ""
+        },
+        "seo_title": {
+            "es": ""
+        },
+        "seo_description": {
+            "es": ""
+        }
+    },
+    {
+        "id": 37323121,
+        "parent": 37322932,
+        "subcategories": [
+            37323389,
+            37323390
+        ],
+        "google_shopping_category": "",
+        "created_at": "2026-03-05T02:55:24+00:00",
+        "updated_at": "2026-03-05T12:39:19+00:00",
+        "visibility": "visible",
+        "visibility_updated_at": null,
+        "name": {
+            "es": "Uñas"
+        },
+        "handle": {
+            "es": "unas"
+        },
+        "description": {
+            "es": ""
+        },
+        "seo_title": {
+            "es": ""
+        },
+        "seo_description": {
+            "es": ""
+        }
+    },
+    {
+        "id": 37323389,
+        "parent": 37323121,
+        "subcategories": [],
+        "google_shopping_category": "",
+        "created_at": "2026-03-05T03:03:55+00:00",
+        "updated_at": "2026-03-05T12:39:20+00:00",
+        "visibility": "visible",
+        "visibility_updated_at": null,
+        "name": {
+            "es": "Esmaltes color"
+        },
+        "handle": {
+            "es": "esmaltes-color"
+        },
+        "description": {
+            "es": ""
+        },
+        "seo_title": {
+            "es": ""
+        },
+        "seo_description": {
+            "es": ""
+        }
+    },
+    {
+        "id": 37323390,
+        "parent": 37323121,
+        "subcategories": [],
+        "google_shopping_category": "",
+        "created_at": "2026-03-05T03:03:55+00:00",
+        "updated_at": "2026-03-05T12:39:20+00:00",
+        "visibility": "visible",
+        "visibility_updated_at": null,
+        "name": {
+            "es": "Tratamientos (fortalecedores, bases)"
+        },
+        "handle": {
+            "es": "tratamientos-fortalecedores-bases"
+        },
+        "description": {
+            "es": ""
+        },
+        "seo_title": {
+            "es": ""
+        },
+        "seo_description": {
+            "es": ""
+        }
+    },
+    {
+        "id": 37322934,
+        "parent": 0,
+        "subcategories": [
+            37323122,
+            37323126
+        ],
+        "google_shopping_category": "",
+        "created_at": "2026-03-05T02:40:29+00:00",
+        "updated_at": "2026-03-05T12:39:18+00:00",
+        "visibility": "visible",
+        "visibility_updated_at": null,
+        "name": {
+            "es": "Cuidado de la Piel (Skin Care)"
+        },
+        "handle": {
+            "es": "cuidado-de-la-piel-skin-care"
+        },
+        "description": {
+            "es": ""
+        },
+        "seo_title": {
+            "es": ""
+        },
+        "seo_description": {
+            "es": ""
+        }
+    },
+    {
+        "id": 37323122,
+        "parent": 37322934,
+        "subcategories": [
+            37323123,
+            37323124,
+            37323125
+        ],
+        "google_shopping_category": "",
+        "created_at": "2026-03-05T02:55:24+00:00",
+        "updated_at": "2026-03-05T12:39:19+00:00",
+        "visibility": "visible",
+        "visibility_updated_at": null,
+        "name": {
+            "es": "Cuidado facial"
+        },
+        "handle": {
+            "es": "cuidado-facial"
+        },
+        "description": {
+            "es": ""
+        },
+        "seo_title": {
+            "es": ""
+        },
+        "seo_description": {
+            "es": ""
+        }
+    },
+    {
+        "id": 37323123,
+        "parent": 37323122,
+        "subcategories": [],
+        "google_shopping_category": "",
+        "created_at": "2026-03-05T02:55:24+00:00",
+        "updated_at": "2026-03-05T12:39:19+00:00",
+        "visibility": "visible",
+        "visibility_updated_at": null,
+        "name": {
+            "es": "Limpieza (geles, aguas micelares)"
+        },
+        "handle": {
+            "es": "limpieza-geles-aguas-micelares"
+        },
+        "description": {
+            "es": ""
+        },
+        "seo_title": {
+            "es": ""
+        },
+        "seo_description": {
+            "es": ""
+        }
+    }
+]

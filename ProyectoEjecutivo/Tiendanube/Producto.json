@@ -1,0 +1,165 @@
+[
+    {
+        "id": 329494944,
+        "name": {
+            "es": "Shakira Plus"
+        },
+        "description": {
+            "es": "<p>Flor de perfume</p>"
+        },
+        "handle": {
+            "es": "shakira-plus"
+        },
+        "attributes": [],
+        "published": true,
+        "free_shipping": false,
+        "requires_shipping": true,
+        "canonical_url": "https://perpeldemo.mitiendanube.com/productos/shakira-plus/",
+        "video_url": null,
+        "seo_title": {
+            "es": ""
+        },
+        "seo_description": {
+            "es": ""
+        },
+        "brand": null,
+        "has_stock": true,
+        "created_at": "2026-03-05T03:12:15+0000",
+        "updated_at": "2026-03-05T03:12:15+0000",
+        "variants": [
+            {
+                "id": 1466052904,
+                "image_id": 1131844702,
+                "product_id": 329494944,
+                "position": 1,
+                "price": "100000.00",
+                "price_without_taxes": null,
+                "compare_at_price": "100000.00",
+                "promotional_price": "90000.00",
+                "stock_management": true,
+                "stock": 84,
+                "weight": "0.200",
+                "width": "5.00",
+                "height": "10.00",
+                "depth": "3.00",
+                "sku": "1000-0001",
+                "values": [],
+                "barcode": null,
+                "mpn": null,
+                "age_group": "adult",
+                "gender": "female",
+                "created_at": "2026-03-05T03:12:16+0000",
+                "updated_at": "2026-03-05T03:12:16+0000",
+                "cost": "81500.00",
+                "visible": true,
+                "inventory_levels": [
+                    {
+                        "id": 1097366412,
+                        "variant_id": 1466052904,
+                        "location_id": "01KJXNMWZHNDA7HC0JQNEP9MG4",
+                        "stock": 84
+                    }
+                ]
+            }
+        ],
+        "tags": "",
+        "images": [
+            {
+                "id": 1131844702,
+                "product_id": 329494944,
+                "src": "https://dcdn-us.mitiendanube.com/stores/007/378/336/products/8411061722169-6289c4e000c45caeb417726801380429-1024-1024.webp",
+                "position": 1,
+                "alt": [],
+                "height": 1200,
+                "width": 1200,
+                "thumbnails_generated": 2,
+                "created_at": "2026-03-05T03:08:58+0000",
+                "updated_at": "2026-03-05T03:12:20+0000"
+            }
+        ],
+        "categories": [
+            {
+                "id": 37322929,
+                "name": {
+                    "es": "Fragancias"
+                },
+                "description": {
+                    "es": ""
+                },
+                "handle": {
+                    "es": "fragancias"
+                },
+                "parent": null,
+                "subcategories": [
+                    37323044,
+                    37323070,
+                    37323076,
+                    37323066,
+                    37323067,
+                    37323068,
+                    37323069,
+                    37323060,
+                    37323055,
+                    37323050,
+                    37323045,
+                    37323065
+                ],
+                "seo_title": {
+                    "es": ""
+                },
+                "seo_description": {
+                    "es": ""
+                },
+                "google_shopping_category": "",
+                "created_at": "2026-03-05T02:39:53+0000",
+                "updated_at": "2026-03-05T02:39:53+0000"
+            },
+            {
+                "id": 37323066,
+                "name": {
+                    "es": "Parfum: Máxima persistencia (20-40% esencia)"
+                },
+                "description": {
+                    "es": ""
+                },
+                "handle": {
+                    "es": "parfum-maxima-persistencia-20-40-esencia4"
+                },
+                "parent": 37322929,
+                "subcategories": [],
+                "seo_title": {
+                    "es": ""
+                },
+                "seo_description": {
+                    "es": ""
+                },
+                "google_shopping_category": "",
+                "created_at": "2026-03-05T02:52:27+0000",
+                "updated_at": "2026-03-05T12:39:18+0000"
+            },
+            {
+                "id": 37323045,
+                "name": {
+                    "es": "Cítricas / Hespérides: Limón, bergamota"
+                },
+                "description": {
+                    "es": ""
+                },
+                "handle": {
+                    "es": "citricas-hesperides-limon-bergamota"
+                },
+                "parent": 37322929,
+                "subcategories": [],
+                "seo_title": {
+                    "es": ""
+                },
+                "seo_description": {
+                    "es": ""
+                },
+                "google_shopping_category": "",
+                "created_at": "2026-03-05T02:52:27+0000",
+                "updated_at": "2026-03-05T12:39:18+0000"
+            }
+        ]
+    }
+]
