@@ -1,0 +1,59 @@
+{
+  "body": {
+    "name": { "es": "Perfume - agua de botella" },
+    "brand": "Aguas",
+    "handle": { "es": "perfume---agua-de-botella" },
+    "images": [
+      {
+        "src": "https://wpwmcikdclulxuhpijri.supabase.co/storage/v1/object/public/perpel_images/perfumery_fragancias/101655_montale_intense_roses_musk_epv_100ml_1_5_png.webp"
+      }
+    ],
+    "variants": [
+      {
+        "sku": "1000-1007",
+        "cost": "9000",
+        "depth": "0.00",
+        "price": "10000",
+        "stock": 50,
+        "width": "0.00",
+        "height": "0.00",
+        "values": [],
+        "weight": "0.00",
+        "barcode": "314543534656",
+        "promotional_price": "9900"
+      },
+      {
+        "sku": "1000-1007-2",
+        "cost": null,
+        "depth": "0.00",
+        "price": "10000",
+        "stock": 50,
+        "width": "0.00",
+        "height": "0.00",
+        "values": [],
+        "weight": "0.00",
+        "barcode": null,
+        "promotional_price": null
+      },
+      {
+        "sku": "1000-1007-3",
+        "cost": null,
+        "depth": "0.00",
+        "price": "10000",
+        "stock": 50,
+        "width": "0.00",
+        "height": "0.00",
+        "values": [],
+        "weight": "0.00",
+        "barcode": null,
+        "promotional_price": null
+      }
+    ],
+    "published": true,
+    "attributes": [],
+    "description": { "es": "botella grande de agua" }
+  },
+  "itemId": "9c78e62e-7a1b-475e-b2f5-b0acd339178b",
+  "method": "POST",
+  "endpoint": "https://api.tiendanube.com/v1/7378336/products"
+}

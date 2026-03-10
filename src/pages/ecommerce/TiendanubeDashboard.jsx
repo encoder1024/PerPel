@@ -29,7 +29,12 @@ import {
   Divider,
   List,
   ListItem,
-  ListItemText
+  ListItemText,
+  Select,
+  OutlinedInput,
+  Checkbox,
+  Avatar,
+  ListItemAvatar
 } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import RefreshIcon from '@mui/icons-material/Refresh';
@@ -39,6 +44,7 @@ import SyncIcon from '@mui/icons-material/Sync';
 import EditIcon from '@mui/icons-material/Edit';
 import SaveIcon from '@mui/icons-material/Save';
 import AddIcon from '@mui/icons-material/Add';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { supabase } from '../../services/supabaseClient';
 import { useAuthStore } from '../../stores/authStore';
 
@@ -73,10 +79,26 @@ export default function TiendanubeDashboard() {
   const [tabValue, setTabValue] = useState(0);
   const [saving, setSaving] = useState(false);
   const [validationErrors, setValidationErrors] = useState([]);
+  const [tnCategories, setTnCategories] = useState([]);
 
   useEffect(() => {
     fetchInitialData();
   }, [profile?.account_id]);
+
+  const fetchTnCategories = async (businessId) => {
+    try {
+      const { data } = await supabase
+        .schema('core')
+        .from('tiendanube_categorias')
+        .select('tn_category_id, name')
+        .eq('business_id', businessId)
+        .eq('is_deleted', false);
+      setTnCategories(data || []);
+    } catch (err) {
+      console.error("Error al cargar categorías TN:", err.message);
+    }
+  };
+
 
   const validateVariants = () => {
     const errors = [];
@@ -155,6 +177,7 @@ export default function TiendanubeDashboard() {
         .order('name');
 
       if (fetchError) throw fetchError;
+      console.log("DATOS DE SINCRONIZACIÓN RECUPERADOS:", data);
       setItems(data);
     } catch (err) {
       setError(err.message);
@@ -166,6 +189,9 @@ export default function TiendanubeDashboard() {
   const handleOpenPrepare = async (item) => {
     setLoading(true);
     try {
+      // Cargar categorías de Tiendanube primero
+      await fetchTnCategories(selectedBusiness);
+
       const { data: variants } = await supabase
         .schema('core')
         .from('tiendanube_item_variants')
@@ -186,6 +212,7 @@ export default function TiendanubeDashboard() {
       setEditingItem(item);
       if (!variants || variants.length === 0) {
         setVariantList([{
+          id: crypto.randomUUID(), // Generamos ID para la nueva variante
           item_id: item.id,
           account_id: profile.account_id,
           business_id: selectedBusiness,
@@ -212,7 +239,17 @@ export default function TiendanubeDashboard() {
 
   const updateVariantField = (field, value) => {
     const newList = [...variantList];
-    newList[selectedVariantIndex] = { ...newList[selectedVariantIndex], [field]: value };
+    
+    // Si el campo es el identificador_de_url (handle), lo actualizamos en TODAS las variantes
+    if (field === 'identificador_de_url') {
+      newList.forEach((v, i) => {
+        newList[i] = { ...newList[i], [field]: value };
+      });
+    } else {
+      // De lo contrario, solo en la variante seleccionada
+      newList[selectedVariantIndex] = { ...newList[selectedVariantIndex], [field]: value };
+    }
+    
     setVariantList(newList);
   };
 
@@ -316,6 +353,48 @@ export default function TiendanubeDashboard() {
     }
   };
 
+  const handleDeleteFromTN = async (itemId) => {
+    if (!window.confirm("¿Está seguro de eliminar este producto de Tiendanube? Esto no borrará el producto del ERP, solo lo desvinculará y eliminará de la tienda online.")) {
+      return;
+    }
+
+    setSyncingId(itemId);
+    setError(null);
+    setMessage(null);
+
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+      const res = await fetch(`${supabaseUrl}/functions/v1/tn-product-upsert`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": anonKey,
+          "Authorization": `Bearer ${anonKey}`
+        },
+        body: JSON.stringify({ 
+          itemId, 
+          businessId: selectedBusiness,
+          accountId: profile?.account_id,
+          action: 'DELETE'
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setMessage(`Producto eliminado de Tiendanube con éxito.`);
+        await fetchSyncStatus(selectedBusiness);
+      } else {
+        throw new Error(data.message || "Error al intentar eliminar");
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSyncingId(null);
+    }
+  };
+
   const filteredItems = items.filter(item => {
     if (!filterText) return true;
     const search = filterText.toLowerCase();
@@ -374,19 +453,54 @@ export default function TiendanubeDashboard() {
               <TableRow key={item.id}>
                 <TableCell>
                   <Typography variant="body2" sx={{ fontWeight: 500 }}>{item.name}</Typography>
-                  <Typography variant="caption" color="textSecondary">{item.inventory_items_tn?.[0]?.handle || 'Sin handle'}</Typography>
+                  <Typography variant="caption" color="textSecondary">{item.inventory_items_tn?.handle || 'Sin handle'}</Typography>
                 </TableCell>
                 <TableCell>{item.sku || '-'}</TableCell>
                 <TableCell>${item.selling_price}</TableCell>
                 <TableCell>
-                  {item.inventory_items_tn?.[0]?.tn_product_id ? <Chip label="Sincronizado" color="success" size="small" /> : <Chip label="Pendiente" variant="outlined" size="small" />}
+                  {item.tiendanube_sync_map?.sync_status === 'SYNCED' ? (
+                    <Tooltip title={`Sincronizado el: ${new Date(item.tiendanube_sync_map.last_sync_at).toLocaleString()}`}>
+                      <Chip label="Sincronizado" color="success" size="small" icon={<CheckCircleOutlineIcon />} />
+                    </Tooltip>
+                  ) : item.tiendanube_sync_map?.sync_status === 'ERROR' ? (
+                    <Tooltip title={item.tiendanube_sync_map.error_log || 'Error desconocido'}>
+                      <Chip label="Error" color="error" size="small" icon={<ErrorOutlineIcon />} />
+                    </Tooltip>
+                  ) : (
+                    <Chip label="Pendiente" variant="outlined" size="small" icon={<SyncIcon />} />
+                  )}
                 </TableCell>
                 <TableCell align="right">
                   <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-                    <IconButton color="primary" onClick={() => handleOpenPrepare(item)}><EditIcon /></IconButton>
-                    <Button size="small" variant="contained" onClick={() => handleExport(item.id)} disabled={syncingId !== null}>
-                      {syncingId === item.id ? <CircularProgress size={16} color="inherit" /> : <CloudUploadIcon />}
-                    </Button>
+                    <Tooltip title="Editar detalles para Tiendanube">
+                      <IconButton color="primary" onClick={() => handleOpenPrepare(item)}>
+                        <EditIcon />
+                      </IconButton>
+                    </Tooltip>
+                    
+                    <Tooltip title={item.inventory_items_tn?.tn_product_id ? "Actualizar en Tiendanube" : "Exportar a Tiendanube"}>
+                      <Button 
+                        size="small" 
+                        variant="contained" 
+                        color={item.inventory_items_tn?.tn_product_id ? "info" : "primary"}
+                        onClick={() => handleExport(item.id)} 
+                        disabled={syncingId !== null}
+                      >
+                        {syncingId === item.id ? <CircularProgress size={16} color="inherit" /> : <CloudUploadIcon />}
+                      </Button>
+                    </Tooltip>
+
+                    {(item.inventory_items_tn?.tn_product_id || item.tiendanube_sync_map?.sync_status === 'SYNCED') && (
+                      <Tooltip title="Eliminar de Tiendanube">
+                        <IconButton 
+                          color="error" 
+                          onClick={() => handleDeleteFromTN(item.id)} 
+                          disabled={syncingId !== null}
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      </Tooltip>
+                    )}
                   </Box>
                 </TableCell>
               </TableRow>
@@ -404,18 +518,8 @@ export default function TiendanubeDashboard() {
             </Alert>
           )}
           <Box sx={{ display: 'flex', flexGrow: 1 }}>
-            <Box sx={{ width: 200, borderRight: 1, borderColor: 'divider', pr: 2 }}>
-              <Typography variant="subtitle2" gutterBottom>Variantes</Typography>
-              <List size="small">
-                {variantList.map((v, index) => (
-                  <ListItem button key={index} selected={selectedVariantIndex === index} onClick={() => setSelectedVariantIndex(index)}>
-                    <ListItemText primary={v.valor_de_propiedad_1 || `Variante ${index + 1}`} secondary={v.sku} />
-                  </ListItem>
-                ))}
-              </List>
-              <Button startIcon={<AddIcon />} fullWidth size="small" onClick={() => setVariantList([...variantList, { ...variantList[0], id: undefined, tn_variant_id: null }])}>Agregar Variante</Button>
-            </Box>
-            <Box sx={{ flexGrow: 1, pl: 3 }}>
+            {/* Formulario simplificado (Sin lista lateral de variantes) */}
+            <Box sx={{ flexGrow: 1 }}>
               <Tabs value={tabValue} onChange={(e, v) => setTabValue(v)} variant="scrollable" scrollButtons="auto">
                 <Tab label="Identificación y SEO" />
                 <Tab label="Propiedades" />
@@ -466,12 +570,73 @@ export default function TiendanubeDashboard() {
               </TabPanel>
               <TabPanel value={tabValue} index={4}>
                 <Grid container spacing={2}>
-                  <Grid item xs={12} sm={6}><TextField fullWidth label="Categorías" value={activeVariant.categorias || ''} onChange={(e) => updateVariantField('categorias', e.target.value)} /></Grid>
+                  <Grid item xs={12}>
+                    <Typography variant="caption" sx={{ mb: 1, display: 'block' }}>Categorías Oficiales Tiendanube</Typography>
+                    <Select
+                      multiple
+                      fullWidth
+                      value={activeVariant.categorias ? activeVariant.categorias.split(',') : []}
+                      onChange={(e) => updateVariantField('categorias', e.target.value.join(','))}
+                      input={<OutlinedInput label="Categorías" />}
+                      renderValue={(selected) => (
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                          {selected.map((value) => {
+                            const cat = tnCategories.find(c => c.tn_category_id.toString() === value);
+                            return <Chip key={value} label={cat ? cat.name : value} size="small" />;
+                          })}
+                        </Box>
+                      )}
+                    >
+                      {tnCategories.map((cat) => (
+                        <MenuItem key={cat.tn_category_id} value={cat.tn_category_id.toString()}>
+                          <Checkbox checked={activeVariant.categorias ? activeVariant.categorias.split(',').indexOf(cat.tn_category_id.toString()) > -1 : false} />
+                          <ListItemText primary={cat.name} secondary={`ID: ${cat.tn_category_id}`} />
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </Grid>
                   <Grid item xs={12} sm={6}><TextField fullWidth label="Marca" value={activeVariant.marca || ''} onChange={(e) => updateVariantField('marca', e.target.value)} /></Grid>
-                  <Grid item xs={12} sm={6}><TextField fullWidth label="Producto Fásico" value={activeVariant.producto_fasico || ''} onChange={(e) => updateVariantField('producto_fasico', e.target.value)} /></Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField 
+                      select 
+                      fullWidth 
+                      label="Producto Físico" 
+                      value={activeVariant.producto_fasico || ''} 
+                      onChange={(e) => updateVariantField('producto_fasico', e.target.value)}
+                    >
+                      <MenuItem value="SI">SI</MenuItem>
+                      <MenuItem value="NO">NO</MenuItem>
+                    </TextField>
+                  </Grid>
                   <Grid item xs={12} sm={6}><TextField fullWidth label="MPN" value={activeVariant.mpn_numero_de_pieza_del_fabricante || ''} onChange={(e) => updateVariantField('mpn_numero_de_pieza_del_fabricante', e.target.value)} /></Grid>
-                  <Grid item xs={12} sm={6}><TextField fullWidth label="Sexo" value={activeVariant.sexo || ''} onChange={(e) => updateVariantField('sexo', e.target.value)} /></Grid>
-                  <Grid item xs={12} sm={6}><TextField fullWidth label="Rango de Edad" value={activeVariant.rango_de_edad || ''} onChange={(e) => updateVariantField('rango_de_edad', e.target.value)} /></Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField 
+                      select 
+                      fullWidth 
+                      label="Sexo" 
+                      value={activeVariant.sexo || ''} 
+                      onChange={(e) => updateVariantField('sexo', e.target.value)}
+                    >
+                      <MenuItem value="Femenino">Femenino</MenuItem>
+                      <MenuItem value="Masculino">Masculino</MenuItem>
+                      <MenuItem value="Unisex">Unisex</MenuItem>
+                    </TextField>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField 
+                      select 
+                      fullWidth 
+                      label="Rango de Edad" 
+                      value={activeVariant.rango_de_edad || ''} 
+                      onChange={(e) => updateVariantField('rango_de_edad', e.target.value)}
+                    >
+                      <MenuItem value="infantil">Infantil</MenuItem>
+                      <MenuItem value="adolescente">Adolescente</MenuItem>
+                      <MenuItem value="joven">Joven</MenuItem>
+                      <MenuItem value="adulto">Adulto</MenuItem>
+                      <MenuItem value="adulto mayor">Adulto Mayor</MenuItem>
+                    </TextField>
+                  </Grid>
                 </Grid>
               </TabPanel>
               <TabPanel value={tabValue} index={5}>

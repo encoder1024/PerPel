@@ -10,6 +10,7 @@ import {
   TableHead,
   TableRow,
   Button,
+  Chip,
   CircularProgress,
   Alert,
   MenuItem,
@@ -101,20 +102,29 @@ export default function ECommerceConfig() {
     setError(null);
     setMessage(null);
     try {
-      const { data, error: funcError } = await supabase.functions.invoke('tn-category-sync', {
-        body: { 
-          businessId: selectedBusiness,
-          accountId: profile.account_id 
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+      const res = await fetch(`${supabaseUrl}/functions/v1/tn-category-sync`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": anonKey,
+          "Authorization": `Bearer ${anonKey}`
         },
+        body: JSON.stringify({ 
+          businessId: selectedBusiness,
+          accountId: profile?.account_id 
+        }),
       });
 
-      if (funcError) throw funcError;
+      const data = await res.json();
 
       if (data.success) {
         setMessage(`Sincronización completada: ${data.count} categorías procesadas.`);
         await fetchCategories(selectedBusiness);
       } else {
-        throw new Error(data.message);
+        throw new Error(data.message || "Error desconocido al sincronizar");
       }
     } catch (err) {
       setError("Error al sincronizar con Tiendanube: " + err.message);
@@ -139,8 +149,31 @@ export default function ECommerceConfig() {
     }
   };
 
+  const organizeCategories = (flatList) => {
+    // 1. Obtener raíces y ordenarlas alfabéticamente
+    const roots = flatList
+      .filter(c => c.tn_parent_id === 0)
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    const result = [];
+    roots.forEach(root => {
+      result.push(root);
+      // 2. Obtener hijos de esta raíz y ordenarlos alfabéticamente
+      const children = flatList
+        .filter(c => c.tn_parent_id === root.tn_category_id)
+        .sort((a, b) => a.name.localeCompare(b.name));
+      
+      result.push(...children);
+    });
+
+    return result;
+  };
+
+  const displayedCategories = organizeCategories(categories);
+
   return (
     <Box sx={{ p: 1 }}>
+
       <Typography variant="h6" gutterBottom sx={{ fontWeight: 700 }}>
         Configuración de Categorías E-commerce
       </Typography>
@@ -196,10 +229,13 @@ export default function ECommerceConfig() {
             ) : categories.length === 0 ? (
               <TableRow><TableCell colSpan={4} align="center">Pulsa "Sincronizar" para traer las categorías de tu tienda online.</TableCell></TableRow>
             ) : (
-              categories.map((cat) => (
+              displayedCategories.map((cat) => (
                 <TableRow key={cat.id}>
-                  <TableCell sx={{ fontWeight: cat.tn_parent_id === 0 ? 700 : 400 }}>
-                    {cat.tn_parent_id !== 0 && "— "} {cat.name}
+                  <TableCell sx={{ 
+                    fontWeight: cat.tn_parent_id === 0 ? 700 : 400,
+                    pl: cat.tn_parent_id === 0 ? 2 : 4
+                  }}>
+                    {cat.tn_parent_id !== 0 && "↳ "} {cat.name}
                   </TableCell>
                   <TableCell>
                     {cat.tn_parent_id === 0 ? <Chip label="Raíz" size="small" /> : <Typography variant="caption">Subcategoría</Typography>}
