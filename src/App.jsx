@@ -33,8 +33,10 @@ import TurnosConfig from "./pages/configuration/TurnosConfig";
 import ReportesConfig from "./pages/configuration/ReportesConfig";
 import ECommerceConfig from "./pages/configuration/ECommerceConfig";
 import OAuthCallback from "./pages/configuration/OAuthCallback";
+import TiendanubeDashboard from "./pages/ecommerce/TiendanubeDashboard";
 
 import { syncService } from "./services/syncService";
+
 import { notificationService } from "./services/notificationService";
 
 import { useAuthStore } from "./stores/authStore";
@@ -135,6 +137,17 @@ function App() {
                 <ProtectedRoute allowedRoles={["OWNER", "ADMIN", "EMPLOYEE"]}>
                   <MainLayout>
                     <POS />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/ecommerce"
+              element={
+                <ProtectedRoute allowedRoles={["OWNER", "ADMIN"]}>
+                  <MainLayout>
+                    <TiendanubeDashboard />
                   </MainLayout>
                 </ProtectedRoute>
               }
