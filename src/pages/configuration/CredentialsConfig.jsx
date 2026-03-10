@@ -40,8 +40,53 @@ export default function CredentialsConfig() {
   const [refreshToken, setRefreshToken] = useState(''); // Added for TFA
   const [clientId, setClientId] = useState('');
   const [clientSecret, setClientSecret] = useState('');
+  const [externalUserId, setExternalUserId] = useState(''); // Added for Store ID / User ID
+  const [testingConnection, setTestingConnection] = useState(false);
+  const [testResult, setTestResult] = useState(null);
+
+  const testTNConnection = async () => {
+    if (!accessToken || !externalUserId) {
+      setError("Se requiere Access Token y Store ID para probar la conexión.");
+      return;
+    }
+    setTestingConnection(true);
+    setTestResult(null);
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+      // Usamos fetch directo con apikey y Authorization (usando anonKey) para saltar la validación de JWT de usuario
+      const res = await fetch(`${supabaseUrl}/functions/v1/tn-validate-credentials`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": anonKey,
+          "Authorization": `Bearer ${anonKey}`
+        },
+        body: JSON.stringify({ 
+          accessToken, 
+          storeId: externalUserId,
+          accountId: profile?.account_id 
+        }),
+      });
+
+      const data = await res.json();
+      
+      if (data.success) {
+        setTestResult({ success: true, message: `Conexión exitosa: ${data.storeName} (${data.currency})` });
+      } else {
+        throw new Error(data.message || "Error al conectar con Tiendanube");
+      }
+    } catch (err) {
+      setTestResult({ success: false, message: err.message });
+    } finally {
+      setTestingConnection(false);
+    }
+  };
 
   const fetchCredentials = async () => {
+
+
     if (!profile?.account_id) return;
     setLoading(true);
     try {
@@ -128,9 +173,10 @@ export default function CredentialsConfig() {
           name,
           api_name: apiName,
           access_token: accessToken || null,
-          refresh_token: refreshToken || null, // Map User Token
+          refresh_token: refreshToken || null, // Map User Token for TFA
           client_id: clientId || null,
           client_secret: clientSecret || null,
+          external_user_id: externalUserId || null, // Guardamos el Store ID aquí
           external_status: 'active',
           is_deleted: false
         });
@@ -143,6 +189,7 @@ export default function CredentialsConfig() {
       setRefreshToken('');
       setClientId('');
       setClientSecret('');
+      setExternalUserId('');
       await fetchCredentials();
     } catch (err) {
       setError(err.message);
@@ -173,6 +220,7 @@ export default function CredentialsConfig() {
   // Helper to determine what fields to show
   const isOAuthApi = apiName === 'MERCADOPAGO' || apiName === 'CAL_COM';
   const isTFA = apiName === 'TUS_FACTURAS_APP';
+  const isTiendanube = apiName === 'TIENDANUBE';
 
   return (
     <Box>
@@ -190,7 +238,7 @@ export default function CredentialsConfig() {
             <TextField
               fullWidth
               label="Nombre descriptivo"
-              placeholder="Ej: MP Sucursal Centro"
+              placeholder="Ej: Tienda Online Principal"
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
@@ -206,6 +254,7 @@ export default function CredentialsConfig() {
               required
             >
               <MenuItem value="MERCADOPAGO">Mercado Pago</MenuItem>
+              <MenuItem value="TIENDANUBE">Tiendanube</MenuItem>
               <MenuItem value="TUS_FACTURAS_APP">Tus Facturas App</MenuItem>
               <MenuItem value="ALEGRA">Alegra (Legacy)</MenuItem>
               <MenuItem value="ONESIGNAL">OneSignal</MenuItem>
@@ -264,6 +313,49 @@ export default function CredentialsConfig() {
                   required
                   helperText="Corresponde al User Token proporcionado por TFA"
                 />
+              </Grid>
+            </>
+          ) : isTiendanube ? (
+            <>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Access Token"
+                  type="password"
+                  value={accessToken}
+                  onChange={(e) => setAccessToken(e.target.value)}
+                  required
+                  helperText="Token de acceso obtenido del panel de Tiendanube"
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Store ID"
+                  value={externalUserId}
+                  onChange={(e) => setExternalUserId(e.target.value)}
+                  required
+                  helperText="ID numérico de tu tienda"
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <Button 
+                  size="small" 
+                  variant="outlined" 
+                  onClick={testTNConnection}
+                  disabled={testingConnection}
+                >
+                  {testingConnection ? <CircularProgress size={20} sx={{ mr: 1 }} /> : null}
+                  Probar Conexión
+                </Button>
+                {testResult && (
+                  <Alert 
+                    severity={testResult.success ? "success" : "error"} 
+                    sx={{ mt: 1, py: 0 }}
+                  >
+                    {testResult.message}
+                  </Alert>
+                )}
               </Grid>
             </>
           ) : (
