@@ -57,14 +57,22 @@ export default function ECommerceConfig() {
     if (!profile?.account_id) return;
     setLoading(true);
     try {
-      // 1. Negocios con sus credenciales de TN para ver el estado
-      // Consultamos la tabla de asignación core.business_asign_credentials
+      // 1. Obtener todos los negocios de la cuenta
+      const { data: bizData, error: bizError } = await supabase
+        .schema('core')
+        .from('businesses')
+        .select('id, name')
+        .eq('account_id', profile.account_id)
+        .eq('is_deleted', false);
+
+      if (bizError) throw bizError;
+
+      // 2. Obtener las credenciales de TIENDANUBE vinculadas a estos negocios
       const { data: assignData, error: assignError } = await supabase
         .schema('core')
         .from('business_asign_credentials')
         .select(`
           business_id,
-          businesses:business_id (id, name),
           credential:credential_id (
             id, 
             api_name, 
@@ -73,17 +81,18 @@ export default function ECommerceConfig() {
           )
         `)
         .eq('account_id', profile.account_id)
-        .eq('is_deleted', false);
+        .eq('is_deleted', false)
+        .eq('api_name', 'TIENDANUBE'); // Filtro opcional si la tabla lo soporta
 
       if (assignError) throw assignError;
-      
-      // Filtrar o mapear para identificar cuáles son de TN
-      // Nota: Filtramos en JS para asegurar que traemos todos los negocios del usuario
-      // pero identificamos el estado de conexión con TN específicamente.
-      const mappedBusinesses = assignData.map(item => {
-        const b = item.businesses;
-        const tnCred = item.credential && item.credential.api_name === 'TIENDANUBE' ? item.credential : null;
-        let status = 'disconnected'; // Rojo
+
+      // 3. Cruzar datos para determinar el estado de conexión
+      const mappedBusinesses = bizData.map(b => {
+        // Buscamos si este negocio tiene una asignación de TN
+        const assignment = assignData?.find(a => a.business_id === b.id && a.credential?.api_name === 'TIENDANUBE');
+        const tnCred = assignment?.credential;
+        
+        let status = 'disconnected'; // Rojo por defecto
         
         if (tnCred) {
           if (tnCred.external_status === 'active' && tnCred.access_token) {
@@ -94,19 +103,21 @@ export default function ECommerceConfig() {
         }
 
         return { ...b, connectionStatus: status };
-      }).filter(b => b !== null);
+      });
 
-      // Eliminar duplicados si un negocio tiene múltiples credenciales (tomamos la de TN si existe)
-      const uniqueBusinesses = Array.from(new Map(mappedBusinesses.map(item => [item.id, item])).values());
-
-      setBusinesses(uniqueBusinesses);
+      setBusinesses(mappedBusinesses);
       
-      if (uniqueBusinesses.length > 0) {
-        setSelectedBusiness(uniqueBusinesses[0].id);
-        await fetchCategories(uniqueBusinesses[0].id);
+      // Seleccionar el primero si no hay uno seleccionado o el actual ya no existe
+      if (mappedBusinesses.length > 0) {
+        const toSelect = selectedBusiness && mappedBusinesses.find(b => b.id === selectedBusiness) 
+          ? selectedBusiness 
+          : mappedBusinesses[0].id;
+        
+        setSelectedBusiness(toSelect);
+        await fetchCategories(toSelect);
       }
 
-      // 2. Categorías Locales para el Mapeo
+      // 4. Categorías Locales para el Mapeo
       const { data: localCatData } = await supabase
         .schema('core')
         .from('item_categories')

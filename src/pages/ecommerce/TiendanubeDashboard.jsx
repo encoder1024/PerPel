@@ -136,24 +136,34 @@ export default function TiendanubeDashboard() {
     if (!profile?.account_id) return;
     setLoading(true);
     try {
-      const { data: bizData, error: bizError } = await supabase
+      // 1. Obtener negocios vinculados a Tiendanube mediante la tabla de asignación
+      const { data: assignData, error: bizError } = await supabase
         .schema('core')
         .from('business_asign_credentials')
-        .select(`business_id, businesses:business_id (id, name)`)
+        .select(`
+          business_id,
+          businesses:business_id (id, name),
+          credential:credential_id (api_name, external_status)
+        `)
         .eq('account_id', profile.account_id)
-        .eq('api_name', 'TIENDANUBE')
-        .eq('is_active', true);
+        .eq('is_deleted', false);
       
       if (bizError) throw bizError;
-      const uniqueBusinesses = bizData.map(b => b.businesses).filter(b => b !== null);
-      setBusinesses(uniqueBusinesses);
+
+      // Filtrar solo los que son de Tiendanube y están activos
+      const tnBusinesses = assignData
+        ?.filter(a => a.credential?.api_name === 'TIENDANUBE' && a.credential?.external_status === 'active')
+        .map(a => a.businesses)
+        .filter(b => b !== null) || [];
+
+      setBusinesses(tnBusinesses);
       
-      if (uniqueBusinesses.length > 0) {
-        setSelectedBusiness(uniqueBusinesses[0].id);
-        await fetchSyncStatus(uniqueBusinesses[0].id);
+      if (tnBusinesses.length > 0) {
+        setSelectedBusiness(tnBusinesses[0].id);
+        await fetchSyncStatus(tnBusinesses[0].id);
       }
     } catch (err) {
-      setError(err.message);
+      setError("Error al cargar negocios: " + err.message);
     } finally {
       setLoading(false);
     }
