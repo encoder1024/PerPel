@@ -241,9 +241,22 @@ export default function CredentialsConfig() {
                   required
                 />
               </Grid>
+              {apiName === 'CAL_COM' && (
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="API Key (Requerida para Cancelación V1)"
+                    type="password"
+                    value={externalUserId}
+                    onChange={(e) => setExternalUserId(e.target.value)}
+                    helperText="Obtenla en el panel de Cal.com -> API Keys"
+                    required
+                  />
+                </Grid>
+              )}
               <Grid item xs={12}>
                 <Alert severity="info">
-                  Para APIs OAuth como Mercado Pago, primero guarda el ID y Secret. Luego podrás vincular la cuenta.
+                  Para APIs OAuth, primero guarda el ID y Secret. Luego podrás vincular la cuenta.
                 </Alert>
               </Grid>
             </>

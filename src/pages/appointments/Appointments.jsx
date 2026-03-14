@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Box,
   Typography,
@@ -14,13 +14,23 @@ import {
   InputLabel,
   MenuItem,
   Select,
+  Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions
 } from "@mui/material";
-// import Cal, { getCalApi } from "@calcom/embed-react";
 import * as CalEmbed from "@calcom/embed-react";
 import WhatsAppIcon from "@mui/icons-material/WhatsApp";
+import SyncIcon from "@mui/icons-material/Sync";
+import LinkIcon from "@mui/icons-material/Link";
+import BugReportIcon from "@mui/icons-material/BugReport";
 import { useAppointments } from "../../hooks/useAppointments";
+import { supabase } from "../../services/supabaseClient";
+import { useAuthStore } from "../../stores/authStore";
 
 export default function Appointments() {
+  const { profile } = useAuthStore();
   const {
     businesses,
     selectedBusinessId,
@@ -29,6 +39,7 @@ export default function Appointments() {
     loading,
     error,
     actionLoadingId,
+    refresh, // Usamos la función de refresco del hook
     markAttended,
     markCancelled,
     markNoShow,
@@ -36,6 +47,72 @@ export default function Appointments() {
     isFinalStatus,
     calcomExpired,
   } = useAppointments();
+
+  // Estados para Diagnóstico y Conexión
+  const [calcomStatus, setCalcomStatus] = useState('unknown'); 
+  const [credentialId, setCredentialId] = useState(null);
+  const [openDebugModal, setOpenDebugModal] = useState(false);
+  const [debugInfo, setDebugData] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [calendarKey, setCalendarKey] = useState(0); // Para forzar reinicio del calendario
+
+  useEffect(() => {
+    fetchCalcomStatus();
+  }, [profile?.account_id]);
+
+  const fetchCalcomStatus = async () => {
+    if (!profile?.account_id) return;
+    try {
+      const { data, error: credError } = await supabase
+        .schema("core")
+        .from("business_credentials")
+        .select("id, external_status")
+        .eq("account_id", profile.account_id)
+        .eq("api_name", "CAL_COM")
+        .eq("is_deleted", false)
+        .maybeSingle();
+
+      if (data) {
+        setCalcomStatus(data.external_status || 'active');
+        setCredentialId(data.id);
+      } else {
+        setCalcomStatus('disconnected');
+      }
+    } catch (err) {
+      console.error("Error fetching Cal.com status:", err);
+    }
+  };
+
+  const handleLinkCalcom = async () => {
+    try {
+      const { data, error: invokeError } = await supabase.functions.invoke('calcom-oauth-start', {
+        body: { accountId: profile.account_id }
+      });
+      if (invokeError) throw invokeError;
+      if (data.url) window.location.href = data.url;
+    } catch (err) {
+      setDebugData({ error: err.message, action: 'oauth-start' });
+      setOpenDebugModal(true);
+    }
+  };
+
+  const handleRefreshCalcom = async () => {
+    if (!credentialId) return;
+    setRefreshing(true);
+    try {
+      const { data, error: invokeError } = await supabase.functions.invoke('calcom-token-refresh', {
+        body: { credentialId, accountId: profile.account_id }
+      });
+      setDebugData(data || { error: invokeError?.message });
+      setOpenDebugModal(true);
+      fetchCalcomStatus();
+    } catch (err) {
+      setDebugData({ error: err.message, action: 'refresh' });
+      setOpenDebugModal(true);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   // Extraemos lo que necesitamos del namespace
   const getCalApi = CalEmbed.getCalApi;
@@ -84,11 +161,28 @@ export default function Appointments() {
           hideEventTypeDetails: false,
           layout: "month_view"
         });
+
+        // ESCUCHAR EVENTO DE ÉXITO
+        cal("on", {
+          action: "bookingSuccessful",
+          callback: (e) => {
+            console.log("Reserva exitosa en Cal.com:", e);
+            
+            // 1. Refrescar la lista de turnos en el ERP (con un pequeño delay para que el webhook procese)
+            setTimeout(() => {
+              if (typeof setSelectedBusinessId === 'function') {
+                // Forzamos un refresco recargando las citas
+                window.location.reload(); // Opción radical si el hook no expone refresh directamente
+              }
+            }, 2000);
+          }
+        });
+
       } catch (err) {
         console.error("Error al inicializar Cal.com:", err);
       }
     })();
-  }, []);
+  }, [selectedBusinessId]);
 
   useEffect(() => {
     // Load Cal.com embed script
@@ -119,9 +213,45 @@ export default function Appointments() {
 
   return (
     <Box sx={{ flexGrow: 1 }}>
-      <Typography variant="h5" sx={{ fontWeight: 600, mb: 3 }}>
-        Gestión de Turnos y Agendamiento
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h5" sx={{ fontWeight: 600 }}>
+          Gestión de Turnos y Agendamiento
+        </Typography>
+        
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="caption" color="textSecondary">Cal.com:</Typography>
+            {calcomStatus === 'active' ? (
+              <Chip label="Conectado" color="success" size="small" variant="filled" />
+            ) : calcomStatus === 'expired' ? (
+              <Chip label="Expirado" color="warning" size="small" variant="filled" />
+            ) : (
+              <Chip label="Desconectado" color="error" size="small" variant="filled" />
+            )}
+          </Box>
+
+          <Button 
+            variant="outlined" 
+            size="small" 
+            startIcon={<LinkIcon />}
+            onClick={handleLinkCalcom}
+            disabled={calcomStatus === 'active'}
+          >
+            Vincular
+          </Button>
+
+          <Button 
+            variant="outlined" 
+            size="small" 
+            color="secondary"
+            startIcon={refreshing ? <CircularProgress size={16} /> : <SyncIcon />}
+            onClick={handleRefreshCalcom}
+            disabled={calcomStatus === 'disconnected' || refreshing}
+          >
+            Refrescar Token
+          </Button>
+        </Box>
+      </Box>
 
       <Grid container spacing={3}>
         {calcomExpired && (
@@ -322,6 +452,26 @@ export default function Appointments() {
           </Paper>
         </Grid>
       </Grid>
+
+      {/* MODAL DE DIAGNÓSTICO CAL.COM */}
+      <Dialog open={openDebugModal} onClose={() => setOpenDebugModal(false)} maxWidth="md" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <BugReportIcon color="primary" /> Diagnóstico de Conexión Cal.com
+        </DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            A continuación se muestra el resultado de la última operación con la API de Cal.com.
+          </Typography>
+          <Paper variant="outlined" sx={{ p: 2, bgcolor: '#f8fafc', overflow: 'auto' }}>
+            <pre style={{ margin: 0, fontSize: '0.85rem', fontFamily: 'monospace' }}>
+              {debugInfo ? JSON.stringify(debugInfo, null, 2) : "No hay información disponible."}
+            </pre>
+          </Paper>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenDebugModal(false)}>Cerrar</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
