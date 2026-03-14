@@ -40,8 +40,13 @@ export default function CredentialsConfig() {
   const [refreshToken, setRefreshToken] = useState(''); // Added for TFA
   const [clientId, setClientId] = useState('');
   const [clientSecret, setClientSecret] = useState('');
+  const [externalUserId, setExternalUserId] = useState(''); // Added for Store ID / User ID
+  const [testingConnection, setTestingConnection] = useState(false);
+  const [testResult, setTestResult] = useState(null);
 
   const fetchCredentials = async () => {
+
+
     if (!profile?.account_id) return;
     setLoading(true);
     try {
@@ -128,9 +133,10 @@ export default function CredentialsConfig() {
           name,
           api_name: apiName,
           access_token: accessToken || null,
-          refresh_token: refreshToken || null, // Map User Token
+          refresh_token: refreshToken || null, // Map User Token for TFA
           client_id: clientId || null,
           client_secret: clientSecret || null,
+          external_user_id: externalUserId || null, // Guardamos el Store ID aquí
           external_status: 'active',
           is_deleted: false
         });
@@ -143,6 +149,7 @@ export default function CredentialsConfig() {
       setRefreshToken('');
       setClientId('');
       setClientSecret('');
+      setExternalUserId('');
       await fetchCredentials();
     } catch (err) {
       setError(err.message);
@@ -190,7 +197,7 @@ export default function CredentialsConfig() {
             <TextField
               fullWidth
               label="Nombre descriptivo"
-              placeholder="Ej: MP Sucursal Centro"
+              placeholder="Ej: Tienda Online Principal"
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
@@ -207,7 +214,6 @@ export default function CredentialsConfig() {
             >
               <MenuItem value="MERCADOPAGO">Mercado Pago</MenuItem>
               <MenuItem value="TUS_FACTURAS_APP">Tus Facturas App</MenuItem>
-              <MenuItem value="ALEGRA">Alegra (Legacy)</MenuItem>
               <MenuItem value="ONESIGNAL">OneSignal</MenuItem>
               <MenuItem value="CAL_COM">Cal.com (Turnos)</MenuItem>
             </TextField>

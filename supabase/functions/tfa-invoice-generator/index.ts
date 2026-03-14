@@ -152,15 +152,53 @@ serve(async (req) => {
         formsPagos = [{ descripcion: 'Efectivo', importe: parseFloat(order.total_amount) }];
       }
 
+      // --- CÁLCULO DE ÍTEMS CON PRORRATEO DE DESCUENTOS ---
+      const totalOrden = parseFloat(order.total_amount);
+      const subtotalItemsRaw = order.order_items.reduce((acc, oi) => acc + (parseFloat(oi.unit_price) * oi.quantity), 0);
+      
+      // Factor de corrección: si la orden tiene descuentos globales (ej: Tiendanube 3%)
+      // lo aplicamos proporcionalmente a cada precio unitario para que la suma sea exacta.
+      const factorCorreccion = subtotalItemsRaw > 0 ? (totalOrden / subtotalItemsRaw) : 1;
+
+      console.log(`[${correlationId}] Total Orden: ${totalOrden}, Subtotal Raw: ${subtotalItemsRaw}, Factor: ${factorCorreccion}`);
+
+      const itemsDetalle = order.order_items.map(oi => {
+        const precioOriginal = parseFloat(oi.unit_price);
+        // Precio unitario ajustado con el descuento de la orden
+        const precioAjustado = precioOriginal * factorCorreccion;
+        
+        // El precio unitario que enviamos a TFA debe ser el final (con IVA incluido para Factura B/C)
+        // TFA luego hace el cálculo inverso si es Factura A.
+        const unitPriceFinal = isFacturaA ? (precioAjustado / 1.21) : precioAjustado;
+
+        return {
+          cantidad: oi.quantity,
+          producto: {
+            descripcion: oi.inventory_items.name,
+            precio_unitario_sin_iva: parseFloat(unitPriceFinal.toFixed(2)),
+            alicuota: vatValue,
+            codigo: oi.inventory_items.sku || "S/C",
+            unidad_bulto: 1
+          }
+        };
+      });
+
       const today = new Date();
       const formattedDate = formatDateTFA(today);
+      
+      // Definimos una fecha de vencimiento de pago razonable (ej: hoy mismo o +10 días)
+      // para que AFIP/TFA no devuelvan fechas inconsistentes.
+      const dueDate = new Date();
+      dueDate.setDate(today.getDate() + 10); // 10 días de vencimiento por defecto
+      const formattedDueDate = formatDateTFA(dueDate);
+
       const invoicePayload = {
         ...auth,
         operacion: "V",
         cliente: clienteData,
         comprobante: {
           fecha: formattedDate,
-          vencimiento: formattedDate,
+          vencimiento: formattedDueDate,
           operacion: "V",
           tipo: isFacturaA ? "FACTURA A" : (isFacturaB ? "FACTURA B" : "FACTURA C"),
           comprobante_tipo: tfaTipoId,
@@ -168,24 +206,15 @@ serve(async (req) => {
           rubro: order.businesses?.tfa_rubro || "Ventas",
           moneda: "PES",
           cotizacion: 1,
-          detalle: order.order_items.map(oi => ({
-            cantidad: oi.quantity,
-            producto: {
-              descripcion: oi.inventory_items.name,
-              precio_unitario_sin_iva: parseFloat((isFacturaA ? (oi.unit_price / 1.21) : oi.unit_price).toFixed(2)),
-              alicuota: vatValue,
-              codigo: oi.inventory_items.sku || "S/C",
-              unidad_bulto: 1
-            }
-          })),
+          detalle: itemsDetalle,
           condicion_pago: parseInt(invoiceOptions.condicion_pago_id) || 1,
           periodo_facturado_desde: formattedDate,
           periodo_facturado_hasta: formattedDate,
-          fecha_vencimiento_pago: formattedDate,
-          total: parseFloat(order.total_amount),
+          fecha_vencimiento_pago: formattedDueDate,
+          total: totalOrden,
           pagos: {
             formas_pago: formsPagos,
-            total: parseFloat(order.total_amount)
+            total: totalOrden
           }
         }
       };

@@ -1,0 +1,23 @@
+{
+  "images": [
+    {
+      "src": "http://images1.wikia.nocookie.net/__cb20101106022321/pokemon/images/f/f1/UltraBallArt.png"
+    }
+  ],
+  "name": {
+    "en": "Ultra Ball",
+    "es": "Ultra Ball",
+    "pt": "Ultra Ball"
+  },
+  "video_url": "https://www.youtube.com/watch?v=57aG16_gQcU",
+  "variants": [
+    {
+      "price": "10.00",
+      "stock_management": true,
+      "stock": 12,
+      "weight": "2.00",
+      "cost": "10.99"
+    }
+  ],
+  "categories": [11654304, 11654305]
+}
