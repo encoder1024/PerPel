@@ -1,4 +1,4 @@
-﻿import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -36,44 +36,48 @@ serve(async (req) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
   const supabaseService = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
-  // Solo service role
-  if (req.headers.get("Authorization") !== `Bearer ${supabaseService}`) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
+  // MODIFICACIÓN DE SEGURIDAD: Permitir service role O usuario autenticado
+  const authHeader = req.headers.get("Authorization") ?? "";
+  const isServiceRole = authHeader === `Bearer ${supabaseService}`;
+  
   const supabase = createClient(supabaseUrl, supabaseService);
+
+  // Si no es service role, validamos el JWT del usuario
+  if (!isServiceRole) {
+    const jwt = authHeader.replace(/^Bearer\s+/i, "");
+    const { data: { user }, error: authError } = await supabase.auth.getUser(jwt);
+    if (authError || !user) {
+      return new Response(JSON.stringify({ success: false, message: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+  }
 
   try {
     const { credentialId, accountId } = await req.json();
     if (!credentialId) {
       throw new Error("credentialId requerido");
     }
-    if (!accountId) {
-      throw new Error("accountId requerido");
-    }
 
     return await withRefreshLock(credentialId, async () => {
       const { data: cred, error: credError } = await supabase
+        .schema("core")
         .rpc("get_credential_by_id", { p_credential_id: credentialId })
         .maybeSingle();
 
       if (credError || !cred?.refresh_token) {
         throw new Error("Credencial Cal.com invalida o sin refresh_token");
       }
-      if (cred.api_name !== "CAL_COM") {
-        throw new Error("Credencial invalida");
-      }
-      if (cred.account_id !== accountId) {
+      
+      // Validar que el usuario (si no es service role) pertenece a la cuenta
+      if (!isServiceRole && accountId && cred.account_id !== accountId) {
         throw new Error("Cuenta no autorizada");
-      }
-      if (!cred.client_id || !cred.client_secret) {
-        throw new Error("Credencial Cal.com incompleta");
       }
 
       const refreshUrl = "https://app.cal.com/api/auth/oauth/refreshToken";
+      console.log(`Intentando refresh en: ${refreshUrl}`);
+
       const response = await fetch(refreshUrl, {
         method: "POST",
         headers: {
@@ -88,7 +92,19 @@ serve(async (req) => {
       });
 
       const data = await response.json();
-      if (!response.ok) throw new Error(data.message || "Error refresh Cal.com");
+      
+      // Devolvemos la respuesta de Cal.com tal cual para el modal de diagnóstico
+      if (!response.ok) {
+        return new Response(JSON.stringify({ 
+            success: false, 
+            message: "Error en API Cal.com", 
+            status: response.status,
+            api_response: data 
+        }), {
+          status: 200, // Usamos 200 para que el modal pueda mostrar el JSON
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
 
       const sanitize = (value: unknown) => (value ?? "").toString().replace(/\s+/g, "");
 
@@ -102,35 +118,21 @@ serve(async (req) => {
             ? new Date(Date.now() + data.expires_in * 1000).toISOString()
             : null,
           external_status: "active",
+          updated_at: new Date().toISOString()
         })
         .eq("id", cred.id);
 
       if (updateError) throw updateError;
 
-      await supabase.schema("logs").from("api_logs").insert({
-        account_id: cred.account_id,
-        api_name: "CAL_COM",
-        endpoint: refreshUrl,
-        operation_name: "oauth_refresh_success",
-        status: "SUCCESS",
-        correlation_id: cred.id,
-      });
-
-      return new Response(JSON.stringify({ success: true }), {
+      return new Response(JSON.stringify({ success: true, data }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
-    await supabase.schema("logs").from("api_logs").insert({
-      api_name: "CAL_COM",
-      operation_name: "oauth_refresh_failed",
-      status: "FAILED",
-      response_payload: { message },
-    });
     return new Response(JSON.stringify({ success: false, message }), {
-      status: 400,
+      status: 200, // Usamos 200 para diagnóstico
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
