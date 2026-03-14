@@ -16,10 +16,11 @@ import SignIn from "./pages/auth/SignIn";
 import SignUp from "./pages/auth/SignUp";
 import Inventory from "./pages/inventory/Inventory";
 import StockManagement from "./pages/inventory/StockManagement"; // Import StockManagement
-import POS from "./pages/pos/POS";
-import CashRegister from "./pages/pos/CashRegister";
-import Appointments from "./pages/appointments/Appointments";
-import Invoices from "./pages/invoices/Invoices";
+import POS from './pages/pos/POS';
+import CashRegister from './pages/pos/CashRegister';
+import Appointments from './pages/appointments/Appointments';
+import Customers from './pages/customers/Customers';
+import Invoices from './pages/invoices/Invoices';
 import Dashboard from "./pages/dashboard/Dashboard";
 import AuditLogs from "./pages/audit/AuditLogs";
 import RoleRequest  from "./pages/auth/RoleRequest";
@@ -203,6 +204,17 @@ function App() {
                 <ProtectedRoute allowedRoles={["OWNER", "ADMIN", "EMPLOYEE"]}>
                   <MainLayout>
                     <Appointments />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/clientes"
+              element={
+                <ProtectedRoute allowedRoles={["OWNER", "ADMIN", "EMPLOYEE"]}>
+                  <MainLayout>
+                    <Customers />
                   </MainLayout>
                 </ProtectedRoute>
               }
