@@ -45,6 +45,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import SaveIcon from '@mui/icons-material/Save';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
+import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import { supabase } from '../../services/supabaseClient';
 import { useAuthStore } from '../../stores/authStore';
 
@@ -81,62 +82,19 @@ export default function TiendanubeDashboard() {
   const [validationErrors, setValidationErrors] = useState([]);
   const [tnCategories, setTnCategories] = useState([]);
 
+  // Estados para Monitor de Órdenes
+  const [openOrderModal, setOpenOrderModal] = useState(false);
+  const [ordersData, setOrdersData] = useState([]);
+  const [loadingOrders, setLoadingOrders] = useState(false);
+
   useEffect(() => {
     fetchInitialData();
   }, [profile?.account_id]);
-
-  const fetchTnCategories = async (businessId) => {
-    try {
-      const { data } = await supabase
-        .schema('core')
-        .from('tiendanube_categorias')
-        .select('tn_category_id, name')
-        .eq('business_id', businessId)
-        .eq('is_deleted', false);
-      setTnCategories(data || []);
-    } catch (err) {
-      console.error("Error al cargar categorías TN:", err.message);
-    }
-  };
-
-
-  const validateVariants = () => {
-    const errors = [];
-    variantList.forEach((v, index) => {
-      const prefix = variantList.length > 1 ? `Variante ${index + 1}: ` : "";
-      
-      if (!v.nombre?.trim()) errors.push(`${prefix}El nombre es obligatorio.`);
-      if (!v.sku?.trim()) errors.push(`${prefix}El SKU es obligatorio.`);
-      if (!v.identificador_de_url?.trim()) errors.push(`${prefix}El identificador de URL (handle) es obligatorio.`);
-      if (!v.imagen_url?.trim()) errors.push(`${prefix}Debe definir una URL de imagen (Supabase Storage).`);
-      
-      const precio = parseFloat(v.precio || 0);
-      const oferta = v.precio_promocional ? parseFloat(v.precio_promocional) : null;
-      const costo = parseFloat(v.costo || 0);
-
-      if (precio <= 0) errors.push(`${prefix}El precio de venta debe ser mayor a 0.`);
-      
-      if (oferta !== null && !isNaN(oferta)) {
-        if (oferta >= precio) errors.push(`${prefix}El precio de oferta (${oferta}) debe ser menor al precio de lista (${precio}).`);
-        if (costo >= oferta) errors.push(`${prefix}El costo (${costo}) debe ser menor al precio de oferta (${oferta}).`);
-      } else {
-        if (costo >= precio) errors.push(`${prefix}El costo (${costo}) debe ser menor al precio de lista (${precio}).`);
-      }
-
-      [1, 2, 3].forEach(i => {
-        if (v[`nombre_de_propiedad_${i}`] && !v[`valor_de_propiedad_${i}`]) {
-          errors.push(`${prefix}La propiedad "${v[`nombre_de_propiedad_${i}`]}" debe tener un valor.`);
-        }
-      });
-    });
-    return errors;
-  };
 
   const fetchInitialData = async () => {
     if (!profile?.account_id) return;
     setLoading(true);
     try {
-      // 1. Obtener negocios vinculados a Tiendanube mediante la tabla de asignación
       const { data: assignData, error: bizError } = await supabase
         .schema('core')
         .from('business_asign_credentials')
@@ -150,7 +108,6 @@ export default function TiendanubeDashboard() {
       
       if (bizError) throw bizError;
 
-      // Filtrar solo los que son de Tiendanube y están activos
       const tnBusinesses = assignData
         ?.filter(a => a.credential?.api_name === 'TIENDANUBE' && a.credential?.external_status === 'active')
         .map(a => a.businesses)
@@ -187,7 +144,6 @@ export default function TiendanubeDashboard() {
         .order('name');
 
       if (fetchError) throw fetchError;
-      console.log("DATOS DE SINCRONIZACIÓN RECUPERADOS:", data);
       setItems(data);
     } catch (err) {
       setError(err.message);
@@ -196,12 +152,48 @@ export default function TiendanubeDashboard() {
     }
   };
 
+  const handleMonitorOrders = async () => {
+    setLoadingOrders(true);
+    setOpenOrderModal(true);
+    try {
+      const { data, error: invokeError } = await supabase.functions.invoke('tn-debug-orders', {
+        body: { businessId: selectedBusiness },
+      });
+
+      if (invokeError) throw invokeError;
+      setOrdersData(data.orders || []);
+    } catch (err) {
+      setError("Error en Monitor de Órdenes: " + err.message);
+    } finally {
+      setLoadingOrders(false);
+    }
+  };
+
+  const handleForceSyncOrder = async (tnOrderId) => {
+    setMessage(null);
+    setError(null);
+    try {
+      const { data, error: invokeError } = await supabase.functions.invoke('tn-force-sync-order', {
+        body: { businessId: selectedBusiness, tnOrderId },
+      });
+
+      if (invokeError) throw invokeError;
+      if (data.success) {
+        setMessage(`Orden ${tnOrderId} enviada a cola de procesamiento.`);
+        // Actualizar el estado localmente para reflejar que se está procesando
+        setOrdersData(ordersData.map(o => o.id === tnOrderId ? { ...o, exists_in_erp: true } : o));
+      } else {
+        throw new Error(data.message);
+      }
+    } catch (err) {
+      setError("Error al forzar sincronización: " + err.message);
+    }
+  };
+
   const handleOpenPrepare = async (item) => {
     setLoading(true);
     try {
-      // Cargar categorías de Tiendanube primero
       await fetchTnCategories(selectedBusiness);
-
       const { data: variants } = await supabase
         .schema('core')
         .from('tiendanube_item_variants')
@@ -218,11 +210,10 @@ export default function TiendanubeDashboard() {
         .maybeSingle();
 
       const realStock = stockData?.quantity || 0;
-
       setEditingItem(item);
       if (!variants || variants.length === 0) {
         setVariantList([{
-          id: crypto.randomUUID(), // Generamos ID para la nueva variante
+          id: crypto.randomUUID(),
           item_id: item.id,
           account_id: profile.account_id,
           business_id: selectedBusiness,
@@ -249,160 +240,75 @@ export default function TiendanubeDashboard() {
 
   const updateVariantField = (field, value) => {
     const newList = [...variantList];
-    
-    // Si el campo es el identificador_de_url (handle), lo actualizamos en TODAS las variantes
     if (field === 'identificador_de_url') {
-      newList.forEach((v, i) => {
-        newList[i] = { ...newList[i], [field]: value };
-      });
+      newList.forEach((v, i) => { newList[i] = { ...newList[i], [field]: value }; });
     } else {
-      // De lo contrario, solo en la variante seleccionada
       newList[selectedVariantIndex] = { ...newList[selectedVariantIndex], [field]: value };
     }
-    
     setVariantList(newList);
   };
 
   const handleSavePreparation = async () => {
     const errors = validateVariants();
-    if (errors.length > 0) {
-      setValidationErrors(errors);
-      return;
-    }
-
+    if (errors.length > 0) { setValidationErrors(errors); return; }
     setSaving(true);
-    setValidationErrors([]);
     try {
-      const { error: upsertError } = await supabase
-        .schema('core')
-        .from('tiendanube_item_variants')
-        .upsert(variantList);
-
+      const { error: upsertError } = await supabase.schema('core').from('tiendanube_item_variants').upsert(variantList);
       if (upsertError) throw upsertError;
-
       setMessage("Preparación de variantes guardada.");
       setOpenModal(false);
       await fetchSyncStatus(selectedBusiness);
     } catch (err) {
       setError("Error al guardar: " + err.message);
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   };
 
   const handleExport = async (itemId) => {
-    setSyncingId(itemId);
-    setError(null);
-    setMessage(null);
-
+    setSyncingId(itemId); setError(null); setMessage(null);
     try {
-      // 1. Obtener variantes de la DB para validar antes de enviar
-      const { data: variants, error: fetchVarError } = await supabase
-        .schema('core')
-        .from('tiendanube_item_variants')
-        .select('*')
-        .eq('item_id', itemId)
-        .eq('is_deleted', false);
-
-      if (fetchVarError) throw fetchVarError;
-      if (!variants || variants.length === 0) {
-        throw new Error("El producto no tiene variantes preparadas. Use el botón de editar primero.");
-      }
-
-      // 2. Validar reglas de negocio
-      const validationErrs = [];
-      variants.forEach((v, index) => {
-        const prefix = variants.length > 1 ? `Variante ${index + 1}: ` : "";
-        if (!v.nombre?.trim()) validationErrs.push(`${prefix}El nombre es obligatorio.`);
-        if (!v.sku?.trim()) validationErrs.push(`${prefix}El SKU es obligatorio.`);
-        if (!v.identificador_de_url?.trim()) validationErrs.push(`${prefix}El handle es obligatorio.`);
-        if (!v.imagen_url?.trim()) validationErrs.push(`${prefix}Falta la URL de imagen.`);
-        
-        const precio = parseFloat(v.precio || 0);
-        const oferta = v.precio_promocional ? parseFloat(v.precio_promocional) : null;
-        const costo = parseFloat(v.costo || 0);
-
-        if (precio <= 0) validationErrs.push(`${prefix}Precio inválido.`);
-        if (oferta !== null && !isNaN(oferta) && oferta >= precio) validationErrs.push(`${prefix}Precio de oferta inválido.`);
-        if (costo >= (oferta || precio)) validationErrs.push(`${prefix}Costo inválido (debe ser menor al precio).`);
+      const { data, error: invokeError } = await supabase.functions.invoke('tn-product-upsert', {
+        body: { itemId, businessId: selectedBusiness, accountId: profile?.account_id },
       });
-
-      if (validationErrs.length > 0) {
-        throw new Error("Validación fallida: " + validationErrs.join(" | "));
-      }
-
-      // 3. Llamada a la Edge Function (Usando fetch directo con anonKey para evitar 401)
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-      const res = await fetch(`${supabaseUrl}/functions/v1/tn-product-upsert`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "apikey": anonKey,
-          "Authorization": `Bearer ${anonKey}`
-        },
-        body: JSON.stringify({ 
-          itemId, 
-          businessId: selectedBusiness,
-          accountId: profile?.account_id 
-        }),
-      });
-
-      const data = await res.json();
+      if (invokeError) throw invokeError;
       if (data.success) {
-        setMessage(`Exportado con éxito a Tiendanube.`);
+        setMessage(`Exportado con éxito.`);
         await fetchSyncStatus(selectedBusiness);
-      } else {
-        throw new Error(data.message || "Error desconocido en el servidor");
-      }
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setSyncingId(null);
-    }
+      } else throw new Error(data.message);
+    } catch (err) { setError(err.message); } finally { setSyncingId(null); }
   };
 
   const handleDeleteFromTN = async (itemId) => {
-    if (!window.confirm("¿Está seguro de eliminar este producto de Tiendanube? Esto no borrará el producto del ERP, solo lo desvinculará y eliminará de la tienda online.")) {
-      return;
-    }
-
+    if (!window.confirm("¿Está seguro?")) return;
     setSyncingId(itemId);
-    setError(null);
-    setMessage(null);
-
     try {
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-      const res = await fetch(`${supabaseUrl}/functions/v1/tn-product-upsert`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "apikey": anonKey,
-          "Authorization": `Bearer ${anonKey}`
-        },
-        body: JSON.stringify({ 
-          itemId, 
-          businessId: selectedBusiness,
-          accountId: profile?.account_id,
-          action: 'DELETE'
-        }),
+      const { data, error: invokeError } = await supabase.functions.invoke('tn-product-upsert', {
+        body: { itemId, businessId: selectedBusiness, accountId: profile?.account_id, action: 'DELETE' },
       });
-
-      const data = await res.json();
+      if (invokeError) throw invokeError;
       if (data.success) {
-        setMessage(`Producto eliminado de Tiendanube con éxito.`);
+        setMessage(`Eliminado con éxito.`);
         await fetchSyncStatus(selectedBusiness);
-      } else {
-        throw new Error(data.message || "Error al intentar eliminar");
-      }
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setSyncingId(null);
-    }
+      } else throw new Error(data.message);
+    } catch (err) { setError(err.message); } finally { setSyncingId(null); }
+  };
+
+  const fetchTnCategories = async (businessId) => {
+    try {
+      const { data } = await supabase.schema('core').from('tiendanube_categorias').select('tn_category_id, name').eq('business_id', businessId).eq('is_deleted', false);
+      setTnCategories(data || []);
+    } catch (err) { console.error(err); }
+  };
+
+  const validateVariants = () => {
+    const errors = [];
+    variantList.forEach((v, index) => {
+      const prefix = variantList.length > 1 ? `Variante ${index + 1}: ` : "";
+      if (!v.nombre?.trim()) errors.push(`${prefix}El nombre es obligatorio.`);
+      if (!v.sku?.trim()) errors.push(`${prefix}El SKU es obligatorio.`);
+      if (!v.identificador_de_url?.trim()) errors.push(`${prefix}El identificador de URL es obligatorio.`);
+      if (!v.imagen_url?.trim()) errors.push(`${prefix}Falta URL de imagen.`);
+    });
+    return errors;
   };
 
   const filteredItems = items.filter(item => {
@@ -410,8 +316,6 @@ export default function TiendanubeDashboard() {
     const search = filterText.toLowerCase();
     if (filterField === 'name') return item.name?.toLowerCase().includes(search);
     if (filterField === 'sku') return item.sku?.toLowerCase().includes(search);
-    if (filterField === 'brand') return item.inventory_items_tn?.[0]?.brand?.toLowerCase().includes(search);
-    if (filterField === 'tn_id') return item.inventory_items_tn?.[0]?.tn_product_id?.toString().includes(search);
     return true;
   });
 
@@ -419,8 +323,7 @@ export default function TiendanubeDashboard() {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Typography variant="h5" gutterBottom sx={{ fontWeight: 700 }}>Monitor de Sincronización Tiendanube</Typography>
-      <Typography variant="body2" color="textSecondary" sx={{ mb: 3 }}>Gestiona Aroma de Mujer y tus canales online.</Typography>
+      <Typography variant="h5" gutterBottom sx={{ fontWeight: 700 }}>Monitor Tiendanube</Typography>
 
       <Grid container spacing={2} sx={{ mb: 4 }} alignItems="center">
         <Grid item xs={12} md={3}>
@@ -428,18 +331,16 @@ export default function TiendanubeDashboard() {
             {businesses.map((biz) => <MenuItem key={biz.id} value={biz.id}>{biz.name}</MenuItem>)}
           </TextField>
         </Grid>
-        <Grid item xs={12} md={2}>
-          <TextField select fullWidth label="Buscar por..." value={filterField} onChange={(e) => setFilterField(e.target.value)}>
-            <MenuItem value="name">Nombre</MenuItem>
-            <MenuItem value="sku">SKU</MenuItem>
-            <MenuItem value="brand">Marca</MenuItem>
-            <MenuItem value="tn_id">ID Tiendanube</MenuItem>
-          </TextField>
+        <Grid item xs={12} md={5}>
+          <TextField fullWidth placeholder="Buscar..." value={filterText} onChange={(e) => setFilterText(e.target.value)} />
         </Grid>
-        <Grid item xs={12} md={4}>
-          <TextField fullWidth placeholder="Ingrese el texto a buscar..." value={filterText} onChange={(e) => setFilterText(e.target.value)} />
-        </Grid>
-        <Grid item xs={12} md={3} sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <Grid item xs={12} md={4} sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+          <Button 
+            variant="outlined" color="primary" startIcon={<ReceiptLongIcon />} 
+            onClick={handleMonitorOrders} disabled={!selectedBusiness}
+          >
+            Monitor de Órdenes
+          </Button>
           <Button variant="outlined" startIcon={<RefreshIcon />} onClick={() => fetchSyncStatus(selectedBusiness)}>Refrescar</Button>
         </Grid>
       </Grid>
@@ -449,67 +350,29 @@ export default function TiendanubeDashboard() {
 
       <TableContainer component={Paper} variant="outlined">
         <Table>
-          <TableHead sx={{ bgcolor: 'grey.50' }}>
-            <TableRow>
-              <TableCell sx={{ fontWeight: 700 }}>Producto</TableCell>
-              <TableCell sx={{ fontWeight: 700 }}>SKU</TableCell>
-              <TableCell sx={{ fontWeight: 700 }}>Precio</TableCell>
-              <TableCell sx={{ fontWeight: 700 }}>Estado</TableCell>
-              <TableCell align="right" sx={{ fontWeight: 700 }}>Acciones</TableCell>
-            </TableRow>
-          </TableHead>
+          <TableHead sx={{ bgcolor: 'grey.50' }}><TableRow>
+            <TableCell sx={{ fontWeight: 700 }}>Producto</TableCell>
+            <TableCell sx={{ fontWeight: 700 }}>SKU</TableCell>
+            <TableCell sx={{ fontWeight: 700 }}>Precio</TableCell>
+            <TableCell sx={{ fontWeight: 700 }}>Estado</TableCell>
+            <TableCell align="right" sx={{ fontWeight: 700 }}>Acciones</TableCell>
+          </TableRow></TableHead>
           <TableBody>
             {filteredItems.map((item) => (
               <TableRow key={item.id}>
-                <TableCell>
-                  <Typography variant="body2" sx={{ fontWeight: 500 }}>{item.name}</Typography>
-                  <Typography variant="caption" color="textSecondary">{item.inventory_items_tn?.handle || 'Sin handle'}</Typography>
-                </TableCell>
-                <TableCell>{item.sku || '-'}</TableCell>
+                <TableCell>{item.name}</TableCell>
+                <TableCell>{item.sku}</TableCell>
                 <TableCell>${item.selling_price}</TableCell>
                 <TableCell>
-                  {item.tiendanube_sync_map?.sync_status === 'SYNCED' ? (
-                    <Tooltip title={`Sincronizado el: ${new Date(item.tiendanube_sync_map.last_sync_at).toLocaleString()}`}>
-                      <Chip label="Sincronizado" color="success" size="small" icon={<CheckCircleOutlineIcon />} />
-                    </Tooltip>
-                  ) : item.tiendanube_sync_map?.sync_status === 'ERROR' ? (
-                    <Tooltip title={item.tiendanube_sync_map.error_log || 'Error desconocido'}>
-                      <Chip label="Error" color="error" size="small" icon={<ErrorOutlineIcon />} />
-                    </Tooltip>
-                  ) : (
-                    <Chip label="Pendiente" variant="outlined" size="small" icon={<SyncIcon />} />
-                  )}
+                  <Chip label={item.tiendanube_sync_map?.sync_status || 'Pendiente'} 
+                        color={item.tiendanube_sync_map?.sync_status === 'SYNCED' ? 'success' : 'default'} size="small" />
                 </TableCell>
                 <TableCell align="right">
                   <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-                    <Tooltip title="Editar detalles para Tiendanube">
-                      <IconButton color="primary" onClick={() => handleOpenPrepare(item)}>
-                        <EditIcon />
-                      </IconButton>
-                    </Tooltip>
-                    
-                    <Tooltip title={item.inventory_items_tn?.tn_product_id ? "Actualizar en Tiendanube" : "Exportar a Tiendanube"}>
-                      <Button 
-                        size="small" 
-                        variant="contained" 
-                        color={item.inventory_items_tn?.tn_product_id ? "info" : "primary"}
-                        onClick={() => handleExport(item.id)} 
-                        disabled={syncingId !== null}
-                      >
-                        {syncingId === item.id ? <CircularProgress size={16} color="inherit" /> : <CloudUploadIcon />}
-                      </Button>
-                    </Tooltip>
-
-                    {(item.inventory_items_tn?.tn_product_id || item.tiendanube_sync_map?.sync_status === 'SYNCED') && (
-                      <Tooltip title="Eliminar de Tiendanube">
-                        <IconButton 
-                          color="error" 
-                          onClick={() => handleDeleteFromTN(item.id)} 
-                          disabled={syncingId !== null}
-                        >
-                          <DeleteIcon />
-                        </IconButton>
-                      </Tooltip>
+                    <IconButton onClick={() => handleOpenPrepare(item)} color="primary"><EditIcon /></IconButton>
+                    <IconButton onClick={() => handleExport(item.id)} color="info"><CloudUploadIcon /></IconButton>
+                    {item.inventory_items_tn?.tn_product_id && (
+                      <IconButton onClick={() => handleDeleteFromTN(item.id)} color="error"><DeleteIcon /></IconButton>
                     )}
                   </Box>
                 </TableCell>
@@ -519,142 +382,91 @@ export default function TiendanubeDashboard() {
         </Table>
       </TableContainer>
 
+      {/* MODAL MONITOR DE ÓRDENES */}
+      <Dialog open={openOrderModal} onClose={() => setOpenOrderModal(false)} maxWidth="md" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700 }}>Monitor de Órdenes en Tiendanube</DialogTitle>
+        <DialogContent dividers>
+          {loadingOrders ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', p: 5 }}><CircularProgress /></Box>
+          ) : (
+            <TableContainer component={Paper} variant="outlined">
+              <Table size="small">
+                <TableHead sx={{ bgcolor: 'grey.100' }}><TableRow>
+                  <TableCell sx={{ fontWeight: 700 }}>Orden TN</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Cliente</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Monto</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Estado Pago</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>En ERP?</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700 }}>Acción</TableCell>
+                </TableRow></TableHead>
+                <TableBody>
+                  {ordersData.map((order) => (
+                    <TableRow key={order.id}>
+                      <TableCell>#{order.number}</TableCell>
+                      <TableCell>{order.contact_name}</TableCell>
+                      <TableCell>${order.total}</TableCell>
+                      <TableCell>
+                        <Chip label={order.payment_status} color={order.payment_status === 'paid' ? 'success' : 'warning'} size="small" />
+                      </TableCell>
+                      <TableCell>
+                        {order.exists_in_erp ? <Chip label="SÍ" color="success" size="small" variant="outlined" /> : <Chip label="NO" color="error" size="small" variant="outlined" />}
+                      </TableCell>
+                      <TableCell align="right">
+                        {!order.exists_in_erp && (
+                          <Button 
+                            size="small" 
+                            variant="contained" 
+                            color="primary" 
+                            startIcon={<SyncIcon />}
+                            onClick={() => handleForceSyncOrder(order.id)}
+                          >
+                            Sincronizar
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {ordersData.length === 0 && <TableRow><TableCell colSpan={5} align="center">No se encontraron órdenes recientes.</TableCell></TableRow>}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenOrderModal(false)}>Cerrar</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* MODAL DE PREPARACIÓN */}
       <Dialog open={openModal} onClose={() => setOpenModal(false)} maxWidth="lg" fullWidth>
         <DialogTitle>Preparar Producto: {editingItem?.name}</DialogTitle>
-        <DialogContent dividers sx={{ display: 'flex', minHeight: '60vh', flexDirection: 'column' }}>
-          {validationErrors.length > 0 && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              <ul>{validationErrors.map((err, i) => <li key={i}>{err}</li>)}</ul>
-            </Alert>
-          )}
-          <Box sx={{ display: 'flex', flexGrow: 1 }}>
-            {/* Formulario simplificado (Sin lista lateral de variantes) */}
-            <Box sx={{ flexGrow: 1 }}>
-              <Tabs value={tabValue} onChange={(e, v) => setTabValue(v)} variant="scrollable" scrollButtons="auto">
-                <Tab label="Identificación y SEO" />
-                <Tab label="Propiedades" />
-                <Tab label="Precios y Costos" />
-                <Tab label="Físicos y Stock" />
-                <Tab label="Marca y Clase" />
-                <Tab label="Media" />
-              </Tabs>
-              <TabPanel value={tabValue} index={0}>
-                <Grid container spacing={2}>
-                  <Grid item xs={12} sm={6}><TextField fullWidth label="Identificador URL (Handle)" value={activeVariant.identificador_de_url || ''} onChange={(e) => updateVariantField('identificador_de_url', e.target.value)} /></Grid>
-                  <Grid item xs={12} sm={6}><TextField fullWidth label="Nombre en Tienda" value={activeVariant.nombre || ''} onChange={(e) => updateVariantField('nombre', e.target.value)} /></Grid>
-                  <Grid item xs={12} sm={6}><TextField fullWidth label="SKU" value={activeVariant.sku || ''} onChange={(e) => updateVariantField('sku', e.target.value)} /></Grid>
-                  <Grid item xs={12} sm={6}><TextField fullWidth label="Código de Barras" value={activeVariant.codigo_de_barras || ''} onChange={(e) => updateVariantField('codigo_de_barras', e.target.value)} /></Grid>
-                  <Grid item xs={12}><TextField fullWidth multiline rows={3} label="Descripción" value={activeVariant.descripcion || ''} onChange={(e) => updateVariantField('descripcion', e.target.value)} /></Grid>
-                  <Grid item xs={12}><TextField fullWidth label="Tags (separados por coma)" value={activeVariant.tags || ''} onChange={(e) => updateVariantField('tags', e.target.value)} /></Grid>
-                  <Grid item xs={12} sm={6}><TextField fullWidth label="Título SEO" value={activeVariant.titulo_para_seo || ''} onChange={(e) => updateVariantField('titulo_para_seo', e.target.value)} /></Grid>
-                  <Grid item xs={12} sm={6}><TextField fullWidth label="Descripción SEO" value={activeVariant.descripcion_para_seo || ''} onChange={(e) => updateVariantField('descripcion_para_seo', e.target.value)} /></Grid>
-                  <Grid item xs={6}><FormControlLabel control={<Switch checked={activeVariant.mostrar_en_tienda ?? true} onChange={(e) => updateVariantField('mostrar_en_tienda', e.target.checked)} />} label="Mostrar en Tienda" /></Grid>
-                  <Grid item xs={6}><FormControlLabel control={<Switch checked={activeVariant.envio_sin_cargo ?? false} onChange={(e) => updateVariantField('envio_sin_cargo', e.target.checked)} />} label="Envío sin cargo" /></Grid>
-                </Grid>
-              </TabPanel>
-              <TabPanel value={tabValue} index={1}>
-                <Grid container spacing={2}>
-                  {[1, 2, 3].map(i => (
-                    <React.Fragment key={i}>
-                      <Grid item xs={12} sm={6}><TextField fullWidth label={`Propiedad ${i}`} value={activeVariant[`nombre_de_propiedad_${i}`] || ''} onChange={(e) => updateVariantField(`nombre_de_propiedad_${i}`, e.target.value)} /></Grid>
-                      <Grid item xs={12} sm={6}><TextField fullWidth label={`Valor ${i}`} value={activeVariant[`valor_de_propiedad_${i}`] || ''} onChange={(e) => updateVariantField(`valor_de_propiedad_${i}`, e.target.value)} /></Grid>
-                    </React.Fragment>
-                  ))}
-                </Grid>
-              </TabPanel>
-              <TabPanel value={tabValue} index={2}>
-                <Grid container spacing={2}>
-                  <Grid item xs={12} sm={4}><TextField fullWidth type="number" label="Precio" value={activeVariant.precio || ''} onChange={(e) => updateVariantField('precio', e.target.value)} /></Grid>
-                  <Grid item xs={12} sm={4}><TextField fullWidth type="number" label="Promocional" value={activeVariant.precio_promocional || ''} onChange={(e) => updateVariantField('precio_promocional', e.target.value)} /></Grid>
-                  <Grid item xs={12} sm={4}><TextField fullWidth type="number" label="Costo" value={activeVariant.costo || ''} onChange={(e) => updateVariantField('costo', e.target.value)} /></Grid>
-                </Grid>
-              </TabPanel>
-              <TabPanel value={tabValue} index={3}>
-                <Grid container spacing={2}>
-                  <Grid item xs={12} sm={4}><TextField fullWidth label="Stock Actual (ERP)" value={activeVariant.stock || 0} InputProps={{ readOnly: true }} /></Grid>
-                  <Grid item xs={12} sm={4}><TextField fullWidth type="number" label="Peso (kg)" value={activeVariant.peso_kg || ''} onChange={(e) => updateVariantField('peso_kg', e.target.value)} /></Grid>
-                  <Grid item xs={12} sm={4}><TextField fullWidth type="number" label="Alto (cm)" value={activeVariant.alto_cm || ''} onChange={(e) => updateVariantField('alto_cm', e.target.value)} /></Grid>
-                  <Grid item xs={12} sm={4}><TextField fullWidth type="number" label="Ancho (cm)" value={activeVariant.ancho_cm || ''} onChange={(e) => updateVariantField('ancho_cm', e.target.value)} /></Grid>
-                  <Grid item xs={12} sm={4}><TextField fullWidth type="number" label="Profundidad (cm)" value={activeVariant.profundidad_cm || ''} onChange={(e) => updateVariantField('profundidad_cm', e.target.value)} /></Grid>
-                </Grid>
-              </TabPanel>
-              <TabPanel value={tabValue} index={4}>
-                <Grid container spacing={2}>
-                  <Grid item xs={12}>
-                    <Typography variant="caption" sx={{ mb: 1, display: 'block' }}>Categorías Oficiales Tiendanube</Typography>
-                    <Select
-                      multiple
-                      fullWidth
-                      value={activeVariant.categorias ? activeVariant.categorias.split(',') : []}
-                      onChange={(e) => updateVariantField('categorias', e.target.value.join(','))}
-                      input={<OutlinedInput label="Categorías" />}
-                      renderValue={(selected) => (
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                          {selected.map((value) => {
-                            const cat = tnCategories.find(c => c.tn_category_id.toString() === value);
-                            return <Chip key={value} label={cat ? cat.name : value} size="small" />;
-                          })}
-                        </Box>
-                      )}
-                    >
-                      {tnCategories.map((cat) => (
-                        <MenuItem key={cat.tn_category_id} value={cat.tn_category_id.toString()}>
-                          <Checkbox checked={activeVariant.categorias ? activeVariant.categorias.split(',').indexOf(cat.tn_category_id.toString()) > -1 : false} />
-                          <ListItemText primary={cat.name} secondary={`ID: ${cat.tn_category_id}`} />
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </Grid>
-                  <Grid item xs={12} sm={6}><TextField fullWidth label="Marca" value={activeVariant.marca || ''} onChange={(e) => updateVariantField('marca', e.target.value)} /></Grid>
-                  <Grid item xs={12} sm={6}>
-                    <TextField 
-                      select 
-                      fullWidth 
-                      label="Producto Físico" 
-                      value={activeVariant.producto_fasico || ''} 
-                      onChange={(e) => updateVariantField('producto_fasico', e.target.value)}
-                    >
-                      <MenuItem value="SI">SI</MenuItem>
-                      <MenuItem value="NO">NO</MenuItem>
-                    </TextField>
-                  </Grid>
-                  <Grid item xs={12} sm={6}><TextField fullWidth label="MPN" value={activeVariant.mpn_numero_de_pieza_del_fabricante || ''} onChange={(e) => updateVariantField('mpn_numero_de_pieza_del_fabricante', e.target.value)} /></Grid>
-                  <Grid item xs={12} sm={6}>
-                    <TextField 
-                      select 
-                      fullWidth 
-                      label="Sexo" 
-                      value={activeVariant.sexo || ''} 
-                      onChange={(e) => updateVariantField('sexo', e.target.value)}
-                    >
-                      <MenuItem value="Femenino">Femenino</MenuItem>
-                      <MenuItem value="Masculino">Masculino</MenuItem>
-                      <MenuItem value="Unisex">Unisex</MenuItem>
-                    </TextField>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <TextField 
-                      select 
-                      fullWidth 
-                      label="Rango de Edad" 
-                      value={activeVariant.rango_de_edad || ''} 
-                      onChange={(e) => updateVariantField('rango_de_edad', e.target.value)}
-                    >
-                      <MenuItem value="infantil">Infantil</MenuItem>
-                      <MenuItem value="adolescente">Adolescente</MenuItem>
-                      <MenuItem value="joven">Joven</MenuItem>
-                      <MenuItem value="adulto">Adulto</MenuItem>
-                      <MenuItem value="adulto mayor">Adulto Mayor</MenuItem>
-                    </TextField>
-                  </Grid>
-                </Grid>
-              </TabPanel>
-              <TabPanel value={tabValue} index={5}>
-                <TextField fullWidth label="URL Imagen" value={activeVariant.imagen_url || ''} onChange={(e) => updateVariantField('imagen_url', e.target.value)} />
-                {activeVariant.imagen_url && <Box sx={{ mt: 2, textAlign: 'center' }}><img src={activeVariant.imagen_url} alt="preview" style={{ maxWidth: '100%', maxHeight: 200 }} /></Box>}
-              </TabPanel>
-            </Box>
-          </Box>
+        <DialogContent dividers>
+          <Tabs value={tabValue} onChange={(e, v) => setTabValue(v)} variant="scrollable" scrollButtons="auto">
+            <Tab label="Identificación y SEO" />
+            <Tab label="Precios y Stock" />
+            <Tab label="Marca y Clase" />
+            <Tab label="Media" />
+          </Tabs>
+          <TabPanel value={tabValue} index={0}>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}><TextField fullWidth label="Identificador URL" value={activeVariant.identificador_de_url || ''} onChange={(e) => updateVariantField('identificador_de_url', e.target.value)} /></Grid>
+              <Grid item xs={12} sm={6}><TextField fullWidth label="Nombre en Tienda" value={activeVariant.nombre || ''} onChange={(e) => updateVariantField('nombre', e.target.value)} /></Grid>
+              <Grid item xs={12} sm={6}><TextField fullWidth label="SKU" value={activeVariant.sku || ''} onChange={(e) => updateVariantField('sku', e.target.value)} /></Grid>
+              <Grid item xs={12}><TextField fullWidth multiline rows={3} label="Descripción" value={activeVariant.descripcion || ''} onChange={(e) => updateVariantField('descripcion', e.target.value)} /></Grid>
+            </Grid>
+          </TabPanel>
+          <TabPanel value={tabValue} index={1}>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={4}><TextField fullWidth type="number" label="Precio" value={activeVariant.precio || ''} onChange={(e) => updateVariantField('precio', e.target.value)} /></Grid>
+              <Grid item xs={12} sm={4}><TextField fullWidth type="number" label="Stock (Manual)" value={activeVariant.stock || 0} /></Grid>
+            </Grid>
+          </TabPanel>
+          <TabPanel value={tabValue} index={2}>
+            <Grid item xs={12} sm={6}><TextField fullWidth label="Marca" value={activeVariant.marca || ''} onChange={(e) => updateVariantField('marca', e.target.value)} /></Grid>
+          </TabPanel>
+          <TabPanel value={tabValue} index={3}>
+            <TextField fullWidth label="URL Imagen" value={activeVariant.imagen_url || ''} onChange={(e) => updateVariantField('imagen_url', e.target.value)} />
+          </TabPanel>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenModal(false)}>Cancelar</Button>

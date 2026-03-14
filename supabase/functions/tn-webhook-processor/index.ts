@@ -1,214 +1,305 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+};
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  if (req.method === "OPTIONS")
+    return new Response("ok", { headers: corsHeaders });
 
   const supabaseClient = createClient(
-    Deno.env.get('SUPABASE_URL') ?? '',
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-  )
+    Deno.env.get("SUPABASE_URL") ?? "",
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+  );
 
+  const correlationId = crypto.randomUUID();
   let queueRecordId: string | null = null;
 
   try {
-    const { queue_id } = await req.json()
-    queueRecordId = queue_id
+    const { queue_id } = await req.json();
+    queueRecordId = queue_id;
 
     // 1. Obtener el registro de la cola
     const { data: queueRow, error: queueError } = await supabaseClient
-      .schema('logs')
-      .from('tiendanube_webhook_queue')
-      .select('*')
-      .eq('id', queue_id)
-      .single()
+      .schema("logs")
+      .from("tiendanube_webhook_queue")
+      .select("*")
+      .eq("id", queue_id)
+      .single();
 
-    if (queueError || !queueRow) throw new Error(`Registro de cola no encontrado: ${queue_id}`)
+    if (queueError || !queueRow)
+      throw new Error(`Registro de cola no encontrado: ${queue_id}`);
 
-    // Normalizar el eventType (Tiendanube envía order/created, pero internamente podríamos usar order.created)
-    const eventType = queueRow.event_type.replace('/', '.') 
-    const event = queueRow.payload
-    const storeId = queueRow.store_id
+    const eventType = queueRow.event_type.replace("/", ".");
+    const storeId = queueRow.store_id;
+    const resourceId = queueRow.resource_id;
 
-    // 2. Obtener la cuenta y negocio asociada
-    // Buscamos la credencial que tenga este store_id externo
-    const { data: cred, error: credError } = await supabaseClient
-      .schema('core')
-      .from('business_credentials')
-      .select('id, account_id')
-      .eq('external_user_id', storeId)
-      .eq('api_name', 'TIENDANUBE')
-      .eq('is_deleted', false)
-      .maybeSingle()
+    console.log(
+      `[${correlationId}] Procesando ${eventType} para Store: ${storeId}, Recurso: ${resourceId}`,
+    );
 
-    if (credError || !cred) throw new Error(`Store ID ${storeId} no vinculado a ninguna credencial activa.`);
+    // 2. Obtener Credenciales y Negocio
+    const { data: cred } = await supabaseClient
+      .schema("core")
+      .from("business_credentials")
+      .select("id")
+      .eq("external_user_id", storeId)
+      .eq("api_name", "TIENDANUBE")
+      .single();
 
-    // Buscamos el negocio que tiene asignada esta credencial
-    const { data: business, error: bizError } = await supabaseClient
-      .schema('core')
-      .from('businesses')
-      .select('id')
-      .eq('credential_id', cred.id)
-      .maybeSingle()
+    if (!cred)
+      throw new Error(
+        `No se encontró credencial activa para Store ID: ${storeId}`,
+      );
 
-    if (bizError || !business) throw new Error(`No hay negocio asociado a la credencial ID ${cred.id}`);
+    const { data: bizAssign } = await supabaseClient
+      .schema("core")
+      .from("business_asign_credentials")
+      .select("business_id, account_id")
+      .eq("credential_id", cred.id)
+      .eq("is_active", true)
+      .single();
 
-    const accountId = cred.account_id;
-    const businessId = business.id;
+    if (!bizAssign)
+      throw new Error(`No hay negocio asignado a la credencial ID: ${cred.id}`);
 
-    console.log(`Procesando ${eventType} para Cuenta: ${accountId}, Negocio: ${businessId}`);
+    const businessId = bizAssign.business_id;
+    const accountId = bizAssign.account_id;
 
-    // 3. Lógica por Evento
-    
-    // --- ORDEN CREADA ---
-    if (eventType === 'order.created') {
-        const customerEmail = event.customer.email
-        
+    // --- NUEVO: Obtener un usuario OWNER para autorizar la RPC de stock ---
+    const { data: ownerProfile } = await supabaseClient
+      .schema("core")
+      .from("user_profiles")
+      .select("id")
+      .eq("account_id", accountId)
+      .eq("app_role", "OWNER")
+      .limit(1)
+      .maybeSingle();
+
+    const systemUserId = ownerProfile?.id;
+    console.log(`[${correlationId}] Usuario autorizado para stock: ${systemUserId || 'No encontrado'}`);
+
+    // 3. Obtener el Access Token desencriptado
+    const { data: decrypted } = await supabaseClient
+      .schema("core")
+      .rpc("get_credential_by_id", { p_credential_id: cred.id })
+      .single();
+    if (!decrypted?.access_token)
+      throw new Error("No se pudo obtener el Access Token.");
+
+    // 4. Consultar datos reales a Tiendanube
+    const tnResponse = await fetch(
+      `https://api.tiendanube.com/v1/${storeId}/orders/${resourceId}`,
+      {
+        headers: {
+          Authentication: `bearer ${decrypted.access_token}`,
+          "User-Agent": "AppPerPel (admin@appperpel.com)",
+        },
+      },
+    );
+
+    if (!tnResponse.ok)
+      throw new Error(`Tiendanube API Error: ${tnResponse.statusText}`);
+    const orderData = await tnResponse.json();
+
+    // 5. PROCESAMIENTO
+
+    // --- EVENTO: ORDEN CREADA ---
+    if (eventType === "order.created") {
+      const { data: existingOrder } = await supabaseClient
+        .schema("core")
+        .from("orders")
+        .select("id")
+        .eq("external_reference", resourceId)
+        .eq("origin", "TIENDANUBE")
+        .maybeSingle();
+
+      if (!existingOrder) {
         // A. Asegurar Cliente
+        const customerEmail = orderData.contact_email;
         let { data: customer } = await supabaseClient
-          .schema('core')
-          .from('customers')
-          .select('id')
-          .eq('email', customerEmail)
-          .eq('account_id', accountId)
-          .maybeSingle()
+          .schema("core")
+          .from("customers")
+          .select("id")
+          .eq("email", customerEmail)
+          .eq("account_id", accountId)
+          .maybeSingle();
 
         if (!customer) {
-            const { data: newCustomer, error: custError } = await supabaseClient
-              .schema('core')
-              .from('customers')
-              .insert({
-                account_id: accountId,
-                name: event.customer.name,
-                email: customerEmail,
-                phone: event.customer.phone,
-                address: event.shipping_address?.address,
-                city: event.shipping_address?.city
-              }).select().single()
-            
-            if (custError) throw new Error(`Error al crear cliente: ${custError.message}`);
-            customer = newCustomer
+          const { data: newCustomer } = await supabaseClient
+            .schema("core")
+            .from("customers")
+            .insert({
+              account_id: accountId,
+              business_id: businessId,
+              full_name: orderData.contact_name,
+              category: "NEW_TN",
+              email: customerEmail,
+              phone_number: orderData.contact_phone || "",
+              doc_type: "96",
+              doc_number: orderData.contact_identification || "",
+              address: orderData.billing_address || "",
+              city: orderData.billing_city || "",
+            })
+            .select()
+            .single();
+          customer = newCustomer;
         }
 
-        // B. Crear Orden Local
+        // B. Crear Orden
         const { data: order, error: orderErr } = await supabaseClient
-          .schema('core')
-          .from('orders')
+          .schema("core")
+          .from("orders")
           .insert({
             account_id: accountId,
             business_id: businessId,
             client_id: customer?.id,
-            total_amount: parseFloat(event.total),
-            status: 'PENDING',
-            origin: 'TIENDANUBE',
-            external_reference: event.id.toString(),
-            notes: `Orden TN #${event.number} (${event.id})`
-          }).select().single()
+            total_amount: parseFloat(orderData.total),
+            status: orderData.payment_status === "paid" ? "PAID" : "PENDING",
+            origin: "TIENDANUBE",
+            external_reference: resourceId,
+            notes: `Orden TN #${orderData.number}`,
+          })
+          .select()
+          .single();
 
-        if (orderErr) throw new Error(`Error al crear orden: ${orderErr.message}`);
+        if (orderErr) throw orderErr;
 
-        // C. Crear Ítems de la Orden
-        for (const item of event.products) {
-            // Buscamos el mapeo del producto/variante
-            // Priorizamos el variant_id si viene, si no el product_id
-            const externalVariantId = item.variant_id?.toString() || item.product_id?.toString();
-            
-            const { data: mapping } = await supabaseClient
-              .schema('core')
-              .from('item_variants_tn')
-              .select('item_id')
-              .eq('tn_variant_id', externalVariantId)
-              .maybeSingle()
+        // C. Ítems y DESCUENTO DE STOCK INMEDIATO
+        console.log(`[${correlationId}] Procesando ${orderData.products.length} productos para stock...`);
+        for (const item of orderData.products) {
+          const productId = item.product_id?.toString();
+          
+          const { data: mapping } = await supabaseClient
+            .schema("core")
+            .from("inventory_items_tn")
+            .select("item_id")
+            .eq("tn_product_id", productId)
+            .maybeSingle();
 
-            if (mapping) {
-                await supabaseClient.schema('core').from('order_items').insert({
-                    order_id: order.id,
-                    item_id: mapping.item_id,
-                    quantity: item.quantity,
-                    unit_price: parseFloat(item.price)
-                })
-            } else {
-                console.warn(`Producto TN ID ${externalVariantId} no tiene mapeo en ERP.`);
-            }
-        }
-    }
-
-    // --- ORDEN PAGADA ---
-    if (eventType === 'order.paid' || (eventType === 'order.updated' && event.payment_status === 'paid')) {
-        const { data: order, error: findOrderErr } = await supabaseClient
-          .schema('core')
-          .from('orders')
-          .select('id, status, total_amount')
-          .eq('external_reference', event.id.toString())
-          .eq('origin', 'TIENDANUBE')
-          .maybeSingle()
-
-        if (findOrderErr) throw findOrderErr;
-
-        if (order && order.status !== 'PAID') {
-            // 1. Actualizar estado de la orden
-            await supabaseClient.schema('core').from('orders').update({ status: 'PAID' }).eq('id', order.id)
-            
-            // 2. Registrar el pago
-            await supabaseClient.schema('core').from('payments').insert({
-                account_id: accountId,
-                business_id: businessId,
+          if (mapping) {
+            // Guardar item de orden
+            await supabaseClient
+              .schema("core")
+              .from("order_items")
+              .insert({
                 order_id: order.id,
-                amount: parseFloat(event.total),
-                payment_method: event.payment_details?.method || 'TIENDANUBE',
-                status: 'COMPLETED'
-            })
+                account_id: accountId,
+                item_id: mapping.item_id,
+                quantity: item.quantity,
+                unit_price: parseFloat(item.price),
+              });
 
-            // 3. Descontar Stock
-            for (const item of event.products) {
-                const externalVariantId = item.variant_id?.toString() || item.product_id?.toString();
-                const { data: mapping } = await supabaseClient
-                  .schema('core')
-                  .from('item_variants_tn')
-                  .select('item_id')
-                  .eq('tn_variant_id', externalVariantId)
-                  .maybeSingle()
+            // Descontar Stock inmediatamente al crear
+            const { data: stockResult, error: stockErr } = await supabaseClient.rpc("adjust_stock", {
+              p_item_id: mapping.item_id,
+              p_business_id: businessId,
+              p_account_id: accountId,
+              p_quantity_change: -Math.abs(item.quantity),
+              p_movement_type: 'RESERVE_OUT',
+              p_reason: `VENTA TN #${orderData.number} (ERP ID: ${order.id})`,
+              p_user_id: systemUserId || null, // Usamos el OWNER encontrado
+            });
 
-                if (mapping) {
-                    // Llamamos a la RPC de ajuste de stock (Atómica y segura)
-                    const { error: stockErr } = await supabaseClient.rpc('adjust_stock', {
-                        p_item_id: mapping.item_id,
-                        p_business_id: businessId,
-                        p_quantity_change: -Math.abs(item.quantity),
-                        p_reason: `VENTA ONLINE TN #${event.number}`,
-                        p_user_id: null // Webhook no tiene usuario logueado
-                    })
-                    if (stockErr) console.error(`Error de stock para ítem ${mapping.item_id}:`, stockErr.message);
-                }
+            if (stockErr) {
+                console.error(`[${correlationId}] ERROR RPC adjust_stock:`, stockErr.message);
+            } else {
+                console.log(`[${correlationId}] Resultado RPC adjust_stock:`, JSON.stringify(stockResult));
             }
+          }
         }
+
+        // D. Si la orden ya viene pagada, registrar pago
+        if (orderData.payment_status === "paid") {
+          console.log(`[${correlationId}] Registrando pago inmediato para Orden TN #${orderData.number}`);
+          await supabaseClient
+            .schema("core")
+            .from("payments")
+            .insert({
+              account_id: accountId,
+              business_id: businessId,
+              order_id: order.id,
+              created_by: systemUserId,
+              amount: parseFloat(orderData.total),
+              payment_method_id: "TIENDANUBE",
+              status: "approved",
+              payment_type: "online",
+            });
+        }
+      }
     }
 
-    // 4. Marcar como procesado exitosamente
-    await supabaseClient.schema('logs').from('tiendanube_webhook_queue').update({
-        status: 'PROCESSED',
-        processed_at: new Date().toISOString()
-    }).eq('id', queue_id)
+    // --- EVENTO: ORDEN PAGADA ---
+    if (
+      eventType === "order.paid" ||
+      (eventType === "order.updated" && orderData.payment_status === "paid")
+    ) {
+      const { data: order } = await supabaseClient
+        .schema("core")
+        .from("orders")
+        .select("id, status")
+        .eq("external_reference", resourceId)
+        .eq("origin", "TIENDANUBE")
+        .maybeSingle();
 
-    return new Response(JSON.stringify({ success: true }), { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-    })
+      if (order && order.status !== "PAID") {
+        console.log(`[${correlationId}] Actualizando orden a PAID y registrando pago diferido.`);
+        await supabaseClient
+          .schema("core")
+          .from("orders")
+          .update({ status: "PAID" })
+          .eq("id", order.id);
 
+        await supabaseClient
+          .schema("core")
+          .from("payments")
+          .insert({
+            account_id: accountId,
+            order_id: order.id,
+            created_by: systemUserId,
+            amount: parseFloat(orderData.total),
+            payment_method_id: "TIENDANUBE",
+            status: "approved",
+            payment_type: "online",
+          });
+      }
+    }
+
+    // 6. Finalizar
+    await supabaseClient
+      .schema("logs")
+      .from("tiendanube_webhook_queue")
+      .update({
+        status: "PROCESSED",
+        processed_at: new Date().toISOString(),
+      })
+      .eq("id", queue_id);
+
+    return new Response(JSON.stringify({ success: true }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } catch (error) {
-    console.error(`Error crítico en Procesador Webhook TN: ${error.message}`);
+    console.error(`[${correlationId}] ERROR:`, error.message);
     if (queueRecordId) {
-        await supabaseClient.schema('logs').from('tiendanube_webhook_queue').update({
-            status: 'ERROR',
-            error_log: error.message
-        }).eq('id', queueRecordId)
+      await supabaseClient
+        .schema("logs")
+        .from("tiendanube_webhook_queue")
+        .update({
+          status: "ERROR",
+          error_log: error.message,
+        })
+        .eq("id", queueRecordId);
     }
-    return new Response(JSON.stringify({ success: false, message: error.message }), {
-      status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    })
+    return new Response(
+      JSON.stringify({ success: false, message: error.message }),
+      {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
   }
-})
+});

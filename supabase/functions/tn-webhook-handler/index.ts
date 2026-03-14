@@ -1,70 +1,89 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
-import * as crypto from "https://deno.land/std@0.177.0/node/crypto.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-async function validateSignature(body: string, signature: string, secret: string) {
-  const hmac = crypto.createHmac('sha256', secret);
-  hmac.update(body);
-  const hash = hmac.digest('hex');
-  return hash === signature;
-}
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
+  const correlationId = crypto.randomUUID();
+  console.log(`[${correlationId}] >>> RECIBIENDO NOTIFICACIÓN TIENDANUBE`);
+
   try {
-    const supabaseClient = createClient(
+    const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // 1. Recepción rápida
-    const eventType = req.headers.get('x-linkedstore-event')
-    const signature = req.headers.get('x-linkedstore-signature')
-    const bodyText = await req.text()
-    const webhookSecret = Deno.env.get('TIENDANUBE_WEBHOOK_SECRET')
-
-    // 2. Validación de firma (Opcional pero recomendado para seguridad inmediata)
-    if (webhookSecret && signature) {
-        const isValid = await validateSignature(bodyText, signature, webhookSecret)
-        if (!isValid) throw new Error('Firma inválida.')
+    const payloadText = await req.text();
+    let payload;
+    try {
+        payload = JSON.parse(payloadText);
+    } catch (e) {
+        throw new Error("El cuerpo de la petición no es un JSON válido.");
     }
 
-    const payload = JSON.parse(bodyText)
-    const storeId = payload.store_id
+    // Tiendanube envía: { "store_id": 123, "id": 456, "event": "order/created" }
+    // El 'id' es el ID de la Orden (resource_id)
+    const eventType = req.headers.get('x-linkedstore-event') || payload.event;
+    const storeId = (req.headers.get('x-linkedstore-id') || payload.store_id)?.toString();
+    const resourceId = payload.id?.toString();
 
-    // 3. Persistir en la cola y terminar inmediatamente
-    const { error } = await supabaseClient
+    console.log(`[${correlationId}] Evento: ${eventType}, Store: ${storeId}, Recurso: ${resourceId}`);
+
+    if (!eventType || !storeId || !resourceId) {
+        throw new Error(`Datos insuficientes. E:${eventType} S:${storeId} R:${resourceId}`);
+    }
+
+    // 1. DEDUPLICACIÓN PREVENTIVA (Idempotencia en la cola)
+    // Si ya existe un webhook PENDING para este mismo recurso y evento, no lo insertamos de nuevo
+    const { data: existing } = await supabase
+      .schema('logs')
+      .from('tiendanube_webhook_queue')
+      .select('id')
+      .eq('store_id', storeId)
+      .eq('event_type', eventType)
+      .eq('resource_id', resourceId)
+      .eq('status', 'PENDING')
+      .maybeSingle();
+
+    if (existing) {
+        console.log(`[${correlationId}] Webhook duplicado (ya en cola PENDING). Ignorando inserción.`);
+        return new Response(JSON.stringify({ success: true, message: "Duplicate ignored" }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200
+        });
+    }
+
+    // 2. Insertar en la cola
+    const { error: insertError } = await supabase
       .schema('logs')
       .from('tiendanube_webhook_queue')
       .insert({
         event_type: eventType,
-        store_id: storeId?.toString(),
+        store_id: storeId,
+        resource_id: resourceId,
         payload: payload,
         status: 'PENDING'
-      })
+      });
 
-    if (error) throw error
+    if (insertError) throw insertError;
 
-    console.log(`Webhook ${eventType} encolado exitosamente para Store ${storeId}`);
+    console.log(`[${correlationId}] Webhook encolado con éxito.`);
 
-    // RESPUESTA INMEDIATA A TIENDANUBE (Evita timeouts)
-    return new Response(JSON.stringify({ success: true, message: 'Enqueued' }), {
+    return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200
     })
 
   } catch (error) {
-    console.error(`Error crítico en Receptor Webhook TN: ${error.message}`);
-    // Respondemos 200 de todas formas para que TN no reintente si es un error de nuestro lado
+    console.error(`[${correlationId}] ERROR Handler:`, error.message);
     return new Response(JSON.stringify({ success: false, error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 200
+      status: 200 // Siempre 200 para evitar reintentos infinitos por errores de lógica
     })
   }
 })

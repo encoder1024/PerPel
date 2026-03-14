@@ -1187,12 +1187,42 @@ export default function Invoices() {
                 valueFormatter: (v) => new Date(v).toLocaleString(),
               },
               {
+                field: "origin",
+                headerName: "Origen",
+                width: 120,
+                renderCell: (p) => (
+                  <Chip
+                    label={p.value}
+                    size="small"
+                    color={p.value === "TIENDANUBE" ? "info" : "default"}
+                    variant="filled"
+                    sx={{ fontWeight: 600, fontSize: '0.7rem' }}
+                  />
+                ),
+              },
+              {
                 field: "business",
                 headerName: "Sucursal",
                 width: 150,
                 valueGetter: (p, r) => r.businesses?.name || "N/A",
               },
-              { field: "customer_name", headerName: "Cliente", flex: 1 },
+              { 
+                field: "customer_name", 
+                headerName: "Cliente", 
+                flex: 1,
+                valueGetter: (p, r) => r.customers?.full_name || r.customer_name || "N/A",
+              },
+              {
+                field: "notes",
+                headerName: "Notas",
+                flex: 1,
+                minWidth: 150,
+                renderCell: (p) => (
+                  <Tooltip title={p.value || ""}>
+                    <Typography variant="body2" noWrap>{p.value || "-"}</Typography>
+                  </Tooltip>
+                )
+              },
               {
                 field: "total_amount",
                 headerName: "Total",
@@ -1229,7 +1259,12 @@ export default function Invoices() {
               },
             ]}
             pageSizeOptions={[5]}
-            initialState={{ pagination: { paginationModel: { pageSize: 5 } } }}
+            initialState={{ 
+              pagination: { paginationModel: { pageSize: 5 } },
+              sorting: {
+                sortModel: [{ field: "created_at", sort: "desc" }],
+              },
+            }}
           />
         </DialogContent>
         <DialogActions>

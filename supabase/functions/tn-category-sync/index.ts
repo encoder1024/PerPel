@@ -7,16 +7,12 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
-  // Manejo de CORS (Preflight)
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
-  }
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+
+  const correlationId = crypto.randomUUID();
+  console.log(`[${correlationId}] >>> INICIANDO SYNC DE CATEGORÍAS`);
 
   try {
-    // Verificar API KEY manualmente
-    const apiKey = req.headers.get('apikey')
-    if (!apiKey) throw new Error('Falta la API Key de Supabase.')
-
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -25,11 +21,13 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const { businessId, accountId } = body;
 
-    console.log(`Iniciando sync de categorías para Business: ${businessId}, Account: ${accountId}`);
+    if (!businessId || !accountId) {
+        throw new Error(`Faltan parámetros requeridos (businessId: ${businessId}, accountId: ${accountId}).`);
+    }
 
-    if (!businessId) throw new Error('businessId es requerido.')
+    console.log(`[${correlationId}] Negocio: ${businessId}, Cuenta: ${accountId}`);
 
-    // 1. Obtener Credenciales (Usando la sintaxis .schema('core').rpc)
+    // 1. Obtener Credenciales
     const { data: creds, error: credsError } = await supabaseClient
       .schema('core')
       .rpc('get_business_credentials', { 
@@ -37,16 +35,14 @@ serve(async (req) => {
         p_api_name: 'TIENDANUBE' 
       })
     
-    console.log("Resultado RPC credenciales:", { creds, error: credsError });
-    
     const cred = creds?.[0]
-
-    if (credsError || !cred) throw new Error('No hay credenciales activas de Tiendanube para este negocio.')
+    if (credsError || !cred) throw new Error('No hay credenciales activas de Tiendanube vinculadas.');
 
     const storeId = cred.external_user_id
     const accessToken = cred.access_token
 
     // 2. Llamar a Tiendanube API (Categorías)
+    console.log(`[${correlationId}] Consultando Tiendanube Store ID: ${storeId}`);
     const tnResponse = await fetch(`https://api.tiendanube.com/v1/${storeId}/categories`, {
       method: 'GET',
       headers: {
@@ -56,11 +52,17 @@ serve(async (req) => {
       }
     })
 
-    const tnCategories = await tnResponse.json()
+    const responseText = await tnResponse.text();
+    let tnCategories;
+    try {
+        tnCategories = JSON.parse(responseText);
+    } catch (e) {
+        throw new Error(`Respuesta de Tiendanube no es JSON: ${responseText.substring(0, 100)}`);
+    }
 
-    if (!tnResponse.ok) throw new Error(`Error Tiendanube: ${tnCategories.message || tnResponse.statusText}`)
+    if (!tnResponse.ok) throw new Error(`Tiendanube Error: ${tnCategories.message || tnResponse.statusText}`);
 
-    console.log(`Tiendanube devolvió ${tnCategories.length} categorías.`);
+    console.log(`[${correlationId}] Tiendanube devolvió ${tnCategories.length} categorías.`);
 
     // 3. Upsert en la tabla local
     let processedCount = 0;
@@ -81,11 +83,7 @@ serve(async (req) => {
           onConflict: 'account_id, business_id, tn_category_id'
         })
 
-      if (upsertError) {
-        console.error(`Error en UPSERT para categoría ${tnCat.id}:`, upsertError.message);
-      } else {
-        processedCount++;
-      }
+      if (!upsertError) processedCount++;
     }
 
     // 4. Log de Auditoría
@@ -94,19 +92,18 @@ serve(async (req) => {
       api_name: 'TIENDANUBE',
       operation_name: 'sync_categories',
       status: 'SUCCESS',
-      response_payload: { count: processedCount }
+      response_payload: { count: processedCount, correlationId }
     })
 
-    return new Response(
-      JSON.stringify({ success: true, count: processedCount }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    return new Response(JSON.stringify({ success: true, count: processedCount, correlationId }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    })
 
   } catch (error) {
-    console.error("Error en tn-category-sync:", error.message);
-    return new Response(
-      JSON.stringify({ success: false, message: error.message }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    console.error(`[${correlationId}] ERROR:`, error.message);
+    return new Response(JSON.stringify({ success: false, message: error.message, correlationId }), {
+      status: 200, // Devolvemos 200 para capturar el JSON de error en el frontend
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    })
   }
 })
