@@ -15,6 +15,15 @@ const tfaHeaders = {
   "Accept": "application/json"
 };
 
+class TfaApiError extends Error {
+  details: any;
+  constructor(message, details) {
+    super(message);
+    this.name = "TfaApiError";
+    this.details = details;
+  }
+}
+
 const formatDateTFA = (date: Date) => {
   const d = date.getDate().toString().padStart(2, '0');
   const m = (date.getMonth() + 1).toString().padStart(2, '0');
@@ -60,13 +69,15 @@ serve(async (req) => {
       const text = await res.text();
       try {
         const parsed = JSON.parse(text);
-        if (parsed.error === "S") {
-          console.error(`[${correlationId}] Error detectado en respuesta de TFA:`);
-          console.error(`- errores: ${JSON.stringify(parsed.errores || [])}`);
+        if (parsed.error === "S" || parsed.respuesta === "ERROR") {
+          const errorDetails = parsed.error_details || parsed.errores || "Error desconocido de TFA.";
+          console.error(`[${correlationId}] Error detectado en respuesta de TFA:`, JSON.stringify(errorDetails));
+          throw new TfaApiError(`Error de la API de TusFacturas`, errorDetails);
         }
         return { json: parsed, status: res.status };
       } catch (e) {
-        throw new Error(`Error de formato en TFA (Status: ${res.status})`);
+        if (e instanceof TfaApiError) throw e;
+        throw new Error(`Error de formato en TFA (Status: ${res.status}). Respuesta: ${text}`);
       }
     } catch (err) {
       clearTimeout(timeoutId);
@@ -104,6 +115,19 @@ serve(async (req) => {
     if (action === 'create') {
       const { data: order, error: orderError } = await supabase.schema('core').from('orders').select('*, order_items(*, inventory_items(*)), customers(*), businesses(*), payments(*)').eq('id', orderId).single();
       if (orderError || !order) throw new Error("Orden no encontrada");
+
+      // --- FIX: Validate that the order has items before proceeding ---
+      if (!order.order_items || order.order_items.length === 0) {
+        const errorMessage = `La orden #${orderId.substring(0, 8)} no contiene ítems y no puede ser facturada.`;
+        console.error(`[${correlationId}] Invoice generation blocked: ${errorMessage}`);
+        return new Response(
+            JSON.stringify({ error: errorMessage }),
+            { 
+                status: 409, // Conflict: The state of the resource is not correct for this action
+                headers: { ...corsHeaders, "Content-Type": "application/json" } 
+            }
+        );
+      }
       
       currentAccountId = order.account_id;
       const auth = await getCredentials(order.business_id);
@@ -114,10 +138,6 @@ serve(async (req) => {
       const isFacturaC = rawType === '11' || rawType.includes('FACTURA C');
       const tfaTipoId = isFacturaA ? 1 : (isFacturaB ? 6 : 11);
       const vatValue = (isFacturaB || isFacturaC) ? 0 : 21;
-
-      // --- DEBUG NOMBRE DEL CLIENTE ---
-      console.log(`[${correlationId}] DEBUG: Recibido de Modal: "${invoiceOptions.customer_name}"`);
-      console.log(`[${correlationId}] DEBUG: Recibido de Orden: "${order.customer_name}"`);
 
       const clienteData = {
         documento_tipo: invoiceOptions.customer_doc_type || "OTRO",
@@ -130,9 +150,6 @@ serve(async (req) => {
         envia_por_mail: "N"
       };
 
-      console.log(`[${correlationId}] DEBUG: Enviando a TFA Razon Social: "${clienteData.razon_social}"`);
-
-      // Mapeo quirúrgico de formas de pago PerPel -> TFA
       const mapPerPelToTFA = (perpelMethod: string) => {
         const m = String(perpelMethod).toUpperCase();
         if (m === 'CASH') return 'Efectivo';
@@ -146,31 +163,19 @@ serve(async (req) => {
         importe: parseFloat(p.amount)
       })) || [];
 
-      // Validar que la suma coincida con el total de la factura
       const sumaTotalPagos = formsPagos.reduce((acc, curr) => acc + curr.importe, 0);
       if (formsPagos.length === 0 || Math.abs(sumaTotalPagos - parseFloat(order.total_amount)) > 0.01) {
         formsPagos = [{ descripcion: 'Efectivo', importe: parseFloat(order.total_amount) }];
       }
 
-      // --- CÁLCULO DE ÍTEMS CON PRORRATEO DE DESCUENTOS ---
       const totalOrden = parseFloat(order.total_amount);
       const subtotalItemsRaw = order.order_items.reduce((acc, oi) => acc + (parseFloat(oi.unit_price) * oi.quantity), 0);
-      
-      // Factor de corrección: si la orden tiene descuentos globales (ej: Tiendanube 3%)
-      // lo aplicamos proporcionalmente a cada precio unitario para que la suma sea exacta.
       const factorCorreccion = subtotalItemsRaw > 0 ? (totalOrden / subtotalItemsRaw) : 1;
-
-      console.log(`[${correlationId}] Total Orden: ${totalOrden}, Subtotal Raw: ${subtotalItemsRaw}, Factor: ${factorCorreccion}`);
 
       const itemsDetalle = order.order_items.map(oi => {
         const precioOriginal = parseFloat(oi.unit_price);
-        // Precio unitario ajustado con el descuento de la orden
         const precioAjustado = precioOriginal * factorCorreccion;
-        
-        // El precio unitario que enviamos a TFA debe ser el final (con IVA incluido para Factura B/C)
-        // TFA luego hace el cálculo inverso si es Factura A.
         const unitPriceFinal = isFacturaA ? (precioAjustado / 1.21) : precioAjustado;
-
         return {
           cantidad: oi.quantity,
           producto: {
@@ -185,11 +190,8 @@ serve(async (req) => {
 
       const today = new Date();
       const formattedDate = formatDateTFA(today);
-      
-      // Definimos una fecha de vencimiento de pago razonable (ej: hoy mismo o +10 días)
-      // para que AFIP/TFA no devuelvan fechas inconsistentes.
       const dueDate = new Date();
-      dueDate.setDate(today.getDate() + 10); // 10 días de vencimiento por defecto
+      dueDate.setDate(today.getDate() + 10);
       const formattedDueDate = formatDateTFA(dueDate);
 
       const invoicePayload = {
@@ -220,9 +222,11 @@ serve(async (req) => {
       };
 
       const { json: invData } = await tfaFetch("https://www.tusfacturas.app/app/api/v2/facturacion/nuevo", invoicePayload);
-      if (invData.respuesta === "ERROR" || invData.error === "S") throw new Error(`TFA: ${JSON.stringify(invData.error_details || invData.errores)}`);
+      if (invData.respuesta === "ERROR" || invData.error === "S") {
+          throw new TfaApiError(`TFA Rechazó la solicitud.`, invData.error_details || invData.errores);
+      }
 
-      console.log(`[${correlationId}] Factura aprobada. CAE: ${invData.cae}. Vencimiento Pago TFA: ${invData.vencimiento_pago}`);
+      console.log(`[${correlationId}] Factura aprobada. CAE: ${invData.cae}.`);
 
       let storagePath = null;
       if (invData.comprobante_pdf_url) {
@@ -259,6 +263,12 @@ serve(async (req) => {
     }
   } catch (error) {
     console.error(`[${correlationId}] ERROR:`, error.message);
+    if (error instanceof TfaApiError) {
+      return new Response(JSON.stringify({
+        error: "La API de facturación rechazó la solicitud.",
+        details: error.details
+      }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
     return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });

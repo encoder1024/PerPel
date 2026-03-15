@@ -22,7 +22,7 @@ import Appointments from './pages/appointments/Appointments';
 import Customers from './pages/customers/Customers';
 import Invoices from './pages/invoices/Invoices';
 import Dashboard from "./pages/dashboard/Dashboard";
-import AuditLogs from "./pages/audit/AuditLogs";
+import Reports from "./pages/audit/Reports";
 import RoleRequest  from "./pages/auth/RoleRequest";
 import ConfigurationLayout from "./pages/configuration/ConfigurationLayout";
 import VentasConfig from "./pages/configuration/VentasConfig";
@@ -236,7 +236,7 @@ function App() {
               element={
                 <ProtectedRoute allowedRoles={["OWNER", "ADMIN", "AUDITOR"]}>
                   <MainLayout>
-                    <AuditLogs />
+                    <Reports />
                   </MainLayout>
                 </ProtectedRoute>
               }
