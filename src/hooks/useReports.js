@@ -12,6 +12,8 @@ export const useReports = () => {
   const [details, setDetails] = useState([]);
   const [pendingDetails, setPendingDetails] = useState([]);
   const [ecommerceDetails, setEcommerceDetails] = useState([]);
+  const [valuationDetails, setValuationDetails] = useState([]);
+  const [turnoverDetails, setTurnoverDetails] = useState([]);
 
   // --- REPORTE 1: FACTURACIÓN ---
   const fetchBillingReport = async (businessId, start, end) => {
@@ -42,7 +44,7 @@ export const useReports = () => {
       .from('orders')
       .select('id, created_at, total_amount, origin, status, notes, customer:client_id(full_name)')
       .eq('account_id', profile.account_id)
-      .eq('status', 'PAID') // Revertido: solo órdenes pagas
+      .eq('status', 'PAID')
       .eq('is_deleted', false)
       .gte('created_at', start)
       .lte('created_at', end);
@@ -84,10 +86,11 @@ export const useReports = () => {
     setTop5(Object.entries(bizSummary).map(([l, v]) => ({ label: l, valueRaw: v })).sort((a, b) => b.valueRaw - a.valueRaw).slice(0, 5).map(i => ({ label: i.label, value: `$ ${i.valueRaw.toLocaleString('es-AR')}` })));
 
     setDetails(data.map(inv => ({
-      date: format(new Date(inv.created_at), 'dd/MM HH:mm'),
+      id: inv.id,
+      date: inv.created_at,
       concept: `Factura ${String(inv.punto_venta || 0).padStart(4, '0')}-${String(inv.cbte_nro || 0).padStart(8, '0')}`,
       origin: inv.origin?.origin || 'LOCAL',
-      amount: `$ ${parseFloat(inv.total_amount).toLocaleString('es-AR')}`
+      amount: parseFloat(inv.total_amount)
     })));
   };
 
@@ -156,10 +159,12 @@ export const useReports = () => {
 
     setTop5(Object.entries(stats).map(([s, d]) => ({ label: d.name, valueRaw: d.total })).sort((a, b) => b.valueRaw - a.valueRaw).slice(0, 5).map(i => ({ label: i.label, value: `$ ${i.valueRaw.toLocaleString('es-AR')}` })));
 
-    setDetails(Object.entries(stats).map(([sku, data]) => ({
-      sku: sku, name: data.name,
-      origin: `L: ${data.qtyLocal} | TN: ${data.qtyTN}`,
-      amount: `$ ${data.total.toLocaleString('es-AR')}`
+    setDetails(Object.entries(stats).map(([sku, d]) => ({
+      id: sku,
+      sku: sku, 
+      name: d.name,
+      origin: `L: ${d.qtyLocal} | TN: ${d.qtyTN}`,
+      amount: d.total
     })));
   };
 
@@ -206,34 +211,46 @@ export const useReports = () => {
     setTop5(Object.entries(customerStats).map(([l, v]) => ({ label: l, valueRaw: v })).sort((a, b) => b.valueRaw - a.valueRaw).slice(0, 5).map(i => ({ label: i.label, value: `${i.valueRaw} órdenes` })));
 
     setDetails(data.map(o => ({
-      date: format(new Date(o.created_at), 'dd/MM HH:mm'),
+      id: o.id,
+      date: o.created_at,
       concept: o.customer?.full_name || 'Cliente sin nombre',
       origin: `${o.origin} - ${o.status}${invoicedIds.has(o.id) ? ' (FAC)' : ''}`,
-      amount: `$ ${parseFloat(o.total_amount).toLocaleString('es-AR')}`
+      amount: parseFloat(o.total_amount)
     })));
   };
 
   // --- REPORTE 4: STOCK ---
   const fetchStockReport = async (businessId, start, end) => {
-    let moveQuery = supabase.schema('core').from('stock_movements').select(`created_at, quantity_change, movement_type, reason, item:item_id (name, sku)`).eq('account_id', profile.account_id).gte('created_at', start).lte('created_at', end);
+    // 1. Movimientos
+    let moveQuery = supabase.schema('core').from('stock_movements').select(`id, created_at, quantity_change, movement_type, reason, item:item_id (name, sku)`).eq('account_id', profile.account_id).gte('created_at', start).lte('created_at', end);
     if (businessId !== 'ALL') moveQuery = moveQuery.eq('business_id', businessId);
     const { data: movements, error: moveErr } = await moveQuery;
     if (moveErr) throw moveErr;
 
-    let levelQuery = supabase.schema('core').from('stock_levels').select(`quantity, item:item_id (name, cost_price)`).eq('account_id', profile.account_id);
+    // 2. Niveles actuales para valoración
+    let levelQuery = supabase.schema('core').from('stock_levels').select(`quantity, item:item_id (name, sku, cost_price)`).eq('account_id', profile.account_id);
     if (businessId !== 'ALL') levelQuery = levelQuery.eq('business_id', businessId);
     const { data: levels, error: levelErr } = await levelQuery;
     if (levelErr) throw levelErr;
 
-    const existingKpis = [
-      { label: 'Valoración Total', value: `$ ${levels.reduce((acc, curr) => acc + (curr.quantity * parseFloat(curr.item?.cost_price || 0)), 0).toLocaleString('es-AR')}`, color: 'primary' },
-      { label: 'Stock Crítico', value: `${levels.filter(l => l.quantity <= 5).length} productos`, color: 'error' },
-      { label: 'Mov. Reservas', value: movements.filter(m => m.movement_type === 'RESERVE_OUT').length.toString(), color: 'warning' },
-    ];
+    const valDetails = levels.map((l, idx) => ({
+      id: idx,
+      sku: l.item?.sku || 'S/SKU',
+      name: l.item?.name || 'Desconocido',
+      quantity: l.quantity,
+      cost: parseFloat(l.item?.cost_price || 0),
+      total: l.quantity * parseFloat(l.item?.cost_price || 0)
+    })).filter(v => v.total > 0 || v.quantity > 0);
+    setValuationDetails(valDetails);
 
+    const valuationTotal = valDetails.reduce((acc, curr) => acc + curr.total, 0);
+
+    // 3. Rotación Stock y Top 10 Detallado
     let turnoverPercentage = 0;
     try {
       const businessIdForRpc = businessId === 'ALL' ? null : businessId;
+      
+      // Llamada para el KPI global
       const { data: turnoverData, error: turnoverError } = await supabase.rpc('calculate_business_aggregate_stock_turnover', {
         p_business_id: businessIdForRpc,
         p_account_id: profile.account_id,
@@ -242,15 +259,27 @@ export const useReports = () => {
       });
       if (turnoverError) throw turnoverError;
       turnoverPercentage = turnoverData || 0;
+
+      // Llamada para el desglose del Top 10
+      const { data: topTurnover, error: topError } = await supabase.rpc('get_top_stock_turnover', {
+        p_business_id: businessIdForRpc,
+        p_account_id: profile.account_id,
+        p_start_date: start,
+        p_end_date: end
+      });
+      if (topError) throw topError;
+      setTurnoverDetails(topTurnover || []);
+
     } catch (err) {
-      console.error("Error fetching stock turnover:", err);
-      setError("No se pudo calcular la rotación de stock."); 
+      console.error("Error fetching stock turnover details:", err);
     }
 
-    const updatedKpis = [...existingKpis,
-      { label: 'Rotación Stock (%)', value: `${turnoverPercentage.toLocaleString('es-AR')}%`, color: 'secondary' }
-    ];
-    setKpis(updatedKpis);
+    setKpis([
+      { label: 'Valoración Total', value: `$ ${valuationTotal.toLocaleString('es-AR')}`, color: 'primary', clickable: true, type: 'valuation' },
+      { label: 'Stock Crítico', value: `${levels.filter(l => l.quantity <= 5).length} productos`, color: 'error' },
+      { label: 'Mov. Reservas', value: movements.filter(m => m.movement_type === 'RESERVE_OUT').length.toString(), color: 'warning' },
+      { label: 'Rotación Stock (%)', value: `${turnoverPercentage.toLocaleString('es-AR')}%`, color: 'secondary', clickable: true, type: 'turnover' }
+    ]);
 
     const rotation = {};
     movements.forEach(m => { if (m.quantity_change < 0) { const name = m.item?.name || 'S/N'; rotation[name] = (rotation[name] || 0) + Math.abs(m.quantity_change); }});
@@ -259,13 +288,14 @@ export const useReports = () => {
       .map(([label, value]) => ({ label, valueRaw: value }))
       .sort((a, b) => b.valueRaw - a.valueRaw)
       .slice(0, 5)
-      .map(item => ({ label: item.label, value: `$${item.valueRaw.toLocaleString('es-AR')}` })));
+      .map(item => ({ label: item.label, value: `${item.valueRaw.toLocaleString('es-AR')} unidades` })));
 
     setDetails(movements.map(m => ({
-      date: format(new Date(m.created_at), 'dd/MM HH:mm'),
+      id: m.id,
+      date: m.created_at,
       concept: `${m.item?.name} (${m.reason || 'Sin razón'})`,
       origin: m.movement_type,
-      amount: `${m.quantity_change > 0 ? '+' : ''}${m.quantity_change}`
+      amount: m.quantity_change
     })));
   };
 
@@ -274,7 +304,17 @@ export const useReports = () => {
     const { data: profiles } = await supabase.schema('core').from('user_profiles').select('id, full_name').eq('account_id', profile.account_id);
     const profileMap = new Map(profiles?.map(p => [p.id, p.full_name]) || []);
 
-    let query = supabase.schema('logs').from('audit_log').select(`id, created_at, table_name, action, old_data, new_data, user_id, business_id`).eq('account_id', profile.account_id).gte('created_at', start).lte('created_at', end).order('created_at', { ascending: false });
+    const { data: businesses } = await supabase.schema('core').from('businesses').select('id, name').eq('account_id', profile.account_id);
+    const businessMap = new Map(businesses?.map(b => [b.id, b.name]) || []);
+
+    let query = supabase.schema('logs')
+      .from('audit_log')
+      .select('*')
+      .eq('account_id', profile.account_id)
+      .gte('created_at', start)
+      .lte('created_at', end)
+      .order('created_at', { ascending: false });
+
     if (businessId !== 'ALL') query = query.eq('business_id', businessId);
 
     const { data: logs, error } = await query;
@@ -292,10 +332,13 @@ export const useReports = () => {
     setTop5(Object.entries(userActivity).map(([l, v]) => ({ label: l, valueRaw: v })).sort((a, b) => b.valueRaw - a.valueRaw).slice(0, 5).map(i => ({ label: i.label, value: `${i.valueRaw} logs` })));
 
     setDetails(logs.map(l => ({
-      date: format(new Date(l.created_at), 'dd/MM HH:mm'),
+      ...l,
+      id: l.id,
+      date: l.created_at,
       concept: `${l.action} en ${l.table_name}`,
       origin: profileMap.get(l.user_id) || 'SISTEMA',
-      amount: '-'
+      business_name: businessMap.get(l.business_id) || 'GLOBAL / N/A',
+      amount: 0
     })));
   };
 
@@ -333,6 +376,8 @@ export const useReports = () => {
   const generateReport = useCallback(async (type, businessId, startDate, endDate) => {
     if (!profile?.account_id) return;
     setLoading(true); setError(null);
+    setDetails([]); 
+    
     const start = format(startOfDay(startDate), 'yyyy-MM-dd');
     const end = format(endOfDay(endDate), 'yyyy-MM-dd');
 
@@ -355,6 +400,7 @@ export const useReports = () => {
 
   return { 
     loading, error, kpis, top5, details, pendingDetails, ecommerceDetails, 
+    valuationDetails, turnoverDetails, 
     generateReport, cancelOrder
   };
 };
