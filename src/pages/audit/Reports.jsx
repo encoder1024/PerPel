@@ -32,7 +32,8 @@ import es from 'date-fns/locale/es';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import DownloadIcon from '@mui/icons-material/Download';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import BugReportIcon from '@mui/icons-material/BugReport';
+import CancelIcon from '@mui/icons-material/Cancel';
+import ReceiptIcon from '@mui/icons-material/Receipt';
 import { supabase } from '../../services/supabaseClient';
 import { useAuthStore } from '../../stores/authStore';
 import { useReports } from '../../hooks/useReports';
@@ -55,7 +56,8 @@ export default function Reports() {
     details, 
     pendingDetails,
     ecommerceDetails,
-    generateReport 
+    generateReport,
+    cancelOrder
   } = useReports();
 
   const [reportType, setReportType] = useState('billing');
@@ -90,7 +92,7 @@ export default function Reports() {
     try {
       const { data } = await supabase.schema('core').from('businesses').select('id, name').eq('account_id', profile.account_id).eq('is_deleted', false);
       setBusinesses(data || []);
-    } catch (err) { console.error(err); setError("Error al cargar sucursales."); }
+    } catch (err) { console.error(err); }
   };
 
   const handleSetToday = () => {
@@ -98,6 +100,33 @@ export default function Reports() {
     const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
     setStartDate(firstDay);
     setEndDate(today);
+  };
+
+  const handleCancelOrder = async (orderId, origin) => {
+    if (window.confirm(`¿Estás seguro de que deseas anular la orden #${orderId.substring(0, 8)}? Esta acción liberará el stock y notificará a canales externos (Tiendanube) si corresponde.`)) {
+      const res = await cancelOrder(orderId, origin);
+      if (res.success) {
+        alert("Orden anulada correctamente.");
+        generateReport(reportType, selectedBusiness, startDate, endDate);
+      } else {
+        alert("Error al anular la orden: " + res.error);
+      }
+    }
+  };
+
+  const handleInvoiceOrder = async (orderId) => {
+    alert(`Iniciando proceso de facturación para la orden #${orderId.substring(0, 8)}...`);
+    try {
+        const { data, error } = await supabase.functions.invoke('tfa-invoice-generator', {
+            body: { orderId, action: 'create' }
+        });
+        if (error) throw error;
+        if (data.error) throw new Error(data.error);
+        alert("Factura generada con éxito.");
+        generateReport(reportType, selectedBusiness, startDate, endDate);
+    } catch (err) {
+        alert("Error al facturar: " + err.message);
+    }
   };
 
   const renderKpiCards = () => (
@@ -228,34 +257,64 @@ export default function Reports() {
         )}
 
         {/* MODAL DESGLOSE PENDIENTES */}
-        <Dialog open={openPendingModal} onClose={() => setOpenPendingModal(false)} maxWidth="md" fullWidth>
+        <Dialog open={openPendingModal} onClose={() => setOpenPendingModal(false)} maxWidth="lg" fullWidth>
           <DialogTitle sx={{ fontWeight: 700, bgcolor: '#fffde7' }}>Desglose: Órdenes Pendientes de Facturar</DialogTitle>
           <DialogContent dividers>
-            <TableContainer component={Paper} variant="outlined">
-              <Table size="small">
+            <TableContainer component={Paper} variant="outlined" sx={{ width: '100%', overflowX: 'auto' }}>
+              <Table size="small" sx={{ minWidth: 1000 }}>
                 <TableHead><TableRow sx={{ bgcolor: '#f8fafc' }}>
-                  <TableCell sx={{ fontWeight: 700 }}>Fecha</TableCell>
-                  <TableCell sx={{ fontWeight: 700 }}>Orden #</TableCell>
+                  <TableCell sx={{ fontWeight: 700, width: 100 }}>Fecha</TableCell>
+                  <TableCell sx={{ fontWeight: 700, width: 100 }}>Orden #</TableCell>
                   <TableCell sx={{ fontWeight: 700 }}>Cliente</TableCell>
-                  <TableCell sx={{ fontWeight: 700 }}>Origen</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 700 }}>Monto</TableCell>
+                  <TableCell sx={{ fontWeight: 700, width: 120 }}>Origen</TableCell>
+                  <TableCell sx={{ fontWeight: 700, width: 100 }}>Estado</TableCell> {/* Nueva Columna */}
+                  <TableCell sx={{ fontWeight: 700, width: 150 }}>Notas</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, width: 120 }}>Monto</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 700, width: 100 }}>Acciones</TableCell>
                 </TableRow></TableHead>
                 <TableBody>
                   {pendingDetails?.map((row, i) => (
                     <TableRow key={i}>
-                      <TableCell>{row.date}</TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>{row.date}</TableCell>
                       <TableCell sx={{ fontWeight: 600 }}>{row.ref}</TableCell>
                       <TableCell>{row.concept}</TableCell>
                       <TableCell><Chip label={row.origin} size="small" variant="outlined" color={row.origin === 'TIENDANUBE' ? 'info' : 'default'} /></TableCell>
+                      <TableCell>
+                        <Chip 
+                          label={row.status} 
+                          size="small" 
+                          color={row.status === 'PAID' ? 'success' : 'warning'} 
+                          variant="outlined" 
+                          sx={{ fontWeight: 700, fontSize: '0.65rem' }}
+                        />
+                      </TableCell>
+                      <TableCell sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>{row.notes}</TableCell>
                       <TableCell align="right" sx={{ fontWeight: 600 }}>{row.amount}</TableCell>
+                      <TableCell align="center">
+                        <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
+                            <Tooltip title="Generar Factura (TFA)">
+                                <IconButton size="small" color="primary" onClick={() => handleInvoiceOrder(row.id)}>
+                                    <ReceiptIcon fontSize="small" />
+                                </IconButton>
+                            </Tooltip>
+                            {row.status !== 'PAID' && (
+                              <Tooltip title="Anular Orden y Liberar Stock">
+                                  <IconButton size="small" color="error" onClick={() => handleCancelOrder(row.id, row.origin)}>
+                                      <CancelIcon fontSize="small" />
+                                  </IconButton>
+                              </Tooltip>
+                            )}
+                        </Box>
+                      </TableCell>
                     </TableRow>
                   ))}
                   {pendingDetails?.length > 0 && (
                     <TableRow sx={{ bgcolor: '#f1f5f9' }}>
-                      <TableCell colSpan={4} align="right" sx={{ fontWeight: 800 }}>TOTAL PENDIENTE:</TableCell>
+                      <TableCell colSpan={6} align="right" sx={{ fontWeight: 800 }}>TOTAL PENDIENTE:</TableCell>
                       <TableCell align="right" sx={{ fontWeight: 800, color: 'error.main' }}>
                         $ {pendingDetails.reduce((acc, curr) => acc + curr.amountRaw, 0).toLocaleString('es-AR')}
                       </TableCell>
+                      <TableCell />
                     </TableRow>
                   )}
                 </TableBody>

@@ -49,6 +49,7 @@ import { useInvoices } from "../../hooks/useInvoices";
 import { useAuthStore } from "../../stores/authStore";
 import { useMercadoPagoPoint } from "../../hooks/useMercadoPagoPoint";
 import { useCashRegister } from "../../hooks/useCashRegister";
+import { useReports } from "../../hooks/useReports";
 import { supabase } from "../../services/supabaseClient";
 
 export default function Invoices() {
@@ -83,6 +84,7 @@ export default function Invoices() {
   } = useMercadoPagoPoint();
 
   const { activeSession, checkActiveSession } = useCashRegister();
+  const { cancelOrder } = useReports();
 
   const { profile } = useAuthStore();
   const [pendingOrders, setPendingOrders] = useState([]);
@@ -190,8 +192,23 @@ export default function Invoices() {
     setOpenPendingDialog(true);
   };
 
+  const handleCancelOrder = async (orderId, origin) => {
+    if (window.confirm(`¿Estás seguro de que deseas anular la orden #${orderId.substring(0, 8)}? Esta acción liberará el stock reservado y notificará a canales externos (Tiendanube) si corresponde.`)) {
+      setIsProcessing(true);
+      const res = await cancelOrder(orderId, origin);
+      setIsProcessing(false);
+      
+      if (res.success) {
+        setSnackbar({ open: true, message: "Orden anulada con éxito.", severity: "success" });
+        const orders = await fetchPendingOrders();
+        setPendingOrders(orders);
+      } else {
+        setSnackbar({ open: true, message: "Error al anular: " + res.error, severity: "error" });
+      }
+    }
+  };
+
   const handleMarkPaid = async (invoice) => {
-    // Validar si la caja está abierta antes de abrir el modal de cobro
     const session = await checkActiveSession(invoice.business_id);
     if (!session) {
       setSnackbar({
@@ -221,8 +238,8 @@ export default function Invoices() {
     const paymentData = {
       order_id: invoiceToPay.order_id,
       amount: invoiceToPay.total_amount,
-      payment_method_id: method, // CASH, etc.
-      payment_type: "point", // 'point' para manual/fisico segun usePOS
+      payment_method_id: method,
+      payment_type: "point",
       status: "approved",
       notes: "Pago registrado desde módulo de facturación",
     };
@@ -297,8 +314,6 @@ export default function Invoices() {
     );
 
     if (result.success) {
-      // El webhook se encargará de actualizar el estado de la orden, pero podemos simular éxito aquí
-      // o esperar a que el usuario cierre el modal tras ver el éxito en la terminal.
       setIntentStatus("SUCCESS");
       setSnackbar({
         open: true,
@@ -430,9 +445,7 @@ export default function Invoices() {
       setDocumentTypes(docs);
       setInvoiceTypes(types);
 
-      // Buscar Consumidor Final como fallback
       const cf = customersCF.find((c) => c.full_name === "Consumidor Final");
-      // La prioridad es: 1. Cliente vinculado a la orden, 2. Consumidor Final encontrado en la DB
       const initialCustomer =
         order.customers && order.customers.id ? order.customers : cf;
       setSelectedCustomer(initialCustomer);
@@ -487,7 +500,6 @@ export default function Invoices() {
       setOpenOptionsDialog(false);
       setOpenPendingDialog(false);
     } else {
-      // Detección de error de servicios de ARCA/AFIP
       const errorMsg = result.error || "";
       const isArcaError =
         errorMsg.includes("servicios web de facturacion de ARCA") ||
@@ -559,13 +571,6 @@ export default function Invoices() {
     );
   });
 
-  const isInvoiceTypeA = () => {
-    const typeId = String(invoiceOptions.comprobante_tipo);
-    const typeLabel =
-      invoiceTypes.find((t) => String(t.id) === typeId)?.nombre || "";
-    return typeId === "1" || typeLabel.toUpperCase().includes("FACTURA A");
-  };
-
   const columns = [
     {
       field: "created_at",
@@ -605,7 +610,6 @@ export default function Invoices() {
       headerName: "Pago",
       width: 110,
       renderCell: (p) => {
-        // La fuente de verdad es la existencia de pagos aprobados en la orden
         const hasApprovedPayment =
           p.row.order?.payments &&
           p.row.order.payments.some((pay) => pay.status === "approved");
@@ -1172,7 +1176,7 @@ export default function Invoices() {
         open={openPendingDialog}
         onClose={() => setOpenPendingDialog(false)}
         fullWidth
-        maxWidth="md"
+        maxWidth="lg"
       >
         <DialogTitle>Órdenes Pendientes de Facturación</DialogTitle>
         <DialogContent dividers>
@@ -1244,17 +1248,31 @@ export default function Invoices() {
               },
               {
                 field: "actions",
-                headerName: "Acción",
-                width: 130,
+                headerName: "Acciones",
+                width: 180,
                 renderCell: (p) => (
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    startIcon={<ReceiptIcon />}
-                    onClick={() => handleSelectOrder(p.row)}
-                  >
-                    Facturar
-                  </Button>
+                  <Box sx={{ display: 'flex', gap: 0.5 }}>
+                    <Tooltip title="Generar Factura (TFA)">
+                      <IconButton
+                        size="small"
+                        color="primary"
+                        onClick={() => handleSelectOrder(p.row)}
+                      >
+                        <ReceiptIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                    {p.row.status !== 'PAID' && (
+                      <Tooltip title="Anular Orden y Liberar Stock">
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => handleCancelOrder(p.row.id, p.row.origin)}
+                        >
+                          <CancelIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                  </Box>
                 ),
               },
             ]}
