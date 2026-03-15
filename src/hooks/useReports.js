@@ -215,6 +215,7 @@ export const useReports = () => {
 
   // --- REPORTE 4: STOCK ---
   const fetchStockReport = async (businessId, start, end) => {
+    // Fetch existing stock data (movements and levels)
     let moveQuery = supabase.schema('core').from('stock_movements').select(`created_at, quantity_change, movement_type, reason, item:item_id (name, sku)`).eq('account_id', profile.account_id).gte('created_at', start).lte('created_at', end);
     if (businessId !== 'ALL') moveQuery = moveQuery.eq('business_id', businessId);
     const { data: movements, error: moveErr } = await moveQuery;
@@ -225,12 +226,39 @@ export const useReports = () => {
     const { data: levels, error: levelErr } = await levelQuery;
     if (levelErr) throw levelErr;
 
-    setKpis([
+    // Existing KPIs
+    const existingKpis = [
       { label: 'Valoración Total', value: `$ ${levels.reduce((acc, curr) => acc + (curr.quantity * parseFloat(curr.item?.cost_price || 0)), 0).toLocaleString('es-AR')}`, color: 'primary' },
       { label: 'Stock Crítico', value: `${levels.filter(l => l.quantity <= 5).length} productos`, color: 'error' },
       { label: 'Mov. Reservas', value: movements.filter(m => m.movement_type === 'RESERVE_OUT').length.toString(), color: 'warning' },
-    ]);
+    ];
 
+    // --- NEW: Calculate Stock Turnover KPI ---
+    let turnoverPercentage = 0;
+    try {
+      // Call the new SQL RPC function, passing NULL for p_business_id if 'ALL' is selected
+      const businessIdForRpc = businessId === 'ALL' ? null : businessId; // Handle 'ALL' case by passing null
+      const { data: turnoverData, error: turnoverError } = await supabase.rpc('calculate_business_aggregate_stock_turnover', {
+        p_business_id: businessIdForRpc, // Pass null or UUID
+        p_account_id: profile.account_id,
+        p_start_date: start, // Pass date as YYYY-MM-DD string
+        p_end_date: end      // Pass date as YYYY-MM-DD string
+      });
+      if (turnoverError) throw turnoverError;
+      turnoverPercentage = turnoverData || 0;
+    } catch (err) {
+      console.error("Error fetching stock turnover:", err);
+      setError("No se pudo calcular la rotación de stock."); 
+    }
+
+    // Add the new KPI to the list
+    const updatedKpis = [...existingKpis,
+      { label: 'Rotación Stock (%)', value: `${turnoverPercentage.toLocaleString('es-AR')}%`, color: 'secondary' } // Using secondary color
+    ];
+    setKpis(updatedKpis);
+    // --- End of New KPI Addition ---
+
+    // Existing Top 5 and Details processing
     const rotation = {};
     movements.forEach(m => { if (m.quantity_change < 0) { const name = m.item?.name || 'S/N'; rotation[name] = (rotation[name] || 0) + Math.abs(m.quantity_change); }});
 
@@ -281,20 +309,24 @@ export const useReports = () => {
   const generateReport = useCallback(async (type, businessId, startDate, endDate) => {
     if (!profile?.account_id) return;
     setLoading(true); setError(null);
-    const start = startOfDay(startDate).toISOString();
-    const end = endOfDay(endDate).toISOString();
+    // Ensure dates are in YYYY-MM-DD format for SQL function compatibility
+    const start = format(startOfDay(startDate), 'yyyy-MM-dd');
+    const end = format(endOfDay(endDate), 'yyyy-MM-dd');
 
     try {
       switch (type) {
         case 'billing': await fetchBillingReport(businessId, start, end); break;
         case 'products': await fetchProductReport(businessId, start, end); break;
         case 'orders': await fetchOrderReport(businessId, start, end); break;
-        case 'stock': await fetchStockReport(businessId, start, end); break;
+        case 'stock': 
+          await fetchStockReport(businessId, start, end); 
+          break;
         case 'audit': await fetchAuditReport(businessId, start, end); break;
         default: throw new Error('Tipo de reporte no implementado.');
       }
     } catch (err) {
-      setError(err.message);
+      console.error(`Error generating report ${type}:`, err); // Log the error
+      setError(err.message || 'Error al generar el reporte.');
     } finally { setLoading(false); }
   }, [profile?.account_id]);
 
