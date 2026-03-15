@@ -34,7 +34,7 @@ BEGIN
   END IF;
 
   -- Handle action text for soft deletes
-  IF (TG_OP = 'UPDATE' AND OLD.deleted = false AND NEW.deleted = true) THEN
+  IF (TG_OP = 'UPDATE' AND OLD.is_deleted = false AND NEW.is_deleted = true) THEN
     action_text := 'SOFT_DELETE';
   END IF;
 
