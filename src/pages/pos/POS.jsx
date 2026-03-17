@@ -153,7 +153,56 @@ export default function POS() {
   const [selectedPointDeviceId, setSelectedPointDeviceId] = useState('');
   const [intentStatus, setIntentStatus] = useState(null); // 'WAITING', 'SUCCESS', 'ERROR'
 
-  // Barcode Scanning logic
+  // Payment Realtime Subscription
+  useEffect(() => {
+    if (!orderCreated?.id || intentStatus !== 'WAITING') return;
+
+    console.log(`Suscribiéndose a cambios en tiempo real para Orden: ${orderCreated.id}`);
+    
+    // 1. Verificación inmediata por si ya cambió antes de la suscripción
+    const checkStatus = async () => {
+      const { data } = await supabase.schema('core').from('orders').select('status').eq('id', orderCreated.id).single();
+      if (data?.status === 'PAID') {
+        console.log('La orden ya estaba pagada. Finalizando...');
+        finalizePayment();
+      }
+    };
+    checkStatus();
+
+    const finalizePayment = () => {
+      setIntentStatus('SUCCESS');
+      setSnackbar({ open: true, message: 'Pago acreditado con éxito.', severity: 'success' });
+      setTimeout(() => {
+          handleClosePayment();
+      }, 1500);
+    };
+
+    const channel = supabase
+      .channel(`order-status-${orderCreated.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'core',
+          table: 'orders',
+          filter: `id=eq.${orderCreated.id}`
+        },
+        (payload) => {
+          console.log('Cambio de estado en tiempo real:', payload.new.status);
+          if (payload.new.status === 'PAID') {
+            finalizePayment();
+          }
+        }
+      )
+      .subscribe((status) => {
+        console.log('Estado de suscripción Realtime:', status);
+      });
+
+    return () => {
+      console.log('Limpiando canal Realtime');
+      supabase.removeChannel(channel);
+    };
+  }, [orderCreated?.id, intentStatus]);
   useBarcodeScanner(async (code) => {
     const res = await findProductBySKU(code);
     if (res.success) {

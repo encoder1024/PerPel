@@ -8,10 +8,10 @@ export const useMercadoPagoPoint = () => {
   const createPointPaymentIntent = async (orderId, deviceId) => {
     setLoading(true);
     setError(null);
-    console.log(`Intentando invocar create-mp-point-intent para Orden: ${orderId}, Device: ${deviceId}`);
+    console.log(`Intentando crear Orden Point para ERP Order: ${orderId}, Device: ${deviceId}`);
     
     try {
-      const { data, error: functionError } = await supabase.functions.invoke('create-mp-point-intent', {
+      const { data, error: functionError } = await supabase.functions.invoke('create-mp-point-order', {
         body: { orderId, deviceId },
       });
 
