@@ -1,24 +1,31 @@
-import { serve } from "https://deno.land/std@0.131.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.1";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
 
 const MP_ACCESS_TOKEN = Deno.env.get("MP_ACCESS_TOKEN");
 
-serve(async (req) => {
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL") ?? "",
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
   );
 
   let requestBody;
-  let responseBody;
-  let status = "SUCCESS";
-  let correlationId = crypto.randomUUID();
+  const correlationId = crypto.randomUUID();
 
   try {
     requestBody = await req.json();
     const { orderId } = requestBody;
 
-    // 1. Fetch Order and its Items Details from Supabase
+    // 1. Fetch Order and its Items Details
     const { data: order, error: orderError } = await supabase
       .schema('core')
       .from('orders')
@@ -61,43 +68,53 @@ serve(async (req) => {
       }),
     });
 
-    responseBody = await mpResponse.json();
+    const responseBody = await mpResponse.json();
 
     if (!mpResponse.ok) {
-      status = "FAILED";
-      throw new Error(JSON.stringify(responseBody));
+      await supabase.from('api_logs', { schema: 'logs' }).insert({
+        account_id: order.account_id,
+        api_name: 'MERCADOPAGO',
+        endpoint: '/checkout/preferences',
+        order_id: orderId,
+        operation_name: 'CREATE_PREFERENCE_FAILED',
+        correlation_id: correlationId,
+        request_payload: requestBody,
+        response_payload: responseBody,
+        status: "FAILED"
+      });
+      throw new Error(`MercadoPago API Error: ${JSON.stringify(responseBody)}`);
     }
 
     // 3. Update Order with Preference ID
     await supabase
+      .schema('core')
       .from('orders')
       .update({ mercadopago_preference_id: responseBody.id })
       .eq('id', orderId);
 
-    // 4. Record Detailed API Log (Punto 8 de la estrategia)
+    // 4. Record Detailed API Log
     await supabase.from('api_logs', { schema: 'logs' }).insert({
       account_id: order.account_id,
       api_name: 'MERCADOPAGO',
       endpoint: '/checkout/preferences',
       order_id: orderId,
-      operation_name: 'CREATE_PREFERENCE',
+      operation_name: 'CREATE_PREFERENCE_SUCCESS',
       correlation_id: correlationId,
       request_payload: requestBody,
       response_payload: responseBody,
-      status: status
+      status: "SUCCESS"
     });
 
     return new Response(JSON.stringify({ preferenceId: responseBody.id }), {
-      headers: { "Content-Type": "application/json" },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
 
   } catch (error) {
     console.error(error);
-    // Log failure
     await supabase.from('api_logs', { schema: 'logs' }).insert({
       api_name: 'MERCADOPAGO',
-      operation_name: 'CREATE_PREFERENCE',
+      operation_name: 'CREATE_PREFERENCE_ERROR',
       correlation_id: correlationId,
       request_payload: requestBody,
       response_payload: { error: error.message },
@@ -105,7 +122,7 @@ serve(async (req) => {
     });
 
     return new Response(JSON.stringify({ error: error.message }), {
-      headers: { "Content-Type": "application/json" },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500,
     });
   }
