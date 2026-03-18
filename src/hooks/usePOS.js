@@ -5,12 +5,86 @@ import { useOffline } from './useOffline';
 import { v4 as uuidv4 } from 'uuid';
 
 export const usePOS = () => {
+  const [items, setItems] = useState([]);
   const [cart, setCart] = useState([]);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const { profile } = useAuthStore();
   const { isOnline, syncService, db } = useOffline();
+
+  const fetchItemsForBusiness = useCallback(async (businessId) => {
+    if (!profile?.account_id || !businessId) return;
+    
+    setLoading(true);
+    setError(null);
+
+    try {
+      if (isOnline) {
+        const { data, error: fetchError } = await supabase
+          .schema('core')
+          .from('inventory_items')
+          .select(`
+            *,
+            stock_levels (
+              quantity,
+              business_id
+            )
+          `)
+          .eq('account_id', profile.account_id)
+          .eq('is_deleted', false)
+          .eq('item_status', 'ACTIVE')
+          // Filter products that have stock in this specific business
+          .filter('stock_levels.business_id', 'eq', businessId);
+
+        if (fetchError) throw fetchError;
+
+        // Map and filter items: 
+        // 1. Must be a SERVICE assigned to the business
+        // 2. OR be a PRODUCT with quantity > 0 in this business
+        const availableItems = data.filter(item => {
+          const stock = item.stock_levels?.find(s => s.business_id === businessId);
+          if (!stock) return false; // Not assigned to this business
+          
+          if (item.item_type === 'SERVICE') return true;
+          return stock.quantity > 0;
+        });
+
+        setItems(availableItems);
+      } else {
+        // Offline logic: fetch from RxDB and filter
+        if (db) {
+          const localItems = await db.inventory_items.find({
+            selector: { account_id: profile.account_id, is_deleted: false, item_status: 'ACTIVE' }
+          }).exec();
+          
+          // Get all stock levels for this business
+          const localStock = await db.stock_levels.find({
+            selector: { account_id: profile.account_id, business_id: businessId }
+          }).exec();
+
+          const stockMap = new Map(localStock.map(s => [s.item_id, s.quantity]));
+          
+          const availableItems = localItems
+            .map(i => i.toJSON())
+            .filter(i => {
+              const hasStockRecord = stockMap.has(i.id);
+              if (!hasStockRecord) return false;
+
+              if (i.item_type === 'SERVICE') return true;
+              return (stockMap.get(i.id) || 0) > 0;
+            });
+
+          setItems(availableItems);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching business items:', err.message);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [isOnline, profile?.account_id, db]);
 
   const addToCart = (item) => {
     setCart((prev) => {
@@ -357,6 +431,8 @@ export const usePOS = () => {
   };
 
   return {
+    items,
+    fetchItemsForBusiness,
     cart,
     selectedCustomer,
     setSelectedCustomer,

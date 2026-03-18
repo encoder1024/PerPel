@@ -40,7 +40,6 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import PaymentsIcon from '@mui/icons-material/Payments';
 import CreditCardIcon from '@mui/icons-material/CreditCard';
 import CancelIcon from '@mui/icons-material/Cancel';
-import { useInventory } from '../../hooks/useInventory';
 import { usePOS } from '../../hooks/usePOS';
 import { useBarcodeScanner } from '../../hooks/useBarcodeScanner';
 import { supabase } from '../../services/supabaseClient';
@@ -60,8 +59,9 @@ const CONSUMIDOR_FINAL = {
 };
 
 export default function POS() {
-  const { items, loading: inventoryLoading, refresh } = useInventory();
   const {
+    items,
+    fetchItemsForBusiness,
     cart,
     selectedCustomer,
     setSelectedCustomer,
@@ -87,6 +87,7 @@ export default function POS() {
   const [searchTerm, setSearchTerm] = useState('');
   const [businesses, setBusinesses] = useState([]);
   const [selectedBusinessId, setSelectedBusinessId] = useState('');
+  const [inventoryLoading, setInventoryLoading] = useState(false);
   
   // Customer Selector State
   const [customerOptions, setCustomerOptions] = useState([CONSUMIDOR_FINAL]);
@@ -272,6 +273,18 @@ export default function POS() {
     if (profile?.account_id) fetchBusinesses();
   }, [profile?.account_id, checkActiveSession]);
 
+  // Fetch items when business changes
+  useEffect(() => {
+    const loadItems = async () => {
+      if (selectedBusinessId) {
+        setInventoryLoading(true);
+        await fetchItemsForBusiness(selectedBusinessId);
+        setInventoryLoading(false);
+      }
+    };
+    loadItems();
+  }, [selectedBusinessId, fetchItemsForBusiness]);
+
   // Check session when business changes
   useEffect(() => {
     if (selectedBusinessId) {
@@ -281,7 +294,6 @@ export default function POS() {
 
   const filteredItems = items.filter(
     (item) =>
-      item.item_status === 'ACTIVE' &&
       (item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.sku?.toLowerCase().includes(searchTerm.toLowerCase()))
   );

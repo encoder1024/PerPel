@@ -63,6 +63,13 @@ export default function CashRegister() {
 
   const isOwner = profile?.app_role === 'OWNER';
 
+  const methodLabels = {
+    'CASH': 'Efectivo',
+    'POINT_MP': 'MP Terminal (Manual)',
+    'ONLINE_MP': 'MP Dispositivo / Online',
+    'OTROS': 'Otros'
+  };
+
   const loadDashboardData = useCallback(async () => {
     if (!profile?.account_id) return;
     setIsProcessing(true);
@@ -225,7 +232,7 @@ export default function CashRegister() {
                 {Object.entries(globalMetrics.byMethod).map(([method, total]) => (
                   <Chip 
                     key={method} 
-                    label={`${method}: $${Math.round(total).toLocaleString()}`} 
+                    label={`${methodLabels[method] || method}: $${Math.round(total).toLocaleString()}`} 
                     size="small" 
                     sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white', fontWeight: 600 }} 
                   />
@@ -272,7 +279,7 @@ export default function CashRegister() {
                       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                         {metrics?.payments.map(p => (
                           <Box key={p.method} sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <Typography variant="body2" color="textSecondary">{p.method}:</Typography>
+                            <Typography variant="body2" color="textSecondary">{methodLabels[p.method] || p.method}:</Typography>
                             <Typography variant="body2" sx={{ fontWeight: 600 }}>$ {Math.round(p.total).toLocaleString()}</Typography>
                           </Box>
                         ))}
