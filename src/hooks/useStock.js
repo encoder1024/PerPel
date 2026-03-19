@@ -59,6 +59,7 @@ export const useStock = () => {
     setLoading(true);
     setError('');
     try {
+      // Fetch ALL items for the account and their stock level for the SELECTED business
       const { data, error: fetchError } = await supabase
         .schema('core')
         .from('inventory_items')
@@ -68,20 +69,23 @@ export const useStock = () => {
           sku,
           item_type,
           item_categories(name),
-          stock_levels(quantity)
+          stock_levels(quantity, business_id)
         `)
         .eq('account_id', profile.account_id)
-        .eq('item_type', 'PRODUCT')
-        .eq('is_deleted', false)
-        .eq('stock_levels.business_id', selectedBusinessId);
+        .eq('is_deleted', false);
 
       if (fetchError) throw fetchError;
       
-      const processedData = data.map(item => ({
-        ...item,
-        category_name: item.item_categories?.name || 'N/A',
-        current_stock: item.stock_levels?.[0]?.quantity || 0
-      }));
+      const processedData = data.map(item => {
+        // Find the stock level entry for the selected business
+        const businessStock = item.stock_levels?.find(sl => sl.business_id === selectedBusinessId);
+        return {
+          ...item,
+          category_name: item.item_categories?.name || 'N/A',
+          current_stock: businessStock ? businessStock.quantity : null, // null means not assigned
+          is_assigned: !!businessStock
+        };
+      });
 
       setStockData(processedData);
     } catch (err) {
@@ -124,6 +128,43 @@ export const useStock = () => {
     }
   };
 
+  // Function to link/unlink services (and products with 0 stock)
+  const toggleAssignment = async (item, assign) => {
+    if (!profile?.account_id || !selectedBusinessId) return { status: 'error' };
+
+    try {
+      if (assign) {
+        // Assign: Insert into stock_levels with 0 quantity
+        const { error: insError } = await supabase
+          .schema('core')
+          .from('stock_levels')
+          .upsert({
+            item_id: item.id,
+            business_id: selectedBusinessId,
+            account_id: profile.account_id,
+            quantity: 0
+          });
+        if (insError) throw insError;
+      } else {
+        // Unassign: Delete from stock_levels (or soft delete)
+        const { error: delError } = await supabase
+          .schema('core')
+          .from('stock_levels')
+          .delete()
+          .eq('item_id', item.id)
+          .eq('business_id', selectedBusinessId)
+          .eq('account_id', profile.account_id);
+        if (delError) throw delError;
+      }
+      
+      await fetchStockData();
+      return { status: 'success' };
+    } catch (err) {
+      console.error('Error toggling assignment:', err.message);
+      return { status: 'error', message: err.message };
+    }
+  };
+
   const filteredStock = useMemo(() => {
     if (!searchTerm) return stockData;
     const lowerCaseSearchTerm = searchTerm.toLowerCase();
@@ -145,6 +186,7 @@ export const useStock = () => {
     searchTerm,
     setSearchTerm,
     adjustStock,
+    toggleAssignment,
     refreshStock: fetchStockData
   };
 };

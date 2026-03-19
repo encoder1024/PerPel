@@ -46,6 +46,7 @@ import SaveIcon from '@mui/icons-material/Save';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
+import StoreIcon from '@mui/icons-material/Store';
 import { supabase } from '../../services/supabaseClient';
 import { useAuthStore } from '../../stores/authStore';
 
@@ -322,19 +323,20 @@ export default function TiendanubeDashboard() {
   const activeVariant = variantList[selectedVariantIndex] || {};
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h5" gutterBottom sx={{ fontWeight: 700 }}>Monitor Tiendanube</Typography>
-
-      <Grid container spacing={2} sx={{ mb: 4 }} alignItems="center">
-        <Grid item xs={12} md={3}>
-          <TextField select fullWidth label="Sucursal" value={selectedBusiness} onChange={(e) => { setSelectedBusiness(e.target.value); fetchSyncStatus(e.target.value); }}>
-            {businesses.map((biz) => <MenuItem key={biz.id} value={biz.id}>{biz.name}</MenuItem>)}
-          </TextField>
-        </Grid>
-        <Grid item xs={12} md={5}>
-          <TextField fullWidth placeholder="Buscar..." value={filterText} onChange={(e) => setFilterText(e.target.value)} />
-        </Grid>
-        <Grid item xs={12} md={4} sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+    <Box sx={{ width: '100%' }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4, flexWrap: 'wrap', gap: 2 }}>
+        <Typography variant="h5" sx={{ fontWeight: 700 }}>Monitor Tiendanube</Typography>
+        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+          <Button 
+            variant="contained" 
+            color="secondary" 
+            startIcon={<StoreIcon />} 
+            href="https://perpeldemo.mitiendanube.com/" 
+            target="_blank" 
+            rel="noopener noreferrer"
+          >
+            Tiendanube
+          </Button>
           <Button 
             variant="outlined" color="primary" startIcon={<ReceiptLongIcon />} 
             onClick={handleMonitorOrders} disabled={!selectedBusiness}
@@ -342,14 +344,25 @@ export default function TiendanubeDashboard() {
             Monitor de Órdenes
           </Button>
           <Button variant="outlined" startIcon={<RefreshIcon />} onClick={() => fetchSyncStatus(selectedBusiness)}>Refrescar</Button>
+        </Box>
+      </Box>
+
+      <Grid container spacing={2} sx={{ mb: 4 }} alignItems="center">
+        <Grid item xs={12} md={4}>
+          <TextField select fullWidth size="small" label="Sucursal" value={selectedBusiness} onChange={(e) => { setSelectedBusiness(e.target.value); fetchSyncStatus(e.target.value); }}>
+            {businesses.map((biz) => <MenuItem key={biz.id} value={biz.id}>{biz.name}</MenuItem>)}
+          </TextField>
+        </Grid>
+        <Grid item xs={12} md={8}>
+          <TextField fullWidth size="small" placeholder="Buscar por nombre o SKU..." value={filterText} onChange={(e) => setFilterText(e.target.value)} />
         </Grid>
       </Grid>
 
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
       {message && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setMessage(null)}>{message}</Alert>}
 
-      <TableContainer component={Paper} variant="outlined">
-        <Table>
+      <TableContainer component={Paper} variant="outlined" sx={{ width: '100%', mb: 2 }}>
+        <Table sx={{ minWidth: '100%' }}>
           <TableHead sx={{ bgcolor: 'grey.50' }}><TableRow>
             <TableCell sx={{ fontWeight: 700 }}>Producto</TableCell>
             <TableCell sx={{ fontWeight: 700 }}>SKU</TableCell>

@@ -74,18 +74,21 @@ export const useCashRegister = () => {
         .select(`
           payment_method_id, 
           amount,
+          status,
           orders!inner(business_id)
         `)
         .eq('account_id', profile.account_id)
         .eq('orders.business_id', businessId)
-        .eq('status', 'approved')
+        .in('status', ['approved', 'accredited'])
         .gte('created_at', openedAt);
 
       if (payError) throw payError;
 
       // Agrupar por método de pago sobre los valores por defecto
       const summary = data.reduce((acc, curr) => {
-        const method = curr.payment_method_id || 'OTROS';
+        // Según requerimiento: pagos 'accredited' (dispositivos físicos) se suman a ONLINE_MP
+        const method = curr.status === 'accredited' ? 'ONLINE_MP' : (curr.payment_method_id || 'OTROS');
+        
         if (!acc[method]) acc[method] = 0;
         acc[method] += parseFloat(curr.amount);
         return acc;
