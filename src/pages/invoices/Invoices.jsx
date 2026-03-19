@@ -612,7 +612,9 @@ export default function Invoices() {
       renderCell: (p) => {
         const hasApprovedPayment =
           p.row.order?.payments &&
-          p.row.order.payments.some((pay) => pay.status === "approved");
+          p.row.order.payments.some((pay) => 
+            pay.status === "approved" || pay.status === "accredited"
+          );
         const s = hasApprovedPayment ? "PAID" : "PENDING";
         return (
           <Chip

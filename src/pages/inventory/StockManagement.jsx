@@ -27,6 +27,8 @@ import {
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import SearchIcon from '@mui/icons-material/Search';
+import LinkIcon from '@mui/icons-material/Link';
+import LinkOffIcon from '@mui/icons-material/LinkOff';
 import { useAuthStore } from '../../stores/authStore';
 import { useStock } from '../../hooks/useStock';
 
@@ -42,6 +44,7 @@ export default function StockManagement() {
     searchTerm,
     setSearchTerm,
     adjustStock,
+    toggleAssignment,
   } = useStock();
 
   // State for Adjustment Dialog
@@ -71,6 +74,20 @@ export default function StockManagement() {
   const handleCloseDialog = () => {
     setOpenDialog(false);
     setSelectedItem(null);
+  };
+
+  const handleToggleAssignment = async (item) => {
+    const assign = !item.is_assigned;
+    const res = await toggleAssignment(item, assign);
+    if (res.status === 'success') {
+      setSnackbar({ 
+        open: true, 
+        message: assign ? 'Ítem vinculado al negocio.' : 'Ítem desvinculado del negocio.', 
+        severity: 'success' 
+      });
+    } else {
+      setSnackbar({ open: true, message: `Error: ${res.message}`, severity: 'error' });
+    }
   };
 
   const handleSubmit = async () => {
@@ -182,7 +199,8 @@ export default function StockManagement() {
           <Table stickyHeader aria-label="stock table">
             <TableHead>
               <TableRow>
-                <TableCell sx={{ fontWeight: 700 }}>Producto</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>Ítem</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>Tipo</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>SKU</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Categoría</TableCell>
                 <TableCell align="right" sx={{ fontWeight: 700 }}>Stock Actual</TableCell>
@@ -191,8 +209,13 @@ export default function StockManagement() {
             </TableHead>
             <TableBody>
               {filteredStock.map((item) => (
-                <TableRow key={item.id} hover>
+                <TableRow key={item.id} hover sx={{ opacity: item.is_assigned ? 1 : 0.7 }}>
                   <TableCell>{item.name}</TableCell>
+                  <TableCell>
+                    <Typography variant="caption" sx={{ fontWeight: 700, color: item.item_type === 'PRODUCT' ? 'primary.main' : 'secondary.main' }}>
+                      {item.item_type === 'PRODUCT' ? 'PRODUCTO' : 'SERVICIO'}
+                    </Typography>
+                  </TableCell>
                   <TableCell>
                     <Typography variant="body2" sx={{ fontFamily: 'monospace', color: 'text.secondary' }}>
                       {item.sku || 'N/A'}
@@ -200,21 +223,42 @@ export default function StockManagement() {
                   </TableCell>
                   <TableCell>{item.category_name}</TableCell>
                   <TableCell align="right">
-                    <Typography variant="body1" sx={{ fontWeight: 700, color: item.current_stock < 5 ? 'error.main' : 'inherit' }}>
-                      {item.current_stock}
-                    </Typography>
+                    {item.item_type === 'PRODUCT' ? (
+                      <Typography variant="body1" sx={{ fontWeight: 700, color: (item.current_stock || 0) < 5 ? 'error.main' : 'inherit' }}>
+                        {item.is_assigned ? item.current_stock : '-'}
+                      </Typography>
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">N/A</Typography>
+                    )}
                   </TableCell>
                   <TableCell align="center">
-                    <Tooltip title="Realizar Ajuste de Stock">
-                      <IconButton 
-                        size="small" 
-                        color="primary" 
-                        onClick={() => handleOpenDialog(item)}
-                        disabled={loading}
-                      >
-                        <EditIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
+                    <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
+                      {item.item_type === 'PRODUCT' && (
+                        <Tooltip title={item.is_assigned ? "Realizar Ajuste de Stock" : "Primero debe vincular el producto"}>
+                          <span>
+                            <IconButton 
+                              size="small" 
+                              color="primary" 
+                              onClick={() => handleOpenDialog(item)}
+                              disabled={loading || !item.is_assigned}
+                            >
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                          </span>
+                        </Tooltip>
+                      )}
+                      
+                      <Tooltip title={item.is_assigned ? "Desvincular del Negocio" : "Vincular al Negocio"}>
+                        <IconButton 
+                          size="small" 
+                          color={item.is_assigned ? "error" : "success"}
+                          onClick={() => handleToggleAssignment(item)}
+                          disabled={loading}
+                        >
+                          {item.is_assigned ? <LinkOffIcon fontSize="small" /> : <LinkIcon fontSize="small" />}
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
                   </TableCell>
                 </TableRow>
               ))}
