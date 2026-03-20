@@ -1,306 +1,306 @@
-# Documento de Especificación de Requerimientos (ERS) - Proyecto PerPel
-**Versión: 1.0**
+﻿# Documento de EspecificaciÃ³n de Requerimientos (ERS) - Proyecto PerPel
+**VersiÃ³n: 1.0**
 **Fecha: 2024-05-21**
 
-## 1. Introducción
+## 1. IntroducciÃ³n
 
-### 1.1. Propósito del Documento
-El propósito de este documento es definir los requerimientos funcionales y no funcionales para el desarrollo de la aplicación frontend del proyecto "AppPerPel". Este ERS servirá como la fuente de verdad para el equipo de desarrollo, estableciendo un entendimiento común de lo que se debe construir.
+### 1.1. PropÃ³sito del Documento
+El propÃ³sito de este documento es definir los requerimientos funcionales y no funcionales para el desarrollo de la aplicaciÃ³n frontend del proyecto "AppPerPel". Este ERS servirÃ¡ como la fuente de verdad para el equipo de desarrollo, estableciendo un entendimiento comÃºn de lo que se debe construir.
 
 ### 1.2. Alcance del Proyecto
-El proyecto consiste en una aplicación web progresiva (PWA) de tipo Single-Page Application (SPA) para la gestión integral de múltiples negocios (peluquerías y perfumerías) bajo un modelo multi-tenant por cuenta. La aplicación permitirá a los dueños (`OWNER`) y su personal (`EMPLOYEE`) gestionar e-commers, inventario, ventas, turnos, facturación y reportes, con soporte para operaciones offline y garantizando la trazabilidad de las acciones bajo los principios de la norma ISO 9000. La lógica del negocio está establecida en las relaciones y permisos RLS en el esquema del **ANEXO I**.
+El proyecto consiste en una aplicaciÃ³n web progresiva (PWA) de tipo Single-Page Application (SPA) para la gestiÃ³n integral de mÃºltiples negocios (peluquerÃ­as y perfumerÃ­as) bajo un modelo multi-tenant por cuenta. La aplicaciÃ³n permitirÃ¡ a los dueÃ±os (`OWNER`) y su personal (`EMPLOYEE`) gestionar e-commers, inventario, ventas, turnos, facturaciÃ³n y reportes, con soporte para operaciones offline y garantizando la trazabilidad de las acciones bajo los principios de la norma ISO 9000. La lÃ³gica del negocio estÃ¡ establecida en las relaciones y permisos RLS en el esquema del **ANEXO I**.
 
-### 1.3. Definiciones, Acrónimos y Abreviaturas
-*   **ERS:** Especificación de Requerimientos de Software.
-*   **PWA:** Progressive Web App. Una aplicación web que ofrece una experiencia similar a una app nativa.
-*   **SPA:** Single-Page Application. Una aplicación que carga una única página HTML y actualiza dinámicamente el contenido.
+### 1.3. Definiciones, AcrÃ³nimos y Abreviaturas
+*   **ERS:** EspecificaciÃ³n de Requerimientos de Software.
+*   **PWA:** Progressive Web App. Una aplicaciÃ³n web que ofrece una experiencia similar a una app nativa.
+*   **SPA:** Single-Page Application. Una aplicaciÃ³n que carga una Ãºnica pÃ¡gina HTML y actualiza dinÃ¡micamente el contenido.
 *   **API:** Application Programming Interface.
 *   **BaaS:** Backend as a Service (ej. Supabase).
 *   **RLS:** Row Level Security.
 *   **KPI:** Key Performance Indicator. Indicador Clave de Rendimiento.
 
-## 2. Descripción General
+## 2. DescripciÃ³n General
 
 ### 2.1. Perspectiva del Producto
-PerPel es una solución de software como servicio (SaaS) diseñada para centralizar la gestión de múltiples locales comerciales. Su arquitectura headless, con un frontend SPA/PWA y un backend robusto en Supabase, garantiza una experiencia de usuario rápida, resiliente y accesible desde cualquier dispositivo (desktop o móvil Android).
+PerPel es una soluciÃ³n de software como servicio (SaaS) diseÃ±ada para centralizar la gestiÃ³n de mÃºltiples locales comerciales. Su arquitectura headless, con un frontend SPA/PWA y un backend robusto en Supabase, garantiza una experiencia de usuario rÃ¡pida, resiliente y accesible desde cualquier dispositivo (desktop o mÃ³vil Android).
 
 ### 2.2. Funcionalidades Principales
-*   Gestión Multi-Cuenta y Multi-Negocio.
+*   GestiÃ³n Multi-Cuenta y Multi-Negocio.
 *   Dashboard de KPIs con vistas consolidadas e individuales.
-*   Gestión de Inventario (productos y servicios).
-*   Gestión de Stock por local.
+*   GestiÃ³n de Inventario (productos y servicios).
+*   GestiÃ³n de Stock por local.
 *   Punto de Venta (POS) y E-commerce con procesamiento de pagos.
-*   Gestión de Turnos online.
-*   Generación de Facturas.
-*   Gestión de Roles y Empleados.
-*   Capacidad de operación Offline.
+*   GestiÃ³n de Turnos online.
+*   GeneraciÃ³n de Facturas.
+*   GestiÃ³n de Roles y Empleados.
+*   Capacidad de operaciÃ³n Offline.
 
 ### 2.3. Perfiles de Usuario (Roles)
-Los roles de usuario están definidos en la base de datos y determinarán los permisos en el frontend:
-*   **OWNER:** Dueño de una cuenta. Tiene control total sobre todos sus negocios, empleados, reportes y configuración.
+Los roles de usuario estÃ¡n definidos en la base de datos y determinarÃ¡n los permisos en el frontend:
+*   **OWNER:** DueÃ±o de una cuenta. Tiene control total sobre todos sus negocios, empleados, reportes y configuraciÃ³n.
 *   **ADMIN:** Rol administrativo con permisos similares al OWNER, pero que puede ser asignado por este.
-*   **EMPLOYEE:** Personal de un negocio. Sus permisos están restringidos a los negocios a los que ha sido asignado. Puede gestionar ventas, stock y turnos.
-*   **AUDITOR:** Rol de solo lectura para supervisar registros financieros y de auditoría.
-*   **DEVELOPER:** Acceso total para fines de desarrollo y depuración.
+*   **EMPLOYEE:** Personal de un negocio. Sus permisos estÃ¡n restringidos a los negocios a los que ha sido asignado. Puede gestionar ventas, stock y turnos.
+*   **AUDITOR:** Rol de solo lectura para supervisar registros financieros y de auditorÃ­a.
+*   **DEVELOPER:** Acceso total para fines de desarrollo y depuraciÃ³n.
 *   **CLIENT:** (No es un rol de app, sino un usuario autenticado) Cliente final que puede registrarse, sacar turnos y realizar compras.
 
 ### 2.4. Restricciones Generales
 *   El frontend debe ser una SPA construida con React y Vite.
-*   La aplicación debe cumplir con los criterios para ser una PWA instalable.
-*   La interfaz debe ser responsive y usable tanto en navegadores de escritorio como en dispositivos móviles. Mobile first.
+*   La aplicaciÃ³n debe cumplir con los criterios para ser una PWA instalable.
+*   La interfaz debe ser responsive y usable tanto en navegadores de escritorio como en dispositivos mÃ³viles. Mobile first.
 *   Debe implementarse una estrategia de "offline-first" para garantizar la continuidad de las operaciones.
 
-## 3. Requerimientos Específicos
+## 3. Requerimientos EspecÃ­ficos
 
 ### 3.1. Arquitectura y Stack Frontend
 
 *   **Framework Principal:** **React 18+**
 *   **Build Tool:** **Vite**
 *   **Lenguaje:** **Javascript** (Recomendado para un proyecto de esta escala)
-*   **UI / Estilos:** Se va a adoptar una librería de componentes robusta como **MUI (Material-UI)** que proveen componentes complejos (tablas, modales, formularios) ideales para un ERP. Buscar templates que se ajusten a nuestro proyecto y adaptarlos a los CRUD y reports que surgen del esquema propuesto en el **ANEXO I** de la DB en supabase.
-*   **Gestión de Estado:** **Zustand**. Es una solución ligera y potente para gestionar el estado global (ej. datos del usuario autenticado, cuenta y negocio seleccionado). Usar un middleware llamado persist para que, si el usuario cierra la PWA en Android, al abrirla de nuevo sus datos (como los datos cargados o su sesión) sigan ahí.
+*   **UI / Estilos:** Se va a adoptar una librerÃ­a de componentes robusta como **MUI (Material-UI)** que proveen componentes complejos (tablas, modales, formularios) ideales para un ERP. Buscar templates que se ajusten a nuestro proyecto y adaptarlos a los CRUD y reports que surgen del esquema propuesto en el **ANEXO I** de la DB en supabase.
+*   **GestiÃ³n de Estado:** **Zustand**. Es una soluciÃ³n ligera y potente para gestionar el estado global (ej. datos del usuario autenticado, cuenta y negocio seleccionado). Usar un middleware llamado persist para que, si el usuario cierra la PWA en Android, al abrirla de nuevo sus datos (como los datos cargados o su sesiÃ³n) sigan ahÃ­.
 *   **Routing:** **React Router**.
 *   **Peticiones a APIs:** el `fetch` nativo o RCP para comunicarse con las Edge Functions de Supabase.
 
-### 3.1.1 UI requerimientos para el diseño y codificación
+### 3.1.1 UI requerimientos para el diseÃ±o y codificaciÃ³n
 
-Dado que es una PWA de una sola página (SPA) para un ERP, la clave es la gestión de estados para que el paso entre el Login y el Dashboard sea instantáneo.
+Dado que es una PWA de una sola pÃ¡gina (SPA) para un ERP, la clave es la gestiÃ³n de estados para que el paso entre el Login y el Dashboard sea instantÃ¡neo.
 
 1. Estructura Global (Shell de la PWA)
-Describe el "contenedor" que persiste en toda la aplicación:
+Describe el "contenedor" que persiste en toda la aplicaciÃ³n:
 
-Layout: Un diseño responsivo con una barra lateral (Sidebar) colapsable a la izquierda y una barra superior (TopBar) fija.
+Layout: Un diseÃ±o responsivo con una barra lateral (Sidebar) colapsable a la izquierda y una barra superior (TopBar) fija.
 
-Navegación: La Sidebar contiene iconos y etiquetas para: Ventas, E-commerce, Inventario, Facturación, Turnos, Clientes, Reportes y Configuración.
+NavegaciÃ³n: La Sidebar contiene iconos y etiquetas para: Ventas, E-commerce, Inventario, FacturaciÃ³n, Turnos, Clientes, Reportes y ConfiguraciÃ³n.
 
 Tema: Minimalista, usando una paleta de colores profesional (ej. Azul marino #1e293b para la barra lateral y blanco humo #f8fafc para el fondo).
 
 2. Flujo de Acceso (Sign-In / Sign-Up)
 Como es una SPA, estas pantallas deben tratarse como modales a pantalla completa o vistas condicionales que bloquean el dashboard:
 
-Sign-In (Inicio de Sesión):
+Sign-In (Inicio de SesiÃ³n):
 
 Centro: Tarjeta (Card) blanca con sombra suave.
 
-Campos: Email (Input con icono de sobre), Contraseña (Input con opción de "ver contraseña").
+Campos: Email (Input con icono de sobre), ContraseÃ±a (Input con opciÃ³n de "ver contraseÃ±a").
 
-Acciones: Botón "Entrar" (color primario), enlace "Olvidé mi contraseña" y botón secundario "Crear cuenta".
+Acciones: BotÃ³n "Entrar" (color primario), enlace "OlvidÃ© mi contraseÃ±a" y botÃ³n secundario "Crear cuenta".
 
 Sign-Up (Registro):
 
-Campos: Nombre de la empresa, Nombre del administrador, Email, Contraseña (con validador de seguridad).
+Campos: Nombre de la empresa, Nombre del administrador, Email, ContraseÃ±a (con validador de seguridad).
 
-Extra: Checkbox de "Acepto términos y condiciones".
+Extra: Checkbox de "Acepto tÃ©rminos y condiciones".
 
 3. El Dashboard (Vista Principal del ERP)
-Divide esta sección en áreas funcionales de datos:
+Divide esta secciÃ³n en Ã¡reas funcionales de datos:
 
-Sección de Resumen (Kpis):
+SecciÃ³n de Resumen (Kpis):
 
-Fila superior con 4 tarjetas pequeñas mostrando: Ventas Totales, Nuevos Clientes, Stock Crítico y Tareas Pendientes. Cada una con un indicador de porcentaje (subida/bajada).
+Fila superior con 4 tarjetas pequeÃ±as mostrando: Ventas Totales, Nuevos Clientes, Stock CrÃ­tico y Tareas Pendientes. Cada una con un indicador de porcentaje (subida/bajada).
 
-Área de Gráficos:
+Ãrea de GrÃ¡ficos:
 
-Un gráfico de líneas principal que ocupe el 70% del ancho (Ventas vs Gastos).
+Un grÃ¡fico de lÃ­neas principal que ocupe el 70% del ancho (Ventas vs Gastos).
 
-Un gráfico de dona (Pie chart) al lado que muestre "Distribución de Inventario".
+Un grÃ¡fico de dona (Pie chart) al lado que muestre "DistribuciÃ³n de Inventario".
 
 Tabla de Actividad Reciente:
 
-Una tabla con las últimas 10 transacciones. Columnas: Fecha, Cliente, Estado (Etiquetas de color: Pagado/Pendiente) y Monto.
+Una tabla con las Ãºltimas 10 transacciones. Columnas: Fecha, Cliente, Estado (Etiquetas de color: Pagado/Pendiente) y Monto.
 
 4. Comportamiento PWA y Experiencia de Usuario
-Estado Offline: Banner discreto en la parte superior que indique "Modo sin conexión" si falla el internet.
+Estado Offline: Banner discreto en la parte superior que indique "Modo sin conexiÃ³n" si falla el internet.
 
-Instalación: Botón en el perfil del usuario que invite a "Instalar App en el Escritorio/Móvil".
+InstalaciÃ³n: BotÃ³n en el perfil del usuario que invite a "Instalar App en el Escritorio/MÃ³vil".
 
 Carga: Uso de Skeletons (bloques grises animados) mientras los datos del ERP se sincronizan desde Supabase o la API.
 
-### 3.2. Integración de APIs Externas
+### 3.2. IntegraciÃ³n de APIs Externas
 
 #### 3.2.1. Supabase (Backend principal)
-*   **Librería Recomendada:** `@supabase/supabase-js`
+*   **LibrerÃ­a Recomendada:** `@supabase/supabase-js`
 *   **Uso:**
-    *   **Autenticación:** Gestionar el registro, login (email/contraseña) y la sesión del usuario.
-    *   **Acceso a Datos:** Realizar consultas a las tablas (`core.*`) y vistas (`reports.*`) utilizando el cliente de PostgREST. El RLS configurado en la base de datos garantizará la seguridad de los datos, se´gun **ANEXO I**.
-    *   **Funciones Edge:** Invocar funciones serverless para lógica de negocio segura que no debe exponerse en el cliente (ej. crear preferencia de pago).
+    *   **AutenticaciÃ³n:** Gestionar el registro, login (email/contraseÃ±a) y la sesiÃ³n del usuario.
+    *   **Acceso a Datos:** Realizar consultas a las tablas (`core.*`) y vistas (`reports.*`) utilizando el cliente de PostgREST. El RLS configurado en la base de datos garantizarÃ¡ la seguridad de los datos, seÂ´gun **ANEXO I**.
+    *   **Funciones Edge:** Invocar funciones serverless para lÃ³gica de negocio segura que no debe exponerse en el cliente (ej. crear preferencia de pago).
 
 #### 3.2.2. MercadoPago o MP (Procesador de Pagos)
-*   **Librería Recomendada:** `@mercadopago/sdk-react`
+*   **LibrerÃ­a Recomendada:** `@mercadopago/sdk-react`
 *   **Flujo de Pago:**
     1.  El frontend crea un registro en `core.orders` con el estado `PENDING`.
     2.  Invoca una Supabase Edge Function enviando el `order_id`.
     3.  La Edge Function se comunica con la API de MercadoPago para crear una "Preferencia de Pago" y almacena el `preference_id` devuelto en la tabla `core.orders`.
-    4.  El frontend recibe el `preference_id` y muestra el botón de pago de MP y el checkout se realiza en MP.
-    5.  Webhooks de MercadoPago notificarán a otra Edge Function para actualizar el estado del pago y la orden a `PAID`.
+    4.  El frontend recibe el `preference_id` y muestra el botÃ³n de pago de MP y el checkout se realiza en MP.
+    5.  Webhooks de MercadoPago notificarÃ¡n a otra Edge Function para actualizar el estado del pago y la orden a `PAID`.
 
-#### 3.2.3. Cal.com (Gestión de Turnos)
-*   **Librería Recomendada:** No se requiere una librería específica. Se puede usar `<iframe>` o un componente web para embeber.
+#### 3.2.3. Cal.com (GestiÃ³n de Turnos)
+*   **LibrerÃ­a Recomendada:** No se requiere una librerÃ­a especÃ­fica. Se puede usar `<iframe>` o un componente web para embeber.
 *   **Flujo de Turnos:**
-    1.  El frontend embeberá la página de agendamiento de Cal.com del profesional o negocio correspondiente.
+    1.  El frontend embeberÃ¡ la pÃ¡gina de agendamiento de Cal.com del profesional o negocio correspondiente.
     2.  El cliente reserva su turno directamente en la interfaz de Cal.com.
-    3.  Un **Webhook** configurado en Cal.com deberá apuntar a una Supabase Edge Function.
-    4.  Cuando un turno se crea, reagenda o cancela, la Edge Function recibe la notificación y sincroniza la información en la tabla `core.appointments`, guardando el `external_cal_id`.
-    5.  Enviando notificaciones push con las novedades al owner del negocio y/o al cliente según corresponda.
+    3.  Un **Webhook** configurado en Cal.com deberÃ¡ apuntar a una Supabase Edge Function.
+    4.  Cuando un turno se crea, reagenda o cancela, la Edge Function recibe la notificaciÃ³n y sincroniza la informaciÃ³n en la tabla `core.appointments`, guardando el `external_cal_id`.
+    5.  Enviando notificaciones push con las novedades al owner del negocio y/o al cliente segÃºn corresponda.
 
 #### 3.2.4. OneSignal (Notificaciones Push)
-*   **Librería Recomendada:** `react-onesignal` o el SDK web oficial.
+*   **LibrerÃ­a Recomendada:** `react-onesignal` o el SDK web oficial.
 *   **Flujo de Notificaciones:**
-    1.  El frontend (PWA) solicitará al usuario permiso para recibir notificaciones.
-    2.  Al aceptar, el SDK de OneSignal registrará al usuario y asociará su `player_id` con el `user_id` de la aplicación en la base de datos.
-    3.  Para enviar notificaciones (ej. "Tu turno es en una hora"), una Supabase Edge Function (invocada por un trigger o un cron job) llamará a la API REST de OneSignal, dirigiéndose al `player_id` del usuario.
+    1.  El frontend (PWA) solicitarÃ¡ al usuario permiso para recibir notificaciones.
+    2.  Al aceptar, el SDK de OneSignal registrarÃ¡ al usuario y asociarÃ¡ su `player_id` con el `user_id` de la aplicaciÃ³n en la base de datos.
+    3.  Para enviar notificaciones (ej. "Tu turno es en una hora"), una Supabase Edge Function (invocada por un trigger o un cron job) llamarÃ¡ a la API REST de OneSignal, dirigiÃ©ndose al `player_id` del usuario.
 
-#### 3.2.5. Alegra, API de Facturación
-*   **Librería Recomendada:** Recomendar 3 opciones y analaizarlas y preguntarme antes de definirla y crear código. 
-*   **Flujo de Facturación:**
-    1.  Un trigger en la base de datos (o una Edge Function) se activará cuando una orden en `core.orders` cambie su estado a `PAID`.
-    2.  Esta función recopilará los datos de la orden y del cliente.
-    3.  Llamará al endpoint correspondiente de la API de facturación externa para generar el comprobante.
-    4.  El resultado (CAE, número de factura, PDF URL) se almacenará en la tabla `core.invoices`.
-    5.  Se emitirá el comprobante de pago en PDF y se guardará el supabase store y se enviará por email al cliente.
+#### 3.2.5. TusFacturasAPP, API de Facturación
+*   **Integración Recomendada:** API REST oficial de TusFacturasAPP consumida desde Supabase Edge Functions.
+*   **Flujo de FacturaciÃ³n:**
+    1.  Un trigger en la base de datos (o una Edge Function) se activarÃ¡ cuando una orden en `core.orders` cambie su estado a `PAID`.
+    2.  Esta funciÃ³n recopilarÃ¡ los datos de la orden y del cliente.
+    3.  Llamará al endpoint correspondiente de la API de TusFacturasAPP para generar el comprobante.
+    4.  El resultado (CAE, nÃºmero de factura, PDF URL) se almacenarÃ¡ en la tabla `core.invoices`.
+    5.  Se emitirÃ¡ el comprobante de pago en PDF y se guardarÃ¡ el supabase store y se enviarÃ¡ por email al cliente.
 
-#### 3.2.6 Recomendaciones generales para la generación de código para las API.
+#### 3.2.6 Recomendaciones generales para la generaciÃ³n de cÃ³digo para las API.
 
 Arquitectura de servicios para tu proyecto React-Vite-MUI. La estrategia se basa en usar Edge Functions (Deno) para integraciones externas y RPC (PostgreSQL functions) para operaciones intensivas de datos internos.
 ESR: Estrategia de Funciones Edge y RPC para Supabase
 
 ##### 3.2.6.1 MercadoPago (Pagos y Checkout)
 1.  Enfoque: Seguridad transaccional y Webhooks.
-2.  Edge Function para Checkout Pro: Generar la preference_id desde el servidor para evitar manipulación de precios en el cliente.
+2.  Edge Function para Checkout Pro: Generar la preference_id desde el servidor para evitar manipulaciÃ³n de precios en el cliente.
 3.  Webhook Handler: Usar una Edge Function dedicada para recibir notificaciones de payment.created y merchant_order.
-4.  Validación de Firma: Implementar la verificación de x-signature en la Edge Function para asegurar que el webhook provenga realmente de MercadoPago.
-5.  RPC para Actualización de Inventario: Al recibir un pago exitoso, llamar a una RPC que descuente stock de forma atómica en PostgreSQL.
-6.  Manejo de Idempotencia: Guardar el external_reference en una tabla de pagos para evitar procesar dos veces la misma transacción.
-7.  Reintentos Automáticos: Configurar la Edge Function para devolver un error 500 si la DB falla, forzando a MercadoPago a reintentar el webhook.
-8.  Logs de Auditoría: Registrar cada respuesta del SDK de MercadoPago en una tabla audit_logs mediante una RPC.
-Botón de Pago Dinámico: En React, llamar a la Edge Function antes de renderizar el componente <Wallet /> de MUI para obtener el ID de preferencia.
-9.  Manejo de Monedas: Centralizar la lógica de conversión de divisas en la Edge Function para mantener consistencia con el backend de Alegra.
+4.  ValidaciÃ³n de Firma: Implementar la verificaciÃ³n de x-signature en la Edge Function para asegurar que el webhook provenga realmente de MercadoPago.
+5.  RPC para ActualizaciÃ³n de Inventario: Al recibir un pago exitoso, llamar a una RPC que descuente stock de forma atÃ³mica en PostgreSQL.
+6.  Manejo de Idempotencia: Guardar el external_reference en una tabla de pagos para evitar procesar dos veces la misma transacciÃ³n.
+7.  Reintentos AutomÃ¡ticos: Configurar la Edge Function para devolver un error 500 si la DB falla, forzando a MercadoPago a reintentar el webhook.
+8.  Logs de AuditorÃ­a: Registrar cada respuesta del SDK de MercadoPago en una tabla audit_logs mediante una RPC.
+BotÃ³n de Pago DinÃ¡mico: En React, llamar a la Edge Function antes de renderizar el componente <Wallet /> de MUI para obtener el ID de preferencia.
+9.  Manejo de Monedas: Centralizar la lÃ³gica de conversiÃ³n de divisas en la Edge Function para mantener consistencia con el backend de TusFacturasAPP.
 10.  Seguridad de Tokens: Nunca exponer el ACCESS_TOKEN en el frontend; usar variables de entorno en el panel de Supabase.
 ##### 3.2.6.2 OneSignal (Notificaciones Push)
-1.  Enfoque: Segmentación y triggers automatizados.
-2.  RPC para Registro de PlayerID: Crear una función RPC que vincule el userId de Supabase con el subscriptionId de OneSignal.
-3.  Edge Function "Push Dispatcher": Una función centralizada que reciba un JSON con mensaje y destinatario, y se comunique con la API de OneSignal.
+1.  Enfoque: SegmentaciÃ³n y triggers automatizados.
+2.  RPC para Registro de PlayerID: Crear una funciÃ³n RPC que vincule el userId de Supabase con el subscriptionId de OneSignal.
+3.  Edge Function "Push Dispatcher": Una funciÃ³n centralizada que reciba un JSON con mensaje y destinatario, y se comunique con la API de OneSignal.
 4.  Database Triggers: Configurar un trigger en la tabla notifications que dispare una Edge Function cada vez que se inserte un registro.
-5.  Segmentación por Roles: Usar la metadata del usuario de Supabase Auth para enviar notificaciones a segmentos específicos (ej. "admin", "cliente").
-6.  Programación de Notificaciones: Usar el parámetro send_after de OneSignal desde la Edge Function para recordatorios futuros.
-7.  Manejo de Errores de Delivery: Si OneSignal devuelve un error (ej. usuario desuscrito), llamar a una RPC para limpiar el ID inválido de la base de datos.
-8.  Iconos y Badge dinámicos: Enviar la URL del icono o el número del badge calculado mediante una RPC previa al envío.
-9.  Deep Linking: Configurar la URL de destino en el payload de la Edge Function para que el usuario abra una ruta específica en tu app Vite.
-10. Testing Environment: Usar una variable de entorno para alternar entre el APP_ID de producción y el de desarrollo en las funciones.
+5.  SegmentaciÃ³n por Roles: Usar la metadata del usuario de Supabase Auth para enviar notificaciones a segmentos especÃ­ficos (ej. "admin", "cliente").
+6.  ProgramaciÃ³n de Notificaciones: Usar el parÃ¡metro send_after de OneSignal desde la Edge Function para recordatorios futuros.
+7.  Manejo de Errores de Delivery: Si OneSignal devuelve un error (ej. usuario desuscrito), llamar a una RPC para limpiar el ID invÃ¡lido de la base de datos.
+8.  Iconos y Badge dinÃ¡micos: Enviar la URL del icono o el nÃºmero del badge calculado mediante una RPC previa al envÃ­o.
+9.  Deep Linking: Configurar la URL de destino en el payload de la Edge Function para que el usuario abra una ruta especÃ­fica en tu app Vite.
+10. Testing Environment: Usar una variable de entorno para alternar entre el APP_ID de producciÃ³n y el de desarrollo en las funciones.
 11. Silent Push: Utilizar las funciones de borde para enviar datos en segundo plano sin mostrar una alerta visual al usuario.
 ###### 3.2.6.3 Cal.com (Agendamiento)
-1.  Enfoque: Sincronización de eventos y disponibilidad.
+1.  Enfoque: SincronizaciÃ³n de eventos y disponibilidad.
 2.  Edge Function para Reservas: Actuar como intermediario para crear "bookings" usando el API Key privado de Cal.com.
-3.  Sincronización de Webhooks: Escuchar el evento BOOKING_CREATED para insertar la cita automáticamente en tu tabla de Supabase mediante RPC.
-4.  Validación de Disponibilidad: Antes de confirmar una acción en la app, consultar a Cal.com vía Edge Function para verificar slots libres.
+3.  SincronizaciÃ³n de Webhooks: Escuchar el evento BOOKING_CREATED para insertar la cita automÃ¡ticamente en tu tabla de Supabase mediante RPC.
+4.  ValidaciÃ³n de Disponibilidad: Antes de confirmar una acciÃ³n en la app, consultar a Cal.com vÃ­a Edge Function para verificar slots libres.
 5.  UI de MUI sincronizada: Usar React Query para llamar a la Edge Function de Cal.com y poblar calendarios personalizados en MUI.
-6.  Cancelaciones: Centralizar la lógica de cancelación en una Edge Function que notifique a Cal.com y actualice el estado en tu DB.
-7.  Manejo de Timezones: Utilizar la librería Intl dentro de la Edge Function (Deno) para normalizar fechas antes de enviarlas a la API.
-8.  Campos Personalizados: Mapear los responses del formulario de Cal.com a columnas específicas de tu base de datos mediante una función RPC.
-9.  Enlace de Videollamada: Al recibir el webhook de éxito, extraer la URL de la reunión y enviarla por OneSignal mediante un flujo encadenado de funciones.
-10. Metadata de Usuario: Pasar el supabase_user_id en los campos ocultos de Cal.com para identificar quién hizo la reserva al procesar el webhook.
+6.  Cancelaciones: Centralizar la lÃ³gica de cancelaciÃ³n en una Edge Function que notifique a Cal.com y actualice el estado en tu DB.
+7.  Manejo de Timezones: Utilizar la librerÃ­a Intl dentro de la Edge Function (Deno) para normalizar fechas antes de enviarlas a la API.
+8.  Campos Personalizados: Mapear los responses del formulario de Cal.com a columnas especÃ­ficas de tu base de datos mediante una funciÃ³n RPC.
+9.  Enlace de Videollamada: Al recibir el webhook de Ã©xito, extraer la URL de la reuniÃ³n y enviarla por OneSignal mediante un flujo encadenado de funciones.
+10. Metadata de Usuario: Pasar el supabase_user_id en los campos ocultos de Cal.com para identificar quiÃ©n hizo la reserva al procesar el webhook.
 11. Cache de Slots: Guardar temporalmente la disponibilidad en una tabla de Supabase para reducir llamadas repetitivas a la API externa.
-##### 3.2.6.4 Alegra (Facturación y Contabilidad)
+##### 3.2.6.4 TusFacturasAPP (Facturación y Contabilidad)
 1.  Enfoque: Integridad de datos contables.
-2.  Edge Function para Facturación: Generar la factura electrónica inmediatamente después de que la RPC de MercadoPago confirme el pago.
-3.  Mapeo de Contactos: Crear una RPC que verifique si el cliente ya existe en Alegra por su NIT/RUT antes de crear un nuevo contacto.
-4.  Sincronización de Items: Mantener los productos de tu DB en Supabase alineados con los IDs de items en Alegra mediante un cron job (Edge Function).
-5.  Manejo de Impuestos: Configurar la lógica de cálculo de IVA en la Edge Function para evitar discrepancias con los cálculos de Alegra.
-6.  Descarga de PDF: Crear un endpoint en la Edge Function que recupere el PDF de la factura desde Alegra y lo sirva al cliente en React.
-7.  RPC de Validación de Stock: Consultar el inventario real en Alegra antes de permitir el checkout en el frontend.
-8.  Notas de Crédito Automáticas: Si una orden se cancela en Supabase, disparar una Edge Function que genere la nota de crédito en Alegra.
-9.  Queue de Errores: Si la API de Alegra está caída, guardar la petición en una tabla pending_invoices para reintentar luego con un Edge Cron.
-10.  Consumo de API Key: Implementar autenticación Basic Auth de Alegra de forma segura dentro del entorno de Deno.
-11.  Reportes: Usar funciones RPC para agrupar ventas por categoría y cruzarlas con los reportes contables obtenidos vía API.
+2.  Edge Function para FacturaciÃ³n: Generar la factura electrÃ³nica inmediatamente despuÃ©s de que la RPC de MercadoPago confirme el pago.
+3.  Mapeo de Contactos: Crear una RPC que verifique si el cliente ya existe en TusFacturasAPP por su NIT/RUT antes de crear un nuevo contacto.
+4.  SincronizaciÃ³n de Items: Mantener los productos de tu DB en Supabase alineados con los IDs de items en TusFacturasAPP mediante un cron job (Edge Function).
+5.  Manejo de Impuestos: Configurar la lÃ³gica de cÃ¡lculo de IVA en la Edge Function para evitar discrepancias con los cÃ¡lculos de TusFacturasAPP.
+6.  Descarga de PDF: Crear un endpoint en la Edge Function que recupere el PDF de la factura desde TusFacturasAPP y lo sirva al cliente en React.
+7.  RPC de ValidaciÃ³n de Stock: Consultar el inventario real en TusFacturasAPP antes de permitir el checkout en el frontend.
+8.  Notas de CrÃ©dito AutomÃ¡ticas: Si una orden se cancela en Supabase, disparar una Edge Function que genere la nota de crÃ©dito en TusFacturasAPP.
+9.  Queue de Errores: Si la API de TusFacturasAPP estÃ¡ caÃ­da, guardar la peticiÃ³n en una tabla pending_invoices para reintentar luego con un Edge Cron.
+10.  Consumo de API Key: Implementar autenticaciÃ³n Basic Auth de TusFacturasAPP de forma segura dentro del entorno de Deno.
+11.  Reportes: Usar funciones RPC para agrupar ventas por categorÃ­a y cruzarlas con los reportes contables obtenidos vÃ­a API.
 ##### 3.2.6.5 Supabase (Core & RPC)
-1.  Enfoque: Optimización y seguridad interna.
-2.  RPC sobre API REST: Priorizar el uso de supabase.rpc() para operaciones que involucren múltiples tablas para reducir el tráfico de red.
-3.  Validación con RLS: Asegurar que todas las funciones RPC respeten las Row Level Security (security definer vs invoker).
-4.  Filtros Complejos en SQL: Mover la lógica de filtrado pesado de React a una función RPC para aprovechar los índices de PostgreSQL.
+1.  Enfoque: OptimizaciÃ³n y seguridad interna.
+2.  RPC sobre API REST: Priorizar el uso de supabase.rpc() para operaciones que involucren mÃºltiples tablas para reducir el trÃ¡fico de red.
+3.  ValidaciÃ³n con RLS: Asegurar que todas las funciones RPC respeten las Row Level Security (security definer vs invoker).
+4.  Filtros Complejos en SQL: Mover la lÃ³gica de filtrado pesado de React a una funciÃ³n RPC para aprovechar los Ã­ndices de PostgreSQL.
 5.  Edge Function Auth Hook: Usar funciones de borde para personalizar el token JWT o validar dominios de correo permitidos.
-6.  Cifrado de Datos Sensibles: Usar la extensión pgcrypto dentro de las RPC para manejar datos que no deben ser legibles ni por administradores.
-Deno Standard Library: Aprovechar las librerías nativas de Deno en tus Edge Functions para validaciones de esquema (Zod).
+6.  Cifrado de Datos Sensibles: Usar la extensiÃ³n pgcrypto dentro de las RPC para manejar datos que no deben ser legibles ni por administradores.
+Deno Standard Library: Aprovechar las librerÃ­as nativas de Deno en tus Edge Functions para validaciones de esquema (Zod).
 7.  CORS Configuration: Configurar correctamente los headers de CORS en las Edge Functions para que solo tu dominio de Vite pueda invocarlas.
-8.  Pagination Server-side: Implementar la lógica de "limit" y "offset" dentro de RPCs para manejar grandes volúmenes de datos en DataGrids de MUI.
-9.  Manejo de Archivos: Usar Edge Functions para procesar imágenes (resize) antes de subirlas al bucket de Supabase Storage.
-10. Versionamiento: Incluir una cabecera de versión en tus Edge Functions para permitir transiciones suaves al actualizar la lógica de las APIs
+8.  Pagination Server-side: Implementar la lÃ³gica de "limit" y "offset" dentro de RPCs para manejar grandes volÃºmenes de datos en DataGrids de MUI.
+9.  Manejo de Archivos: Usar Edge Functions para procesar imÃ¡genes (resize) antes de subirlas al bucket de Supabase Storage.
+10. Versionamiento: Incluir una cabecera de versiÃ³n en tus Edge Functions para permitir transiciones suaves al actualizar la lÃ³gica de las APIs
 
 ### 3.3. Requerimientos No Funcionales
 
 #### 3.3.1. PWA y Continuidad de Operaciones (Offline-First)
-*   **Service Worker:** Se debe implementar un Service Worker para cachear los assets de la aplicación (app shell). Se recomienda usar `vite-plugin-pwa` para automatizar este proceso.
-*   **Almacenamiento Local:** Se utilizará **RxDB** Dixie para almacenar localmente datos críticos para la operación offline (ej. lista de productos, precios, clientes). npm.cmd install rxdb @supabase/supabase-js rxjs @dexie/dexie-rxdb dexie
+*   **Service Worker:** Se debe implementar un Service Worker para cachear los assets de la aplicaciÃ³n (app shell). Se recomienda usar `vite-plugin-pwa` para automatizar este proceso.
+*   **Almacenamiento Local:** Se utilizarÃ¡ **RxDB** Dixie para almacenar localmente datos crÃ­ticos para la operaciÃ³n offline (ej. lista de productos, precios, clientes). npm.cmd install rxdb @supabase/supabase-js rxjs @dexie/dexie-rxdb dexie
 
-*   **Sincronización:**
-    1.  Cuando la app esté offline, las mutaciones (crear una venta, actualizar stock) no se envían al servidor. En su lugar, se guardan en una cola local en IndexedDB.
-    2.  Cuando la conexión se recupera, un proceso de sincronización lee la cola local y envía las operaciones a Supabase una por una, posiblemente a través de una Edge Function que gestione la lógica.
+*   **SincronizaciÃ³n:**
+    1.  Cuando la app estÃ© offline, las mutaciones (crear una venta, actualizar stock) no se envÃ­an al servidor. En su lugar, se guardan en una cola local en IndexedDB.
+    2.  Cuando la conexiÃ³n se recupera, un proceso de sincronizaciÃ³n lee la cola local y envÃ­a las operaciones a Supabase una por una, posiblemente a travÃ©s de una Edge Function que gestione la lÃ³gica.
     3.  La tabla `core.offline_sync_queue` en el backend puede servir como registro y para manejar conflictos si es necesario.
     4.  El esquema de la DB a cincronizar con RxDB es el que viene adjunto a este archivo en sql, como **ANEXO I**.
 
 #### 3.3.2. Trazabilidad y Normas ISO 9000
-El frontend debe garantizar que **toda petición a la API de Supabase esté autenticada**. El cliente `@supabase/supabase-js` gestiona automáticamente el envío del JWT (JSON Web Token) del usuario logueado. Este token permite al backend:
-1.  Identificar al usuario a través de `auth.uid()`.
-2.  Aplicar las políticas de RLS correspondientes a su rol.
-3.  Registrar en la tabla del esquema apara auditoria, a través de los triggers, qué usuario (`user_id`) realizó qué acción (`action`), sobre qué registro (`record_id`) y en qué momento (`timestamp`) y el resto de columnas que tenga definida la tabla en el esquema del **ANEXO I**.
+El frontend debe garantizar que **toda peticiÃ³n a la API de Supabase estÃ© autenticada**. El cliente `@supabase/supabase-js` gestiona automÃ¡ticamente el envÃ­o del JWT (JSON Web Token) del usuario logueado. Este token permite al backend:
+1.  Identificar al usuario a travÃ©s de `auth.uid()`.
+2.  Aplicar las polÃ­ticas de RLS correspondientes a su rol.
+3.  Registrar en la tabla del esquema apara auditoria, a travÃ©s de los triggers, quÃ© usuario (`user_id`) realizÃ³ quÃ© acciÃ³n (`action`), sobre quÃ© registro (`record_id`) y en quÃ© momento (`timestamp`) y el resto de columnas que tenga definida la tabla en el esquema del **ANEXO I**.
 
-Esto crea un rastro de auditoría completo para cada acción de escritura en la base de datos, cumpliendo con el principio de trazabilidad.
+Esto crea un rastro de auditorÃ­a completo para cada acciÃ³n de escritura en la base de datos, cumpliendo con el principio de trazabilidad.
 
-## 4. Apéndice: Diccionario de Datos (ENUMS)
+## 4. ApÃ©ndice: Diccionario de Datos (ENUMS)
 
-A continuación se detalla el significado de cada opción en los `ENUMS` definidos en la base de datos.
+A continuaciÃ³n se detalla el significado de cada opciÃ³n en los `ENUMS` definidos en la base de datos.
 
-*   **`public.app_role`**: Rol de un usuario dentro de la aplicación.
-    *   `OWNER`: Dueño de la cuenta (tenant), máximo nivel de permiso.
+*   **`public.app_role`**: Rol de un usuario dentro de la aplicaciÃ³n.
+    *   `OWNER`: DueÃ±o de la cuenta (tenant), mÃ¡ximo nivel de permiso.
     *   `ADMIN`: Administrador de la cuenta, con permisos delegados por el OWNER.
-    *   `EMPLOYEE`: Empleado asignado a uno o más negocios.
-    *   `AUDITOR`: Rol de solo lectura para supervisión.
+    *   `EMPLOYEE`: Empleado asignado a uno o mÃ¡s negocios.
+    *   `AUDITOR`: Rol de solo lectura para supervisiÃ³n.
     *   `DEVELOPER`: Acceso total para desarrollo.
 
 *   **`public.business_type`**: Tipo de negocio.
-    *   `SALON`: Peluquería.
-    *   `PERFUMERY`: Perfumería.
+    *   `SALON`: PeluquerÃ­a.
+    *   `PERFUMERY`: PerfumerÃ­a.
 
-*   **`public.item_type`**: Tipo de ítem en el inventario.
-    *   `PRODUCT`: Un bien físico con stock (ej. un perfume).
+*   **`public.item_type`**: Tipo de Ã­tem en el inventario.
+    *   `PRODUCT`: Un bien fÃ­sico con stock (ej. un perfume).
     *   `SERVICE`: Un servicio que no tiene stock (ej. un corte de pelo).
 
 *   **`public.order_status`**: Estado de una orden de compra.
     *   `PENDING`: La orden fue creada pero no pagada.
     *   `PAID`: La orden fue pagada exitosamente.
-    *   `ABANDONED`: El cliente abandonó el checkout.
-    *   `ERROR`: Ocurrió un error durante el proceso de pago.
+    *   `ABANDONED`: El cliente abandonÃ³ el checkout.
+    *   `ERROR`: OcurriÃ³ un error durante el proceso de pago.
 
 *   **`public.appointment_status`**: Estado de un turno, combinando estados de Cal.com y estados internos.
-    *   `SCHEDULED` / `ACCEPTED`: El turno está confirmado.
+    *   `SCHEDULED` / `ACCEPTED`: El turno estÃ¡ confirmado.
     *   `COMPLETED`: El servicio del turno fue prestado.
     *   `CANCELLED`: El turno fue cancelado.
-    *   `NO_SHOW`: El cliente no se presentó al turno.
-    *   `PENDING` / `AWAITING_HOST`: El turno está pendiente de confirmación.
+    *   `NO_SHOW`: El cliente no se presentÃ³ al turno.
+    *   `PENDING` / `AWAITING_HOST`: El turno estÃ¡ pendiente de confirmaciÃ³n.
     *   `REJECTED`: El turno fue rechazado.
     
-*   **`public.item_status`**: Estado de un producto o servicio en el catálogo.
+*   **`public.item_status`**: Estado de un producto o servicio en el catÃ¡logo.
     *   `ACTIVE`: Visible y disponible para la venta o agendamiento.
-    *   `INACTIVE`: Oculto de la vista pública pero no eliminado.
-    *   `DISCONTINUE`: Producto o servicio que ya no se ofrecerá.
+    *   `INACTIVE`: Oculto de la vista pÃºblica pero no eliminado.
+    *   `DISCONTINUE`: Producto o servicio que ya no se ofrecerÃ¡.
 
-*   **`public.customer_doc_type`**: Códigos de AFIP para tipo de documento del cliente en una factura.
+*   **`public.customer_doc_type`**: CÃ³digos de AFIP para tipo de documento del cliente en una factura.
     *   `80`: CUIT.
     *   `96`: DNI.
     *   `99`: Consumidor Final.
 
-*   **`public.cbte_tipo`**: Códigos de AFIP para tipo de comprobante.
+*   **`public.cbte_tipo`**: CÃ³digos de AFIP para tipo de comprobante.
     *   `1`: Factura A.
     *   `6`: Factura B.
     *   `11`: Factura C.
 
 ## 5. **ANEXO I**: Esquema de la base de datos completa en supabase
 
---Primero se ejecuta esto apra crear la DB casi completa y luego al final del archivo están las 3 RSL que faltan crear.
+--Primero se ejecuta esto apra crear la DB casi completa y luego al final del archivo estÃ¡n las 3 RSL que faltan crear.
 
 /************************************************************************************
  *                                                                                  *
  *   SCRIPT DE BASE DE DATOS v04 - ARQUITECTURA MULTI-TENANT POR CUENTA (SAAS)     *
- *                      (Versión Final, Completa y Explícita)                     *
+ *                      (VersiÃ³n Final, Completa y ExplÃ­cita)                     *
  *                                                                                  *
  ************************************************************************************/
 
@@ -315,7 +315,7 @@ CREATE SCHEMA IF NOT EXISTS core;
 CREATE SCHEMA IF NOT EXISTS logs;
 CREATE SCHEMA IF NOT EXISTS reports;
 
--- FUNCIONES AUXILIARES Y DE AUDITORÍA
+-- FUNCIONES AUXILIARES Y DE AUDITORÃA
 ----------------------------------------------------------------
 
 CREATE OR REPLACE FUNCTION public.handle_updated_at()
@@ -402,7 +402,7 @@ CREATE TABLE core.accounts (
 CREATE TRIGGER on_accounts_update BEFORE UPDATE ON core.accounts FOR EACH ROW EXECUTE PROCEDURE public.handle_updated_at();
 CREATE TRIGGER audit_accounts_changes AFTER INSERT OR UPDATE OR DELETE ON core.accounts FOR EACH ROW EXECUTE PROCEDURE public.log_changes();
 ALTER TABLE core.accounts ENABLE ROW LEVEL SECURITY; ALTER TABLE core.accounts FORCE ROW LEVEL SECURITY;
---CREATE POLICY "Dueños pueden ver y gestionar su propia cuenta" ON core.accounts FOR ALL USING (id = public.get_my_account_id() AND owner_user_id = auth.uid());
+--CREATE POLICY "DueÃ±os pueden ver y gestionar su propia cuenta" ON core.accounts FOR ALL USING (id = public.get_my_account_id() AND owner_user_id = auth.uid());
 --CREATE POLICY "Acceso total para Desarrolladores" ON core.accounts FOR ALL USING (public.get_my_role() = 'DEVELOPER');
 
 ---
@@ -636,7 +636,7 @@ CREATE INDEX idx_orders_account_status_date ON core.orders(account_id, status, c
 CREATE TRIGGER on_orders_update BEFORE UPDATE ON core.orders FOR EACH ROW EXECUTE PROCEDURE public.handle_updated_at();
 CREATE TRIGGER audit_orders_changes AFTER INSERT OR UPDATE OR DELETE ON core.orders FOR EACH ROW EXECUTE PROCEDURE public.log_changes();
 ALTER TABLE core.orders ENABLE ROW LEVEL SECURITY; ALTER TABLE core.orders FORCE ROW LEVEL SECURITY;
-CREATE POLICY "Usuarios solo acceden a órdenes de su propia cuenta" ON core.orders FOR ALL USING (account_id = public.get_my_account_id());
+CREATE POLICY "Usuarios solo acceden a Ã³rdenes de su propia cuenta" ON core.orders FOR ALL USING (account_id = public.get_my_account_id());
 
 ---
 --- TABLA: order_items
@@ -656,7 +656,7 @@ CREATE TABLE core.order_items (
 CREATE TRIGGER on_order_items_update BEFORE UPDATE ON core.order_items FOR EACH ROW EXECUTE PROCEDURE public.handle_updated_at();
 CREATE TRIGGER audit_order_items_changes AFTER INSERT OR UPDATE OR DELETE ON core.order_items FOR EACH ROW EXECUTE PROCEDURE public.log_changes();
 ALTER TABLE core.order_items ENABLE ROW LEVEL SECURITY; ALTER TABLE core.order_items FORCE ROW LEVEL SECURITY;
-CREATE POLICY "Usuarios solo acceden a items de órdenes de su cuenta" ON core.order_items FOR ALL USING (account_id = public.get_my_account_id());
+CREATE POLICY "Usuarios solo acceden a items de Ã³rdenes de su cuenta" ON core.order_items FOR ALL USING (account_id = public.get_my_account_id());
 
 ---
 --- TABLA: invoices
@@ -788,7 +788,7 @@ CREATE TRIGGER on_offline_sync_queue_update BEFORE UPDATE ON core.offline_sync_q
 CREATE TRIGGER audit_offline_sync_queue_changes AFTER INSERT OR UPDATE OR DELETE ON core.offline_sync_queue FOR EACH ROW EXECUTE PROCEDURE public.log_changes();
 ALTER TABLE core.offline_sync_queue ENABLE ROW LEVEL SECURITY; ALTER TABLE core.offline_sync_queue FORCE ROW LEVEL SECURITY;
 CREATE POLICY "Acceso total para Desarrolladores" ON core.offline_sync_queue FOR ALL USING (public.get_my_role() = 'DEVELOPER');
-CREATE POLICY "Admins/Owners ven la cola de sincronización" ON core.offline_sync_queue FOR SELECT USING (public.get_my_role() IN ('ADMIN', 'OWNER'));
+CREATE POLICY "Admins/Owners ven la cola de sincronizaciÃ³n" ON core.offline_sync_queue FOR SELECT USING (public.get_my_role() IN ('ADMIN', 'OWNER'));
 
 ---
 --- TABLA: audit_log (Schema: logs)
@@ -816,8 +816,8 @@ CREATE POLICY "Admins/Owners/Auditores pueden ver el audit log de su cuenta" ON 
  * PASO 3: PRECARGA DE DATOS
  ******************************************************************************/
 
--- La precarga de datos ahora debe estar asociada a una cuenta específica.
--- Esto se haría mediante una función Edge después de que un usuario se registre y cree su cuenta.
+-- La precarga de datos ahora debe estar asociada a una cuenta especÃ­fica.
+-- Esto se harÃ­a mediante una funciÃ³n Edge despuÃ©s de que un usuario se registre y cree su cuenta.
 -- Ejemplo conceptual:
 -- INSERT INTO core.item_categories (account_id, name, description, applies_to)
 -- VALUES
@@ -826,12 +826,12 @@ CREATE POLICY "Admins/Owners/Auditores pueden ver el audit log de su cuenta" ON 
 -- VALUES
 --   ('Fragancias', 'Perfumes, colonias y aguas de tocador.', 'PERFUMERY', false),
 --   ('Cuidado de la Piel', 'Cremas faciales, serums, limpiadores y mascarillas.', 'PERFUMERY', false),
---   ('Maquillaje', 'Bases, labiales, sombras, máscaras de pestañas.', 'PERFUMERY', false),
+--   ('Maquillaje', 'Bases, labiales, sombras, mÃ¡scaras de pestaÃ±as.', 'PERFUMERY', false),
 --   ('Cuidado Corporal', 'Cremas corporales, exfoliantes y aceites.', 'PERFUMERY', false),
 --   ('Shampoos y Acondicionadores', 'Productos para el lavado y cuidado diario del cabello.', 'SALON', false),
---   ('Tratamientos Capilares', 'Mascarillas intensivas, ampollas y tratamientos de reconstrucción.', 'SALON', false),
---   ('Fijación y Estilizado', 'Geles, ceras, espumas, lacas y protectores térmicos.', 'SALON', false),
---   ('Coloración', 'Tinturas permanentes, semi-permanentes y tonalizadores.', 'SALON', false),
+--   ('Tratamientos Capilares', 'Mascarillas intensivas, ampollas y tratamientos de reconstrucciÃ³n.', 'SALON', false),
+--   ('FijaciÃ³n y Estilizado', 'Geles, ceras, espumas, lacas y protectores tÃ©rmicos.', 'SALON', false),
+--   ('ColoraciÃ³n', 'Tinturas permanentes, semi-permanentes y tonalizadores.', 'SALON', false),
 --   ('Herramientas de Estilizado', 'Secadores, planchas, rizadores y cepillos.', 'SALON', false),
 --   ('Cuidado Capilar', 'Productos generales para el cabello que se venden en ambos negocios.', 'ALL', false),
 --   ('Accesorios', 'Brochas, peines, hebillas y otros complementos.', 'ALL', false),
@@ -844,8 +844,8 @@ CREATE POLICY "Admins/Owners/Auditores pueden ver el audit log de su cuenta" ON 
 
 --SQL Actualizado para las Vistas de Reportes (Multi-Tenant)
 
--- VISTA 1: Resumen Diario de Ventas (El Patrón)
--- Muestra el rendimiento de ventas por día, por negocio y por cuenta.
+-- VISTA 1: Resumen Diario de Ventas (El PatrÃ³n)
+-- Muestra el rendimiento de ventas por dÃ­a, por negocio y por cuenta.
 CREATE OR REPLACE VIEW reports.daily_sales_summary AS
 SELECT
   o.account_id,
@@ -868,7 +868,7 @@ GROUP BY
 
 
 -- VISTA 2: Rendimiento de Productos y Servicios
--- Analiza qué ítems son los más vendidos, segregado por cuenta y negocio.
+-- Analiza quÃ© Ã­tems son los mÃ¡s vendidos, segregado por cuenta y negocio.
 CREATE OR REPLACE VIEW reports.product_performance AS
 SELECT
   o.account_id,
@@ -894,7 +894,7 @@ GROUP BY
 
 
 -- VISTA 3: Niveles de Inventario Actual
--- Provee una vista rápida del stock actual, segregado por cuenta y negocio.
+-- Provee una vista rÃ¡pida del stock actual, segregado por cuenta y negocio.
 CREATE OR REPLACE VIEW reports.current_inventory_levels AS
 SELECT
   sl.account_id,
@@ -913,7 +913,7 @@ WHERE
 
 
 -- VISTA 4: Actividad y Valor de Clientes
--- Identifica a los clientes más valiosos por gasto y frecuencia, dentro de cada cuenta.
+-- Identifica a los clientes mÃ¡s valiosos por gasto y frecuencia, dentro de cada cuenta.
 CREATE OR REPLACE VIEW reports.customer_activity AS
 SELECT
   o.account_id,
@@ -982,11 +982,12 @@ WHERE
 
 COMMIT;
 
---Final primer tamo de código para crear la DB.
+--Final primer tamo de cÃ³digo para crear la DB.
 ------------------------------------------------------------------//-----------------------------------------------------------
 
 --Estas tres RSL se ejecutan al final, luego de generar las tablas necesarias en la DB:
 
 CREATE POLICY "Usuarios solo acceden a perfiles de su propia cuenta" ON core.user_profiles FOR ALL USING (account_id = public.get_my_account_id());
-CREATE POLICY "Dueños pueden ver y gestionar su propia cuenta" ON core.accounts FOR ALL USING (id = public.get_my_account_id() AND owner_user_id = auth.uid());
+CREATE POLICY "DueÃ±os pueden ver y gestionar su propia cuenta" ON core.accounts FOR ALL USING (id = public.get_my_account_id() AND owner_user_id = auth.uid());
 CREATE POLICY "Acceso total para Desarrolladores" ON core.accounts FOR ALL USING (public.get_my_role() = 'DEVELOPER');
+

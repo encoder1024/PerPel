@@ -45,6 +45,7 @@ import { useBarcodeScanner } from '../../hooks/useBarcodeScanner';
 import { supabase } from '../../services/supabaseClient';
 import { useAuthStore } from '../../stores/authStore';
 import { useOffline } from '../../hooks/useOffline';
+import { syncService } from '../../services/syncService';
 import PaymentGateway from '../../components/common/PaymentGateway';
 import { useCashRegister } from '../../hooks/useCashRegister';
 import { useMercadoPagoPoint } from '../../hooks/useMercadoPagoPoint';
@@ -57,6 +58,8 @@ const CONSUMIDOR_FINAL = {
   doc_number: '0',
   iva_condition: 'Consumidor Final'
 };
+
+const POS_BUSINESSES_CACHE_KEY = 'pos-businesses-cache-v1';
 
 export default function POS() {
   const {
@@ -81,13 +84,18 @@ export default function POS() {
   
   const { activeSession, checkActiveSession } = useCashRegister();
   const { profile } = useAuthStore();
-  const { db } = useOffline();
+  const { db, isOnline } = useOffline();
   const { loading: mpPointLoading, error: mpPointError, createPointPaymentIntent } = useMercadoPagoPoint();
+  const [isDegraded, setIsDegraded] = useState(syncService.isNetworkDegraded());
+  const isOfflineMode = !isOnline || isDegraded;
+  const isEffectivelyOnline = isOnline && !isDegraded;
   
   const [searchTerm, setSearchTerm] = useState('');
   const [businesses, setBusinesses] = useState([]);
   const [selectedBusinessId, setSelectedBusinessId] = useState('');
   const [inventoryLoading, setInventoryLoading] = useState(false);
+  const [openQueueDialog, setOpenQueueDialog] = useState(false);
+  const [syncQueueItems, setSyncQueueItems] = useState([]);
   
   // Customer Selector State
   const [customerOptions, setCustomerOptions] = useState([CONSUMIDOR_FINAL]);
@@ -106,6 +114,37 @@ export default function POS() {
   // Scan state
   const [lastScannedSku, setLastScannedSku] = useState(null);
   const [openScanConfirm, setOpenScanConfirm] = useState(false);
+
+  const loadSyncQueue = React.useCallback(async () => {
+    if (!db) return;
+    try {
+      const docs = await db.sync_queue.find().exec();
+      const items = docs
+        .map((d) => d.toJSON())
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      setSyncQueueItems(items);
+    } catch (err) {
+      console.error('Error loading sync queue:', err);
+    }
+  }, [db]);
+
+  useEffect(() => {
+    loadSyncQueue();
+  }, [loadSyncQueue]);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setIsDegraded(syncService.isNetworkDegraded());
+    }, 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    if (!openQueueDialog) return;
+    loadSyncQueue();
+    const id = setInterval(loadSyncQueue, 2000);
+    return () => clearInterval(id);
+  }, [openQueueDialog, loadSyncQueue]);
 
   // Initialize customer selector
   useEffect(() => {
@@ -255,23 +294,64 @@ export default function POS() {
   // Fetch businesses for the account
   useEffect(() => {
     const fetchBusinesses = async () => {
-      const { data, error } = await supabase
-        .schema('core')
-        .from('businesses')
-        .select('*')
-        .eq('account_id', profile?.account_id)
-        .eq('is_deleted', false);
+      if (!profile?.account_id) return;
+      try {
+        if (isEffectivelyOnline) {
+          const { data } = await supabase
+            .schema('core')
+            .from('businesses')
+            .select('*')
+            .eq('account_id', profile.account_id)
+            .eq('is_deleted', false);
 
-      if (data) {
-        setBusinesses(data);
-        if (data.length > 0) {
-          setSelectedBusinessId(data[0].id);
-          checkActiveSession(data[0].id);
+          if (data && data.length > 0) {
+            syncService.markNetworkHealthy();
+            setIsDegraded(false);
+            setBusinesses(data);
+            localStorage.setItem(POS_BUSINESSES_CACHE_KEY, JSON.stringify(data.map((b) => ({ id: b.id, name: b.name, account_id: b.account_id, is_deleted: false }))));
+            if (db) {
+              await db.businesses.bulkUpsert(data.map((b) => ({ ...b, is_deleted: Boolean(b.is_deleted ?? b.deleted ?? false) })));
+            }
+            setSelectedBusinessId((prev) => prev || data[0].id);
+            checkActiveSession(data[0].id);
+            return;
+          }
+        }
+
+        if (db) {
+          const localBusinesses = await db.businesses.find({
+            selector: { account_id: profile.account_id }
+          }).exec();
+          const mapped = localBusinesses
+            .map((d) => d.toJSON())
+            .filter((b) => !(b.is_deleted ?? b.deleted ?? false));
+          if (mapped.length > 0) {
+            setBusinesses(mapped);
+            setSelectedBusinessId((prev) => prev || mapped[0].id);
+            return;
+          }
+        }
+
+        const rawCache = localStorage.getItem(POS_BUSINESSES_CACHE_KEY);
+        if (rawCache) {
+          const cachedBusinesses = JSON.parse(rawCache).filter(
+            (b) => b?.account_id === profile.account_id && !(b.is_deleted ?? b.deleted ?? false)
+          );
+          if (cachedBusinesses.length > 0) {
+            setBusinesses(cachedBusinesses);
+            setSelectedBusinessId((prev) => prev || cachedBusinesses[0].id);
+          }
+        }
+      } catch (err) {
+        console.error('POS businesses load error:', err);
+        if (/Failed to fetch|ERR_NAME_NOT_RESOLVED|NetworkError/i.test(err?.message || '')) {
+          syncService.markNetworkDegraded();
+          setIsDegraded(true);
         }
       }
     };
-    if (profile?.account_id) fetchBusinesses();
-  }, [profile?.account_id, checkActiveSession]);
+    fetchBusinesses();
+  }, [profile?.account_id, checkActiveSession, isEffectivelyOnline, db]);
 
   // Fetch items when business changes
   useEffect(() => {
@@ -418,6 +498,19 @@ export default function POS() {
 
   return (
     <Box sx={{ flexGrow: 1 }}>
+      {isOfflineMode && (
+        <Alert
+          severity="warning"
+          sx={{ mb: 2, display: 'flex', alignItems: 'center' }}
+          action={
+            <Button color="inherit" size="small" variant="outlined" onClick={() => setOpenQueueDialog(true)}>
+              Ver cola ({syncQueueItems.length})
+            </Button>
+          }
+        >
+          Modo offline activo: las ventas se guardan localmente y se sincronizan cuando vuelva la conexión.
+        </Alert>
+      )}
       <Grid container spacing={2}>
         {/* Catálogo de Productos */}
         <Grid item xs={12} md={8}>
@@ -645,6 +738,34 @@ export default function POS() {
           <Button onClick={() => setOpenScanConfirm(false)}>Cancelar</Button>
           <Button onClick={handleRemoteSearch} variant="contained" color="primary">
             Buscar en Servidor
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={openQueueDialog} onClose={() => setOpenQueueDialog(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Cola de sincronización offline</DialogTitle>
+        <DialogContent dividers>
+          {syncQueueItems.length === 0 ? (
+            <Typography variant="body2" color="textSecondary">
+              No hay operaciones pendientes.
+            </Typography>
+          ) : (
+            <List>
+              {syncQueueItems.map((q) => (
+                <ListItem key={q.id} divider>
+                  <ListItemText
+                    primary={`${q.operation} en ${q.table_name} (${q.status})`}
+                    secondary={`${new Date(q.created_at).toLocaleString('es-AR')} - payload: ${JSON.stringify(q.payload).slice(0, 120)}`}
+                  />
+                </ListItem>
+              ))}
+            </List>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={loadSyncQueue}>Actualizar</Button>
+          <Button variant="contained" onClick={() => setOpenQueueDialog(false)}>
+            Cerrar
           </Button>
         </DialogActions>
       </Dialog>

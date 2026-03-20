@@ -4,7 +4,7 @@ import { supabase } from '../services/supabaseClient';
 
 export const useAuthStore = create(
   persist(
-    (set) => ({ // Removed 'get' as it's no longer needed in login
+    (set, get) => ({
       user: null,
       profile: null,
       loading: false,
@@ -48,6 +48,11 @@ export const useAuthStore = create(
 
       fetchProfile: async (userId) => {
         // loading lo controla AuthProvider
+        const cachedProfile = get().profile;
+        if (!navigator.onLine && cachedProfile?.id === userId) {
+          return cachedProfile;
+        }
+
         try {
           // Intentamos la consulta al esquema core
           const { data, error } = await supabase
@@ -72,10 +77,16 @@ export const useAuthStore = create(
           //   return dataAlt;
           // }
 
-          set({ profile: data });
-          return data;
+          if (error) {
+            if (cachedProfile?.id === userId) return cachedProfile;
+            throw error;
+          }
+
+          set({ profile: data || cachedProfile || null });
+          return data || cachedProfile || null;
         } catch (error) {
           console.error('Error fetching profile:', error.message);
+          if (cachedProfile?.id === userId) return cachedProfile;
           set({ error: error.message });
           return null;
         }
@@ -84,12 +95,10 @@ export const useAuthStore = create(
     {
       name: 'auth-storage', 
       // Evitamos persistir estado efímero o sensible del runtime
-      partialize: (state) =>
-        Object.fromEntries(
-          Object.entries(state).filter(
-            ([key]) => !['user', 'profile', 'loading', 'authReady', 'error'].includes(key)
-          )
-        ),
+      partialize: (state) => ({
+        user: state.user,
+        profile: state.profile,
+      }),
       // Forzar estado limpio al rehidratar para evitar loading colgado
       onRehydrateStorage: () => (state) => {
         if (!state) return;

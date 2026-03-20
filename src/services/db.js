@@ -99,6 +99,26 @@ const appointmentsSchema = {
   required: ['id', 'account_id', 'business_id', 'start_time', 'end_time', 'status']
 };
 
+// Esquema para Negocios/Sucursales (Reflejo de core.businesses)
+const businessesSchema = {
+  title: 'businesses schema',
+  version: 0,
+  primaryKey: 'id',
+  type: 'object',
+  properties: {
+    id: { type: 'string', maxLength: 100 },
+    account_id: { type: 'string' },
+    name: { type: 'string' },
+    business_type: { type: 'string' },
+    address: { type: 'string' },
+    phone_number: { type: 'string' },
+    email: { type: 'string' },
+    updated_at: { type: 'string' },
+    is_deleted: { type: 'boolean', default: false }
+  },
+  required: ['id', 'account_id', 'name']
+};
+
 // Esquema para la Cola de Sincronización (Offline Sync Queue)
 const syncQueueSchema = {
   title: 'sync queue schema',
@@ -129,6 +149,7 @@ const _create = async () => {
     stock_levels: { schema: stockLevelsSchema },
     customers: { schema: customerSchema },
     appointments: { schema: appointmentsSchema },
+    businesses: { schema: businessesSchema },
     sync_queue: { schema: syncQueueSchema }
   });
 

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../services/supabaseClient';
 import { useAuthStore } from '../stores/authStore';
+import { useOffline } from './useOffline';
 
 export const useBusinesses = () => {
   const { profile } = useAuthStore();
@@ -8,6 +9,7 @@ export const useBusinesses = () => {
   const [accountUsers, setAccountUsers] = useState([]); // Todos los usuarios de la cuenta
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const { db, isOnline } = useOffline();
 
   const fetchData = useCallback(async () => {
     if (!profile?.account_id) return;
@@ -15,6 +17,15 @@ export const useBusinesses = () => {
     setLoading(true);
     setError(null);
     try {
+      if (!isOnline && db) {
+        const localBusinesses = await db.businesses.find({
+          selector: { account_id: profile.account_id, is_deleted: false }
+        }).exec();
+        setBusinesses(localBusinesses.map((b) => ({ ...b.toJSON(), staff: [] })));
+        setAccountUsers([]);
+        return;
+      }
+
       // 1. Obtener los negocios de la cuenta
       const { data: bData, error: bError } = await supabase
         .schema('core')
@@ -61,13 +72,16 @@ export const useBusinesses = () => {
       }));
 
       setBusinesses(businessesWithStaff);
+      if (db && bData?.length) {
+        await db.businesses.bulkUpsert(bData);
+      }
     } catch (err) {
       console.error('Error en useBusinesses:', err.message);
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  }, [profile?.account_id]);
+  }, [profile?.account_id, isOnline, db]);
 
   // Función para asignar un usuario a un negocio
   const assignEmployee = async (userId, businessId) => {

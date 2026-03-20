@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '../services/supabaseClient';
 import { useAuthStore } from '../stores/authStore';
+import { syncService } from '../services/syncService';
 
 export const useCashRegister = () => {
   const [activeSession, setActiveSession] = useState(null);
@@ -11,6 +12,10 @@ export const useCashRegister = () => {
 
   const checkActiveSession = useCallback(async (businessId) => {
     if (!profile?.id || !businessId) return null;
+    if (!navigator.onLine || syncService.isNetworkDegraded()) {
+      setActiveSession(null);
+      return null;
+    }
     
     setLoading(true);
     setSessionSummary(null); // Reset summary when checking
@@ -30,7 +35,14 @@ export const useCashRegister = () => {
       return data;
     } catch (err) {
       console.error('Error checking cash session:', err.message);
-      setError(err.message);
+      setActiveSession(null);
+      if (/Failed to fetch|ERR_NAME_NOT_RESOLVED|NetworkError/i.test(err.message || '')) {
+        syncService.markNetworkDegraded();
+      }
+      // En fallas de red (ej. DNS), no bloquear UX del POS con estado de error ruidoso
+      if (!/Failed to fetch|ERR_NAME_NOT_RESOLVED/i.test(err.message || '')) {
+        setError(err.message);
+      }
       return null;
     } finally {
       setLoading(false);

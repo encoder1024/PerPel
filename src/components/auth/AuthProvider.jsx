@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect } from "react";
 import { useAuthStore } from "../../stores/authStore";
 import { supabase } from "../../services/supabaseClient";
+import { syncService } from "../../services/syncService";
 
 export const AuthProvider = ({ children }) => {
   const { setUser, setProfile, setLoading, setAuthReady, fetchProfile } = useAuthStore();
@@ -53,13 +54,25 @@ export const AuthProvider = ({ children }) => {
       try {
         if (session) {
           setUser(session.user);
+          const cachedProfile = useAuthStore.getState().profile;
+          const hasCachedProfile = cachedProfile?.id === session.user.id;
+          if (hasCachedProfile) {
+            setProfile(cachedProfile);
+          }
           // Evitar refetch pesado si el evento es solo refresh de token
+          let loadedProfile = cachedProfile;
           if (event !== 'TOKEN_REFRESHED') {
-            await withTimeout(
-              fetchProfile(session.user.id),
-              8000,
-              "Profile fetch timeout",
-            );
+            if (!hasCachedProfile || (navigator.onLine && !syncService.isNetworkDegraded())) {
+              loadedProfile = await withTimeout(
+                fetchProfile(session.user.id),
+                1500,
+                "Profile fetch timeout",
+              );
+            }
+          }
+
+          if (navigator.onLine && !syncService.isNetworkDegraded() && loadedProfile?.account_id) {
+            syncService.pullData(loadedProfile.account_id);
           }
         } else {
           // Recheck once before clearing (avoid transient null session)
@@ -71,6 +84,9 @@ export const AuthProvider = ({ children }) => {
         }
       } catch (error) {
         console.error("Error during onAuthStateChange processing:", error);
+        if (/Failed to fetch|ERR_NAME_NOT_RESOLVED|NetworkError|timeout/i.test(error.message || '')) {
+          syncService.markNetworkDegraded();
+        }
         // Optionally set error state in store
       } finally {
         if (shouldBlock) setLoading(false);
