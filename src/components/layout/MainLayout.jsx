@@ -26,6 +26,7 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { navigationItems } from '../../utils/navigation';
+import clientLogo from '../../assets/logoAE_full.jpg';
 
 const drawerWidth = 240;
 
@@ -137,9 +138,17 @@ export default function MainLayout({ children }) {
           >
             <MenuIcon />
           </IconButton>
-          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1, fontWeight: 600 }}>
-            {profile?.account_name || 'PerPel ERP'}
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1 }}>
+            <Box
+              component="img"
+              src={clientLogo}
+              alt="Logo"
+              sx={{ height: 32, mr: 2 }}
+            />
+            <Typography variant="h6" noWrap component="div" sx={{ fontWeight: 600 }}>
+              {profile?.account_name || 'PerPel ERP'}
+            </Typography>
+          </Box>
           <div>
             <IconButton
               size="large"

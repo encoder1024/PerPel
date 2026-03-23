@@ -15,6 +15,7 @@ import {
   Card,
   CardContent,
   CardActionArea,
+  CardMedia,
   InputAdornment,
   MenuItem,
   CircularProgress,
@@ -297,18 +298,46 @@ export default function POS() {
       if (!profile?.account_id) return;
       try {
         if (isEffectivelyOnline) {
-          const { data } = await supabase
-            .schema('core')
-            .from('businesses')
-            .select('*')
-            .eq('account_id', profile.account_id)
-            .eq('is_deleted', false);
+          // Filtramos negocios según vinculación (employee_assignments)
+          // Excepto para OWNER, ADMIN y DEVELOPER que ven todos por defecto
+          let data;
+          if (['OWNER', 'ADMIN', 'DEVELOPER'].includes(profile.app_role)) {
+            const { data: allData } = await supabase
+              .schema('core')
+              .from('businesses')
+              .select('*')
+              .eq('account_id', profile.account_id)
+              .eq('is_deleted', false);
+            data = allData;
+          } else {
+            const { data: linkedData } = await supabase
+              .schema('core')
+              .from('businesses')
+              .select(`
+                *,
+                employee_assignments!inner(user_id)
+              `)
+              .eq('account_id', profile.account_id)
+              .eq('is_deleted', false)
+              .eq('employee_assignments.user_id', profile.id)
+              .eq('employee_assignments.is_deleted', false);
+            
+            // Limpiamos el objeto de la respuesta del join
+            data = linkedData?.map(b => {
+              const { employee_assignments, ...rest } = b;
+              return rest;
+            });
+          }
 
           if (data && data.length > 0) {
             syncService.markNetworkHealthy();
             setIsDegraded(false);
             setBusinesses(data);
+            
+            // Guardamos en cache y RxDB solo los negocios permitidos para este usuario
             localStorage.setItem(POS_BUSINESSES_CACHE_KEY, JSON.stringify(data.map((b) => ({ id: b.id, name: b.name, account_id: b.account_id, is_deleted: false }))));
+            localStorage.setItem(`${POS_BUSINESSES_CACHE_KEY}_ids`, JSON.stringify(data.map(b => b.id)));
+
             if (db) {
               await db.businesses.bulkUpsert(data.map((b) => ({ ...b, is_deleted: Boolean(b.is_deleted ?? b.deleted ?? false) })));
             }
@@ -318,10 +347,20 @@ export default function POS() {
           }
         }
 
+        // Caso Offline o sin datos online: usamos RxDB y filtramos por IDs cacheados
         if (db) {
+          const cachedIdsRaw = localStorage.getItem(`${POS_BUSINESSES_CACHE_KEY}_ids`);
+          const cachedIds = cachedIdsRaw ? JSON.parse(cachedIdsRaw) : null;
+          
+          const selector = { account_id: profile.account_id };
+          if (cachedIds && cachedIds.length > 0) {
+            selector.id = { $in: cachedIds };
+          }
+
           const localBusinesses = await db.businesses.find({
-            selector: { account_id: profile.account_id }
+            selector
           }).exec();
+
           const mapped = localBusinesses
             .map((d) => d.toJSON())
             .filter((b) => !(b.is_deleted ?? b.deleted ?? false));
@@ -351,7 +390,7 @@ export default function POS() {
       }
     };
     fetchBusinesses();
-  }, [profile?.account_id, checkActiveSession, isEffectivelyOnline, db]);
+  }, [profile?.account_id, profile?.id, profile?.app_role, checkActiveSession, isEffectivelyOnline, db]);
 
   // Fetch items when business changes
   useEffect(() => {
@@ -549,9 +588,31 @@ export default function POS() {
                 <Grid container spacing={1.5}>
                   {filteredItems.map((item) => (
                     <Grid item xs={12} sm={6} md={4} key={item.id}>
-                      <Card variant="outlined">
-                        <CardActionArea onClick={() => addToCart(item)}>
-                          <CardContent sx={{ p: 1.5 }}>
+                      <Card variant="outlined" sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                        <CardActionArea onClick={() => addToCart(item)} sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
+                          {item.image_url ? (
+                            <CardMedia
+                              component="img"
+                              height="140"
+                              image={item.image_url}
+                              alt={item.name}
+                              sx={{ objectFit: 'contain', bgcolor: '#f8fafc', p: 1 }}
+                            />
+                          ) : (
+                            <Box
+                              sx={{
+                                height: 140,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                bgcolor: '#f1f5f9',
+                                color: 'text.secondary'
+                              }}
+                            >
+                              <Typography variant="caption">Sin Imagen</Typography>
+                            </Box>
+                          )}
+                          <CardContent sx={{ p: 1.5, flexGrow: 1 }}>
                             <Typography variant="subtitle2" noWrap sx={{ fontWeight: 600 }}>{item.name}</Typography>
                             <Typography variant="body2" color="textSecondary">{item.sku || '-'}</Typography>
                             <Typography variant="h6" sx={{ mt: 1, color: 'primary.main', fontWeight: 700 }}>
