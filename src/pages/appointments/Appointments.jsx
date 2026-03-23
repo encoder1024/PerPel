@@ -66,7 +66,7 @@ export default function Appointments() {
       const { data, error: credError } = await supabase
         .schema("core")
         .from("business_credentials")
-        .select("id, external_status")
+        .select("id, external_status") // Eliminado business_id ya que no existe en esta tabla
         .eq("account_id", profile.account_id)
         .eq("api_name", "CAL_COM")
         .eq("is_deleted", false)
@@ -117,24 +117,14 @@ export default function Appointments() {
   // Extraemos lo que necesitamos del namespace
   const getCalApi = CalEmbed.getCalApi;
 
-  // In a real scenario, this would be the Cal.com link of the business or employee
-  const CAL_COM_LINK =
-    "andres-ferrer-yknamm/62edd46d-ec20-4178-b7d0-48ba8b080586";
+  // El link de Cal.com ahora es dinámico basado en el negocio seleccionado
+  const CAL_COM_LINK = selectedBusinessId 
+    ? `andres-ferrer-yknamm/${selectedBusinessId}`
+    : "";
 
   useEffect(() => {
-    (async function () {
-      const cal = await getCalApi({
-        namespace: "62edd46d-ec20-4178-b7d0-48ba8b080586",
-      });
-      cal("inline", { 
-        calLink: CAL_COM_LINK,
-        elementOrSelector: "#my-cal-inlines",
-        config: { layout: "week_view" },
-      });
-    })();
-  }, []);
+    if (!CAL_COM_LINK) return;
 
-  useEffect(() => {
     let calInstance;
 
     (async function initCal() {
@@ -149,7 +139,7 @@ export default function Appointments() {
         // Ejecutamos la carga "inline"
         cal("inline", {
           elementOrSelector: "#cal-inline-container",
-          calLink: CAL_COM_LINK, // Aquí definimos el link
+          calLink: CAL_COM_LINK,
           config: { 
             layout: "month_view",
             theme: "light" 
@@ -157,7 +147,7 @@ export default function Appointments() {
         });
 
         cal("ui", {
-          styles: { branding: { brandColor: "#000000" } },
+          styles: { branding: { brandColor: "#1e293b" } },
           hideEventTypeDetails: false,
           layout: "month_view"
         });
@@ -167,13 +157,8 @@ export default function Appointments() {
           action: "bookingSuccessful",
           callback: (e) => {
             console.log("Reserva exitosa en Cal.com:", e);
-            
-            // 1. Refrescar la lista de turnos en el ERP (con un pequeño delay para que el webhook procese)
             setTimeout(() => {
-              if (typeof setSelectedBusinessId === 'function') {
-                // Forzamos un refresco recargando las citas
-                window.location.reload(); // Opción radical si el hook no expone refresh directamente
-              }
+              refresh(); // Refrescamos los turnos usando la función del hook
             }, 2000);
           }
         });
@@ -182,29 +167,7 @@ export default function Appointments() {
         console.error("Error al inicializar Cal.com:", err);
       }
     })();
-  }, [selectedBusinessId]);
-
-  useEffect(() => {
-    // Load Cal.com embed script
-    const script = document.createElement("script");
-    script.src = "https://app.cal.com/embed/embed.js";
-    script.async = true;
-    script.onload = () => {
-      if (window.Cal) {
-        window.Cal("init", { origin: "https://cal.com" });
-        window.Cal("ui", {
-          styles: { branding: { brandColor: "#1e293b" } },
-          hideEventTypeDetails: false,
-          layout: "month_view",
-        });
-      }
-    };
-    document.body.appendChild(script);
-
-    return () => {
-      document.body.removeChild(script);
-    };
-  }, []);
+  }, [selectedBusinessId, CAL_COM_LINK]);
 
   const normalizePhone = (phone) => {
     const digits = (phone ?? "").toString().replace(/[^\d+]/g, "");

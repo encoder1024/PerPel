@@ -1,0 +1,23 @@
+<script type="module">
+    import Typebot from 'https://cdn.jsdelivr.net/npm/@typebot.io/js@0.2/dist/index.js'
+
+    Typebot.initBubble({
+      typebot: "product-recommendation-41m86y9", // Reemplaza con el ID de tu bot
+      apiHost: "https://typebot.io",
+      previewMessage: {
+        message: "¡Hola! ¿Buscás alguna fragancia en especial?",
+        autoShowDelay: 3000,
+        avatarUrl: "https://per-pel.vercel.app/vite.svg", // URL del logo de la perfumería
+      },
+      theme: {
+        button: {
+          backgroundColor: "#1A1A1A", // Color elegante (Negro/Gris oscuro)
+          customIconSrc: "https://per-pel.vercel.app/icon-perfume.svg",
+        },
+        previewMessage: { 
+          backgroundColor: "#FFFFFF", 
+          textColor: "#1A1A1A" 
+        },
+      },
+    });
+</script>

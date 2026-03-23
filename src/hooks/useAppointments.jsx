@@ -23,12 +23,32 @@ export const useAppointments = () => {
     if (!profile?.account_id || !profile?.id) return;
     setError(null);
     try {
+      // Consultar negocios que tienen credenciales de CAL_COM asignadas y activas
+      const { data: assignedCreds, error: credError } = await supabase
+        .schema("core")
+        .from("business_asign_credentials")
+        .select("business_id")
+        .eq("account_id", profile.account_id)
+        .eq("api_name", "CAL_COM")
+        .eq("is_active", true)
+        .eq("is_deleted", false);
+
+      if (credError) throw credError;
+      
+      const calcomBusinessIds = assignedCreds?.map(c => c.business_id) || [];
+
+      if (calcomBusinessIds.length === 0) {
+        setBusinesses([]);
+        return;
+      }
+
       if (isOwnerAdmin) {
         const { data, error: bError } = await supabase
           .schema("core")
           .from("businesses")
           .select("id, name")
           .eq("account_id", profile.account_id)
+          .in("id", calcomBusinessIds)
           .eq("is_deleted", false)
           .order("name");
         if (bError) throw bError;
@@ -43,6 +63,7 @@ export const useAppointments = () => {
           .select("business:businesses (id, name)")
           .eq("account_id", profile.account_id)
           .eq("user_id", profile.id)
+          .in("business_id", calcomBusinessIds)
           .eq("is_deleted", false);
         if (aError) throw aError;
         const mapped =
@@ -54,7 +75,7 @@ export const useAppointments = () => {
       }
     } catch (err) {
       console.error("Error loading businesses:", err.message);
-      setError("No se pudieron cargar los negocios.");
+      setError("No se pudieron cargar los negocios con agenda habilitada.");
     }
   }, [profile?.account_id, profile?.id, isOwnerAdmin, selectedBusinessId]);
 

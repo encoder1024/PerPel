@@ -134,19 +134,16 @@ export const useStock = () => {
 
     try {
       if (assign) {
-        // Assign: Insert into stock_levels with 0 quantity
-        const { error: insError } = await supabase
-          .schema('core')
-          .from('stock_levels')
-          .upsert({
-            item_id: item.id,
-            business_id: selectedBusinessId,
-            account_id: profile.account_id,
-            quantity: 0
-          });
-        if (insError) throw insError;
+        // Al vincular, usamos adjustStock con LINK_ITEM
+        // El quantityChange es 0 porque LINK_ITEM inicializa el stock en NULL en la DB
+        return await adjustStock({
+          itemId: item.id,
+          quantityChange: 0,
+          movementType: 'LINK_ITEM',
+          reason: 'Vinculación inicial del ítem al negocio.'
+        });
       } else {
-        // Unassign: Delete from stock_levels (or soft delete)
+        // Unassign: Delete from stock_levels (o soft delete)
         const { error: delError } = await supabase
           .schema('core')
           .from('stock_levels')
