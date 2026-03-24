@@ -193,26 +193,30 @@ export default function Appointments() {
             )}
           </Box>
 
-          <Button 
-            variant="outlined" 
-            size="small" 
-            startIcon={<LinkIcon />}
-            onClick={handleLinkCalcom}
-            disabled={calcomStatus === 'active'}
-          >
-            Vincular
-          </Button>
+          {isOwnerAdmin && (
+            <>
+              <Button 
+                variant="outlined" 
+                size="small" 
+                startIcon={<LinkIcon />}
+                onClick={handleLinkCalcom}
+                disabled={calcomStatus === 'active'}
+              >
+                Vincular
+              </Button>
 
-          <Button 
-            variant="outlined" 
-            size="small" 
-            color="secondary"
-            startIcon={refreshing ? <CircularProgress size={16} /> : <SyncIcon />}
-            onClick={handleRefreshCalcom}
-            disabled={calcomStatus === 'disconnected' || refreshing}
-          >
-            Refrescar Token
-          </Button>
+              <Button 
+                variant="outlined" 
+                size="small" 
+                color="secondary"
+                startIcon={refreshing ? <CircularProgress size={16} /> : <SyncIcon />}
+                onClick={handleRefreshCalcom}
+                disabled={calcomStatus === 'disconnected' || refreshing}
+              >
+                Refrescar Token
+              </Button>
+            </>
+          )}
         </Box>
       </Box>
 

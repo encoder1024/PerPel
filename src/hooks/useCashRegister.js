@@ -59,8 +59,8 @@ export const useCashRegister = () => {
 
       if (rpcError) throw rpcError;
 
-      setSessionSummary({ total_cash_sales: data });
-      return { total_cash_sales: data };
+      setSessionSummary(data);
+      return data;
     } catch (err) {
       setError(err.message);
       setSessionSummary(null);
@@ -205,6 +205,58 @@ export const useCashRegister = () => {
     }
   }, [profile?.account_id]);
 
+  const fetchLastClosedSession = useCallback(async (businessId) => {
+    if (!profile?.account_id || !businessId) return null;
+    try {
+      const { data, error } = await supabase
+        .schema('core')
+        .from('cash_register_sessions')
+        .select('*')
+        .eq('account_id', profile.account_id)
+        .eq('business_id', businessId)
+        .eq('status', 'CLOSED')
+        .eq('is_deleted', false)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) throw error;
+      return data;
+    } catch (err) {
+      console.error('Error fetching last closed session:', err.message);
+      return null;
+    }
+  }, [profile?.account_id]);
+
+  const createAdjustment = async (businessId, sessionId, adjustmentData) => {
+    // adjustmentData: { amount, type, reason }
+    // types: 'WITHDRAWAL', 'CONTRIBUTION', 'DIFF_POSITIVE', 'DIFF_NEGATIVE'
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .rpc('adjust_cash', {
+          p_business_id: businessId,
+          p_account_id: profile.account_id,
+          p_session_id: sessionId,
+          p_amount: parseFloat(adjustmentData.amount),
+          p_movement_type: adjustmentData.type,
+          p_reason: adjustmentData.reason,
+          p_user_id: profile.id
+        });
+
+      if (error) throw error;
+      
+      if (data.status === 'error') throw new Error(data.message);
+
+      return { success: true, data };
+    } catch (err) {
+      console.error('Error creating cash adjustment:', err.message);
+      return { success: false, error: err.message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return {
     activeSession,
     sessionSummary,
@@ -214,7 +266,9 @@ export const useCashRegister = () => {
     fetchAllActiveSessions,
     fetchSessionSummary,
     fetchSessionPayments,
+    fetchLastClosedSession,
     openSession,
-    closeSession
+    closeSession,
+    createAdjustment
   };
 };
