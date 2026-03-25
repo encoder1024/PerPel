@@ -143,6 +143,109 @@ export const useBusinesses = () => {
     }
   };
 
+  // Función para crear un negocio
+  const createBusiness = async (businessData) => {
+    try {
+      const { error } = await supabase
+        .schema('core')
+        .from('businesses')
+        .insert({
+          ...businessData,
+          account_id: profile.account_id
+        });
+      if (error) throw error;
+      await fetchData();
+      return { success: true };
+    } catch (err) {
+      return { success: false, message: err.message };
+    }
+  };
+
+  // Función para actualizar un negocio
+  const updateBusiness = async (id, businessData) => {
+    try {
+      const { error } = await supabase
+        .schema('core')
+        .from('businesses')
+        .update({
+          ...businessData,
+          updated_at: new Date()
+        })
+        .eq('id', id)
+        .eq('account_id', profile.account_id);
+      if (error) throw error;
+      await fetchData();
+      return { success: true };
+    } catch (err) {
+      return { success: false, message: err.message };
+    }
+  };
+
+  // Función para borrar (soft-delete) un negocio
+  const deleteBusiness = async (id) => {
+    try {
+      const { error } = await supabase
+        .schema('core')
+        .from('businesses')
+        .update({ is_deleted: true, updated_at: new Date() })
+        .eq('id', id)
+        .eq('account_id', profile.account_id);
+      if (error) throw error;
+      await fetchData();
+      return { success: true };
+    } catch (err) {
+      return { success: false, message: err.message };
+    }
+  };
+
+  // Función para actualizar un perfil de usuario (incluyendo rol)
+  const updateUserProfile = async (userId, profileData) => {
+    try {
+      const { error } = await supabase
+        .schema('core')
+        .from('user_profiles')
+        .update({
+          ...profileData,
+          updated_at: new Date()
+        })
+        .eq('id', userId)
+        .eq('account_id', profile.account_id);
+      if (error) throw error;
+      await fetchData();
+      return { success: true };
+    } catch (err) {
+      return { success: false, message: err.message };
+    }
+  };
+
+  // Función para borrar (soft-delete) un perfil de usuario
+  const deleteUserProfile = async (userId) => {
+    try {
+      // 1. Borrar perfil
+      const { error: pError } = await supabase
+        .schema('core')
+        .from('user_profiles')
+        .update({ is_deleted: true, updated_at: new Date() })
+        .eq('id', userId)
+        .eq('account_id', profile.account_id);
+      if (pError) throw pError;
+
+      // 2. Borrar sus asignaciones
+      const { error: aError } = await supabase
+        .schema('core')
+        .from('employee_assignments')
+        .update({ is_deleted: true, updated_at: new Date() })
+        .eq('user_id', userId)
+        .eq('account_id', profile.account_id);
+      if (aError) throw aError;
+
+      await fetchData();
+      return { success: true };
+    } catch (err) {
+      return { success: false, message: err.message };
+    }
+  };
+
   useEffect(() => {
     fetchData();
   }, [fetchData]);
@@ -152,6 +255,11 @@ export const useBusinesses = () => {
     accountUsers,
     loading,
     error,
+    createBusiness,
+    updateBusiness,
+    deleteBusiness,
+    updateUserProfile,
+    deleteUserProfile,
     assignEmployee,
     removeEmployee,
     refresh: fetchData
