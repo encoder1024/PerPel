@@ -496,11 +496,7 @@ export default function POS() {
         }
       } catch (err) {
         console.error("POS businesses load error:", err);
-        if (
-          /Failed to fetch|ERR_NAME_NOT_RESOLVED|NetworkError/i.test(
-            err?.message || "",
-          )
-        ) {
+        if (syncService.isNetworkFailure(err?.message)) {
           syncService.markNetworkDegraded();
           setIsDegraded(true);
         }

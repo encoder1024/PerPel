@@ -109,7 +109,7 @@ export const usePOS = () => {
       }
     } catch (err) {
       console.error('Error fetching business items:', err.message);
-      if (/Failed to fetch|ERR_NAME_NOT_RESOLVED|NetworkError/i.test(err.message || '')) {
+      if (syncService.isNetworkFailure(err.message)) {
         syncService.markNetworkDegraded();
       }
       try {

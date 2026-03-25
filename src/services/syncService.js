@@ -7,8 +7,12 @@ export const syncService = {
   _isInitialized: false,
   _syncIntervalId: null,
   _isProcessingQueue: false,
-  markNetworkDegraded: (ms = 120000) => {
-    syncService.networkDegradedUntil = Date.now() + ms;
+  markNetworkDegraded: (ms = 10000) => {
+    // Solo marcamos como degradado si no lo estaba ya por un tiempo mayor
+    const newUntil = Date.now() + ms;
+    if (newUntil > syncService.networkDegradedUntil) {
+      syncService.networkDegradedUntil = newUntil;
+    }
   },
   markNetworkHealthy: () => {
     syncService.networkDegradedUntil = 0;
@@ -17,8 +21,11 @@ export const syncService = {
 
   // Check if there's internet connection
   isOnline: () => navigator.onLine && !syncService.isNetworkDegraded(),
-  isNetworkFailure: (message = '') =>
-    /Failed to fetch|ERR_NAME_NOT_RESOLVED|NetworkError/i.test(message),
+  isNetworkFailure: (message = '') => {
+    // Ignoramos errores vacíos o que parezcan cancelaciones de fetch (común en reload/unload)
+    if (!message || message === 'Load failed' || message.includes('abort')) return false;
+    return /Failed to fetch|ERR_NAME_NOT_RESOLVED|NetworkError|TypeError: Failed to fetch/i.test(message);
+  },
   isDuplicateKeyError: (error) => {
     const message = error?.message || '';
     return error?.code === '23505' || /duplicate key value violates unique constraint/i.test(message);
