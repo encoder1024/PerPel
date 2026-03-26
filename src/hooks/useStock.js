@@ -79,11 +79,14 @@ export const useStock = () => {
       const processedData = data.map(item => {
         // Find the stock level entry for the selected business
         const businessStock = item.stock_levels?.find(sl => sl.business_id === selectedBusinessId);
+        const isAssigned = !!businessStock;
+        const currentStock = isAssigned ? businessStock.quantity : null;
         return {
           ...item,
           category_name: item.item_categories?.name || 'N/A',
-          current_stock: businessStock ? businessStock.quantity : null, // null means not assigned
-          is_assigned: !!businessStock
+          current_stock: currentStock,
+          is_assigned: isAssigned,
+          is_uninitialized: isAssigned && currentStock == null,
         };
       });
 

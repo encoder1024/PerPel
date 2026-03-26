@@ -63,13 +63,14 @@ export default function StockManagement() {
     setOpenDialog(true);
     setQuantity('');
     setReason('');
+    const needsInitialStock = item.is_assigned && item.current_stock == null;
     
     // Determinar el tipo de movimiento inicial correcto
     if (profile?.app_role === 'EMPLOYEE') {
       setMovementType('PURCHASE_IN');
     } else {
       // Si es Admin/Owner y el stock es NULL, forzamos INITIAL_STOCK
-      if (item.current_stock === null) {
+      if (needsInitialStock) {
         setMovementType('INITIAL_STOCK');
       } else {
         setMovementType('ADJUSTMENT_IN');
@@ -134,13 +135,14 @@ export default function StockManagement() {
   };
 
   const isEmployee = profile?.app_role === 'EMPLOYEE';
-  const isAdminOrOwner = ['ADMIN', 'OWNER'].includes(profile?.app_role);
+  const canManageInitialStock = ['ADMIN', 'OWNER', 'DEVELOPER'].includes(profile?.app_role);
 
   // Dynamically generate menu items based on role
   const getMovementTypeOptions = () => {
     if (!selectedItem) return [];
     
     const options = [];
+    const needsInitialStock = selectedItem.is_assigned && selectedItem.current_stock == null;
     if (isEmployee) {
       options.push(
         <MenuItem key="PURCHASE_IN" value="PURCHASE_IN">Ingreso (Compra/Entrada)</MenuItem>,
@@ -149,9 +151,9 @@ export default function StockManagement() {
         <MenuItem key="TESTING_STOCK" value="TESTING_STOCK">Egreso (Tester/Muestra)</MenuItem>,
       );
     }
-    if (isAdminOrOwner) {
+    if (canManageInitialStock) {
       // INITIAL_STOCK solo se muestra si el ítem está vinculado pero su stock es NULL
-      if (selectedItem.current_stock === null) {
+      if (needsInitialStock) {
         options.push(
           <MenuItem key="INITIAL_STOCK" value="INITIAL_STOCK">Carga Inicial de Stock</MenuItem>
         );
@@ -238,8 +240,8 @@ export default function StockManagement() {
                   <TableCell>{item.category_name}</TableCell>
                   <TableCell align="right">
                     {item.item_type === 'PRODUCT' ? (
-                      <Typography variant="body1" sx={{ fontWeight: 700, color: (item.current_stock || 0) < 5 ? 'error.main' : 'inherit' }}>
-                        {item.is_assigned ? item.current_stock : '-'}
+                      <Typography variant="body1" sx={{ fontWeight: 700, color: item.is_uninitialized ? 'warning.main' : (item.current_stock || 0) < 5 ? 'error.main' : 'inherit' }}>
+                        {!item.is_assigned ? '-' : item.is_uninitialized ? 'No inicializado' : item.current_stock}
                       </Typography>
                     ) : (
                       <Typography variant="body2" color="text.secondary">N/A</Typography>
@@ -248,7 +250,7 @@ export default function StockManagement() {
                   <TableCell align="center">
                     <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
                       {item.item_type === 'PRODUCT' && (
-                        <Tooltip title={item.is_assigned ? "Realizar Ajuste de Stock" : "Primero debe vincular el producto"}>
+                        <Tooltip title={!item.is_assigned ? "Primero debe vincular el producto" : item.is_uninitialized ? "Registrar carga inicial de stock" : "Realizar ajuste de stock"}>
                           <span>
                             <IconButton 
                               size="small" 

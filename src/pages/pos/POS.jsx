@@ -712,13 +712,15 @@ export default function POS() {
   return (
     <Box sx={{ flexGrow: 1 }}>
       {/* Botón de Ayuda Contextual */}
-      <button
-        onClick={() => setRunTutorial(true)}
-        className="bg-gray-200 p-2 rounded-full hover:bg-gray-300"
-        title="Ayuda técnica"
-      >
-        ❓ Ayuda
-      </button>
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
+        <button
+          onClick={() => setRunTutorial(true)}
+          className="bg-gray-200 px-4 py-1.5 rounded-full hover:bg-gray-300 transition-colors flex items-center gap-1 text-sm font-medium"
+          title="Ayuda técnica"
+        >
+          ❓ Ayuda
+        </button>
+      </Box>
       {/* El componente del Tour */}
       <TutorialGuide
         steps={stepsVentas}
