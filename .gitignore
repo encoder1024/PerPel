@@ -9,6 +9,9 @@ yarn-error.log*
 *.jpeg
 *.avif
 *.zip
+
+venv/
+
 <<<<<<< HEAD
 pnpm-debug.log*
 lerna-debug.log*

@@ -4,6 +4,7 @@ import StorefrontIcon from '@mui/icons-material/Storefront';
 import InventoryIcon from '@mui/icons-material/Inventory';
 import ReceiptIcon from '@mui/icons-material/Receipt';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import MonitorHeartIcon from '@mui/icons-material/MonitorHeart';
 import PeopleIcon from '@mui/icons-material/People';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import SettingsIcon from '@mui/icons-material/Settings';
@@ -19,6 +20,7 @@ export const navigationItems = [
   { text: 'Gestión de Stock', icon: <InventoryIcon />, path: '/stock', roles: ['OWNER', 'ADMIN', 'EMPLOYEE'] }, // Added Stock Management
   { text: 'Facturación', icon: <ReceiptIcon />, path: '/facturacion', roles: ['OWNER', 'ADMIN', 'EMPLOYEE'] },
   { text: 'Turnos', icon: <CalendarMonthIcon />, path: '/turnos', roles: ['OWNER', 'ADMIN', 'EMPLOYEE'] },
+  { text: 'Monitoreo', icon: <MonitorHeartIcon />, path: '/monitoreo', roles: ['OWNER', 'ADMIN', 'EMPLOYEE'] },
   { text: 'Clientes', icon: <PeopleIcon />, path: '/clientes', roles: ['OWNER', 'ADMIN', 'EMPLOYEE'] },
   { text: 'Reportes', icon: <BarChartIcon />, path: '/reportes', roles: ['OWNER', 'AUDITOR'] },
   { text: 'Configuración', icon: <SettingsIcon />, path: '/configuracion', roles: ['OWNER', 'ADMIN'] },

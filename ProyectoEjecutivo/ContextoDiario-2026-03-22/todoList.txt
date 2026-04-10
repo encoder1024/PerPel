@@ -1,0 +1,4 @@
+1-Done: Arreglar inicialización de stock. Probable problema de sincronización ente RxDB y supabase.
+2-Done: Agregar CRUD a la configuración de Sucursales y Staff, para poder editar y borrar sucursales y reasignar personal entre sucursales.
+3-Done: Hacer que la cambiar de negocio en el selector en la pagina de turnos, también cambie el turnero que se presenta en la página.
+4-Done: Sumarle  a la gestión de la caja diaria el resultado del día anterior y dar la opción de hacer retiros de caja y dejarlos acentados también.

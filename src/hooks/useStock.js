@@ -79,11 +79,14 @@ export const useStock = () => {
       const processedData = data.map(item => {
         // Find the stock level entry for the selected business
         const businessStock = item.stock_levels?.find(sl => sl.business_id === selectedBusinessId);
+        const isAssigned = !!businessStock;
+        const currentStock = isAssigned ? businessStock.quantity : null;
         return {
           ...item,
           category_name: item.item_categories?.name || 'N/A',
-          current_stock: businessStock ? businessStock.quantity : null, // null means not assigned
-          is_assigned: !!businessStock
+          current_stock: currentStock,
+          is_assigned: isAssigned,
+          is_uninitialized: isAssigned && currentStock == null,
         };
       });
 
@@ -134,19 +137,16 @@ export const useStock = () => {
 
     try {
       if (assign) {
-        // Assign: Insert into stock_levels with 0 quantity
-        const { error: insError } = await supabase
-          .schema('core')
-          .from('stock_levels')
-          .upsert({
-            item_id: item.id,
-            business_id: selectedBusinessId,
-            account_id: profile.account_id,
-            quantity: 0
-          });
-        if (insError) throw insError;
+        // Al vincular, usamos adjustStock con LINK_ITEM
+        // El quantityChange es 0 porque LINK_ITEM inicializa el stock en NULL en la DB
+        return await adjustStock({
+          itemId: item.id,
+          quantityChange: 0,
+          movementType: 'LINK_ITEM',
+          reason: 'Vinculación inicial del ítem al negocio.'
+        });
       } else {
-        // Unassign: Delete from stock_levels (or soft delete)
+        // Unassign: Delete from stock_levels (o soft delete)
         const { error: delError } = await supabase
           .schema('core')
           .from('stock_levels')

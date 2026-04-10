@@ -36,6 +36,7 @@ import * as XLSX from "xlsx";
 import { useInventory } from "../../hooks/useInventory";
 import { useAuthStore } from "../../stores/authStore";
 import { supabase } from "../../services/supabaseClient";
+import { useOffline } from "../../hooks/useOffline";
 
 const initialFormState = {
   name: "",
@@ -51,6 +52,7 @@ export default function Inventory() {
   const { items, loading, error, saveItem, deleteItem, refresh } =
     useInventory();
   const { profile } = useAuthStore();
+  const { db, isOnline } = useOffline();
   const [businesses, setBusinesses] = useState([]); // Lista de negocios
   const [selectedBulkBusiness, setSelectedBulkBusiness] = useState(""); // Negocio para carga masiva
   
@@ -73,19 +75,33 @@ export default function Inventory() {
   // Cargar negocios al iniciar
   useEffect(() => {
     const fetchBusinesses = async () => {
-      const { data } = await supabase
-        .schema('core')
-        .from('businesses')
-        .select('id, name')
-        .eq('account_id', profile.account_id)
-        .eq('is_deleted', false);
-      setBusinesses(data || []);
-      // Pre-seleccionar si solo hay uno o si el perfil tiene uno
-      if (data?.length === 1) setSelectedBulkBusiness(data[0].id);
-      else if (profile.business_id) setSelectedBulkBusiness(profile.business_id);
+      if (!profile?.account_id) return;
+      if (isOnline) {
+        const { data } = await supabase
+          .schema('core')
+          .from('businesses')
+          .select('id, name, account_id, is_deleted')
+          .eq('account_id', profile.account_id)
+          .eq('is_deleted', false);
+        setBusinesses(data || []);
+        if (db && data?.length) {
+          await db.businesses.bulkUpsert(data);
+        }
+        // Pre-seleccionar si solo hay uno o si el perfil tiene uno
+        if (data?.length === 1) setSelectedBulkBusiness(data[0].id);
+        else if (profile.business_id) setSelectedBulkBusiness(profile.business_id);
+      } else if (db) {
+        const localBusinesses = await db.businesses.find({
+          selector: { account_id: profile.account_id, is_deleted: false }
+        }).exec();
+        const mapped = localBusinesses.map((d) => d.toJSON());
+        setBusinesses(mapped);
+        if (mapped.length === 1) setSelectedBulkBusiness(mapped[0].id);
+        else if (profile.business_id) setSelectedBulkBusiness(profile.business_id);
+      }
     };
     if (profile?.account_id) fetchBusinesses();
-  }, [profile]);
+  }, [profile, db, isOnline]);
 
   const handleOpenDialog = (item = null) => {
     if (item) {

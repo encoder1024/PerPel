@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   Box,
   Grid,
@@ -15,6 +15,7 @@ import {
   Card,
   CardContent,
   CardActionArea,
+  CardMedia,
   InputAdornment,
   MenuItem,
   CircularProgress,
@@ -27,36 +28,74 @@ import {
   DialogContent,
   DialogActions,
   Autocomplete,
-  Tooltip
-} from '@mui/material';
-import SearchIcon from '@mui/icons-material/Search';
-import AddIcon from '@mui/icons-material/Add';
-import PersonAddIcon from '@mui/icons-material/PersonAdd';
-import RemoveIcon from '@mui/icons-material/Remove';
-import DeleteIcon from '@mui/icons-material/Delete';
-import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
-import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import PaymentsIcon from '@mui/icons-material/Payments';
-import CreditCardIcon from '@mui/icons-material/CreditCard';
-import CancelIcon from '@mui/icons-material/Cancel';
-import { usePOS } from '../../hooks/usePOS';
-import { useBarcodeScanner } from '../../hooks/useBarcodeScanner';
-import { supabase } from '../../services/supabaseClient';
-import { useAuthStore } from '../../stores/authStore';
-import { useOffline } from '../../hooks/useOffline';
-import PaymentGateway from '../../components/common/PaymentGateway';
-import { useCashRegister } from '../../hooks/useCashRegister';
-import { useMercadoPagoPoint } from '../../hooks/useMercadoPagoPoint';
+  Tooltip,
+} from "@mui/material";
+import SearchIcon from "@mui/icons-material/Search";
+import AddIcon from "@mui/icons-material/Add";
+import PersonAddIcon from "@mui/icons-material/PersonAdd";
+import RemoveIcon from "@mui/icons-material/Remove";
+import DeleteIcon from "@mui/icons-material/Delete";
+import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
+import PointOfSaleIcon from "@mui/icons-material/PointOfSale";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import PaymentsIcon from "@mui/icons-material/Payments";
+import CreditCardIcon from "@mui/icons-material/CreditCard";
+import CancelIcon from "@mui/icons-material/Cancel";
+import { usePOS } from "../../hooks/usePOS";
+import { useBarcodeScanner } from "../../hooks/useBarcodeScanner";
+import { supabase } from "../../services/supabaseClient";
+import { useAuthStore } from "../../stores/authStore";
+import { useOffline } from "../../hooks/useOffline";
+import { syncService } from "../../services/syncService";
+import PaymentGateway from "../../components/common/PaymentGateway";
+import { useCashRegister } from "../../hooks/useCashRegister";
+import { useMercadoPagoPoint } from "../../hooks/useMercadoPagoPoint";
+import TutorialGuide from "../../components/Tutorials/Tutorial";
 
 // Default "Consumidor Final" object
 const CONSUMIDOR_FINAL = {
-  id: '00000000-0000-0000-0000-000000000000',
-  full_name: 'Consumidor Final',
-  doc_type: '99',
-  doc_number: '0',
-  iva_condition: 'Consumidor Final'
+  id: "00000000-0000-0000-0000-000000000000",
+  full_name: "Consumidor Final",
+  doc_type: "99",
+  doc_number: "0",
+  iva_condition: "Consumidor Final",
 };
+
+const POS_BUSINESSES_CACHE_KEY = "pos-businesses-cache-v1";
+
+const stepsVentas = [
+  {
+    target: '[data-tour="paso1-elegir-negocio"]',
+    content:
+      "Primero asegurate de estar en la sucursal correcta para que la venta se procese y el stock se descuente bien.",
+    placement: "selector",
+  },
+  {
+    target: 'data-tour="paso2-buscar-items"',
+    content:
+      "Puedes escribir algun texto para buscar productos, nombre o el SKU por ejemplo.",
+  },
+  {
+    target: '[data-tour="paso3-elegir-items"]',
+    content:
+      "Al hacer clic sobre alguno de los productos, se agregan al carrito.",
+  },
+  {
+    target: '[data-tour="paso4-definir-cantidad-items"]',
+    content:
+      "Al hacer clic, puedes cambiar la cantidad a comprar de un producto o borrarlo del carrito.",
+  },
+  {
+    target: '[data-tour="paso5-buscar-crear-cliente"]',
+    content:
+      "Puesdes escribir para buscar un cliente existente o crear uno nuevo.",
+  },
+  {
+    target: '[data-tour="paso6-confirmar-venta"]',
+    content:
+      "Al hacer clic, confirmas la venta y la orden de compra se envía al modal para elegir la forma de pago que ya conoces.",
+  },
+];
 
 export default function POS() {
   const {
@@ -76,41 +115,88 @@ export default function POS() {
     clearCart,
     findProductBySKU,
     findProductRemote,
-    createCustomer
+    createCustomer,
   } = usePOS();
-  
+
   const { activeSession, checkActiveSession } = useCashRegister();
   const { profile } = useAuthStore();
-  const { db } = useOffline();
-  const { loading: mpPointLoading, error: mpPointError, createPointPaymentIntent } = useMercadoPagoPoint();
-  
-  const [searchTerm, setSearchTerm] = useState('');
+  const { db, isOnline } = useOffline();
+  const {
+    loading: mpPointLoading,
+    error: mpPointError,
+    createPointPaymentIntent,
+  } = useMercadoPagoPoint();
+  const [isDegraded, setIsDegraded] = useState(syncService.isNetworkDegraded());
+  const isOfflineMode = !isOnline || isDegraded;
+  const isEffectivelyOnline = isOnline && !isDegraded;
+
+  const [searchTerm, setSearchTerm] = useState("");
   const [businesses, setBusinesses] = useState([]);
-  const [selectedBusinessId, setSelectedBusinessId] = useState('');
+  const [selectedBusinessId, setSelectedBusinessId] = useState("");
   const [inventoryLoading, setInventoryLoading] = useState(false);
-  
+  const [openQueueDialog, setOpenQueueDialog] = useState(false);
+  const [syncQueueItems, setSyncQueueItems] = useState([]);
+
   // Customer Selector State
   const [customerOptions, setCustomerOptions] = useState([CONSUMIDOR_FINAL]);
-  const [customerSearch, setCustomerSearch] = useState('');
+  const [customerSearch, setCustomerSearch] = useState("");
   const [openCustomerModal, setOpenCustomerModal] = useState(false);
   const [newCustomer, setNewCustomer] = useState({
-    full_name: '',
-    doc_type: '96',
-    doc_number: '',
-    email: '',
-    phone_number: ''
+    full_name: "",
+    doc_type: "96",
+    doc_number: "",
+    email: "",
+    phone_number: "",
   });
 
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: "",
+    severity: "info",
+  });
 
   // Scan state
   const [lastScannedSku, setLastScannedSku] = useState(null);
   const [openScanConfirm, setOpenScanConfirm] = useState(false);
 
+  //Tutorial
+  const [runTutorial, setRunTutorial] = useState(false);
+
+  const loadSyncQueue = React.useCallback(async () => {
+    if (!db) return;
+    try {
+      const docs = await db.sync_queue.find().exec();
+      const items = docs
+        .map((d) => d.toJSON())
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      setSyncQueueItems(items);
+    } catch (err) {
+      console.error("Error loading sync queue:", err);
+    }
+  }, [db]);
+
+  useEffect(() => {
+    loadSyncQueue();
+  }, [loadSyncQueue]);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setIsDegraded(syncService.isNetworkDegraded());
+    }, 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    if (!openQueueDialog) return;
+    loadSyncQueue();
+    const id = setInterval(loadSyncQueue, 2000);
+    return () => clearInterval(id);
+  }, [openQueueDialog, loadSyncQueue]);
+
   // Initialize customer selector
   useEffect(() => {
     if (!selectedCustomer) {
-        setSelectedCustomer(CONSUMIDOR_FINAL);
+      setSelectedCustomer(CONSUMIDOR_FINAL);
     }
   }, [selectedCustomer, setSelectedCustomer]);
 
@@ -118,25 +204,25 @@ export default function POS() {
   useEffect(() => {
     const searchCustomers = async () => {
       if (!db || !profile?.account_id) return;
-      
+
       try {
         const query = {
           selector: {
             account_id: profile.account_id,
-            is_deleted: false
-          }
+            is_deleted: false,
+          },
         };
 
         if (customerSearch && customerSearch.length >= 2) {
           query.selector.$or = [
-            { full_name: { $regex: new RegExp(customerSearch, 'i') } },
-            { doc_number: { $regex: new RegExp(customerSearch, 'i') } }
+            { full_name: { $regex: new RegExp(customerSearch, "i") } },
+            { doc_number: { $regex: new RegExp(customerSearch, "i") } },
           ];
         }
 
         const results = await db.customers.find(query).exec();
-        const list = results.map(d => d.toJSON());
-        
+        const list = results.map((d) => d.toJSON());
+
         setCustomerOptions([CONSUMIDOR_FINAL, ...list]);
       } catch (err) {
         console.error("RxDB Search Error:", err);
@@ -151,56 +237,67 @@ export default function POS() {
   const [openPaymentDialog, setOpenPaymentDialog] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState(null); // 'CASH', 'MANUAL_MP', 'ONLINE_MP', 'POINT_MP'
   const [pointDevices, setPointDevices] = useState([]);
-  const [selectedPointDeviceId, setSelectedPointDeviceId] = useState('');
+  const [selectedPointDeviceId, setSelectedPointDeviceId] = useState("");
   const [intentStatus, setIntentStatus] = useState(null); // 'WAITING', 'SUCCESS', 'ERROR'
 
   // Payment Realtime Subscription
   useEffect(() => {
-    if (!orderCreated?.id || intentStatus !== 'WAITING') return;
+    if (!orderCreated?.id || intentStatus !== "WAITING") return;
 
-    console.log(`Suscribiéndose a cambios en tiempo real para Orden: ${orderCreated.id}`);
-    
+    console.log(
+      `Suscribiéndose a cambios en tiempo real para Orden: ${orderCreated.id}`,
+    );
+
     // 1. Verificación inmediata por si ya cambió antes de la suscripción
     const checkStatus = async () => {
-      const { data } = await supabase.schema('core').from('orders').select('status').eq('id', orderCreated.id).single();
-      if (data?.status === 'PAID') {
-        console.log('La orden ya estaba pagada. Finalizando...');
+      const { data } = await supabase
+        .schema("core")
+        .from("orders")
+        .select("status")
+        .eq("id", orderCreated.id)
+        .single();
+      if (data?.status === "PAID") {
+        console.log("La orden ya estaba pagada. Finalizando...");
         finalizePayment();
       }
     };
     checkStatus();
 
     const finalizePayment = () => {
-      setIntentStatus('SUCCESS');
-      setSnackbar({ open: true, message: 'Pago acreditado con éxito.', severity: 'success' });
+      setIntentStatus("SUCCESS");
+      setSnackbar({
+        open: true,
+        message: "Pago acreditado con éxito.",
+        severity: "success",
+      });
       setTimeout(() => {
-          handleClosePayment();
+        handleClosePayment();
       }, 1500);
     };
 
     const channel = supabase
       .channel(`order-status-${orderCreated.id}`)
       .on(
-        'postgres_changes',
+        "postgres_changes",
         {
-          event: 'UPDATE',
-          schema: 'core',
-          table: 'orders',
-          filter: `id=eq.${orderCreated.id}`
+          event: "UPDATE",
+          schema: "core",
+          table: "orders",
+          filter: `id=eq.${orderCreated.id}`,
         },
         (payload) => {
-          console.log('Cambio de estado en tiempo real:', payload.new.status);
-          if (payload.new.status === 'PAID') {
+          console.log("Cambio de estado en tiempo real:", payload.new.status);
+          if (payload.new.status === "PAID") {
             finalizePayment();
           }
-        }
+        },
       )
       .subscribe((status) => {
-        console.log('Estado de suscripción Realtime:', status);
+        console.log("Estado de suscripción Realtime:", status);
       });
 
     return () => {
-      console.log('Limpiando canal Realtime');
+      console.log("Limpiando canal Realtime");
       supabase.removeChannel(channel);
     };
   }, [orderCreated?.id, intentStatus]);
@@ -208,12 +305,20 @@ export default function POS() {
     const res = await findProductBySKU(code);
     if (res.success) {
       addToCart(res.item);
-      setSnackbar({ open: true, message: `Añadido: ${res.item.name}`, severity: 'success' });
-    } else if (res.code === 'NOT_FOUND_LOCAL') {
+      setSnackbar({
+        open: true,
+        message: `Añadido: ${res.item.name}`,
+        severity: "success",
+      });
+    } else if (res.code === "NOT_FOUND_LOCAL") {
       setLastScannedSku(code);
       setOpenScanConfirm(true);
     } else {
-      setSnackbar({ open: true, message: res.error || 'Error en escaneo.', severity: 'error' });
+      setSnackbar({
+        open: true,
+        message: res.error || "Error en escaneo.",
+        severity: "error",
+      });
     }
   });
 
@@ -222,11 +327,15 @@ export default function POS() {
     const res = await findProductRemote(lastScannedSku);
     if (res.success) {
       addToCart(res.item);
-      setSnackbar({ open: true, message: `Encontrado en servidor y añadido: ${res.item.name}`, severity: 'success' });
+      setSnackbar({
+        open: true,
+        message: `Encontrado en servidor y añadido: ${res.item.name}`,
+        severity: "success",
+      });
       setOpenScanConfirm(false);
       setLastScannedSku(null);
     } else {
-      setSnackbar({ open: true, message: res.error, severity: 'error' });
+      setSnackbar({ open: true, message: res.error, severity: "error" });
       setOpenScanConfirm(false);
       setLastScannedSku(null);
     }
@@ -234,44 +343,174 @@ export default function POS() {
 
   const handleQuickAddCustomer = async () => {
     if (!newCustomer.full_name || !newCustomer.doc_number) {
-        setSnackbar({ open: true, message: 'Nombre y Documento son requeridos.', severity: 'error' });
-        return;
+      setSnackbar({
+        open: true,
+        message: "Nombre y Documento son requeridos.",
+        severity: "error",
+      });
+      return;
     }
 
     const res = await createCustomer({
-        ...newCustomer,
-        business_id: selectedBusinessId
+      ...newCustomer,
+      business_id: selectedBusinessId,
     });
 
     if (res.success) {
-        setSnackbar({ open: true, message: 'Cliente registrado y seleccionado.', severity: 'success' });
-        setOpenCustomerModal(false);
-        setNewCustomer({ full_name: '', doc_type: '96', doc_number: '', email: '', phone_number: '' });
+      setSnackbar({
+        open: true,
+        message: "Cliente registrado y seleccionado.",
+        severity: "success",
+      });
+      setOpenCustomerModal(false);
+      setNewCustomer({
+        full_name: "",
+        doc_type: "96",
+        doc_number: "",
+        email: "",
+        phone_number: "",
+      });
     } else {
-        setSnackbar({ open: true, message: 'Error: ' + res.error, severity: 'error' });
+      setSnackbar({
+        open: true,
+        message: "Error: " + res.error,
+        severity: "error",
+      });
     }
   };
 
   // Fetch businesses for the account
   useEffect(() => {
     const fetchBusinesses = async () => {
-      const { data, error } = await supabase
-        .schema('core')
-        .from('businesses')
-        .select('*')
-        .eq('account_id', profile?.account_id)
-        .eq('is_deleted', false);
+      if (!profile?.account_id) return;
+      try {
+        if (isEffectivelyOnline) {
+          // Filtramos negocios según vinculación (employee_assignments)
+          // Excepto para OWNER, ADMIN y DEVELOPER que ven todos por defecto
+          let data;
+          if (["OWNER", "ADMIN", "DEVELOPER"].includes(profile.app_role)) {
+            const { data: allData } = await supabase
+              .schema("core")
+              .from("businesses")
+              .select("*")
+              .eq("account_id", profile.account_id)
+              .eq("is_deleted", false);
+            data = allData;
+          } else {
+            const { data: linkedData } = await supabase
+              .schema("core")
+              .from("businesses")
+              .select(
+                `
+                *,
+                employee_assignments!inner(user_id)
+              `,
+              )
+              .eq("account_id", profile.account_id)
+              .eq("is_deleted", false)
+              .eq("employee_assignments.user_id", profile.id)
+              .eq("employee_assignments.is_deleted", false);
 
-      if (data) {
-        setBusinesses(data);
-        if (data.length > 0) {
-          setSelectedBusinessId(data[0].id);
-          checkActiveSession(data[0].id);
+            // Limpiamos el objeto de la respuesta del join
+            data = linkedData?.map((b) => {
+              const { employee_assignments, ...rest } = b;
+              return rest;
+            });
+          }
+
+          if (data && data.length > 0) {
+            syncService.markNetworkHealthy();
+            setIsDegraded(false);
+            setBusinesses(data);
+
+            // Guardamos en cache y RxDB solo los negocios permitidos para este usuario
+            localStorage.setItem(
+              POS_BUSINESSES_CACHE_KEY,
+              JSON.stringify(
+                data.map((b) => ({
+                  id: b.id,
+                  name: b.name,
+                  account_id: b.account_id,
+                  is_deleted: false,
+                })),
+              ),
+            );
+            localStorage.setItem(
+              `${POS_BUSINESSES_CACHE_KEY}_ids`,
+              JSON.stringify(data.map((b) => b.id)),
+            );
+
+            if (db) {
+              await db.businesses.bulkUpsert(
+                data.map((b) => ({
+                  ...b,
+                  is_deleted: Boolean(b.is_deleted ?? b.deleted ?? false),
+                })),
+              );
+            }
+            setSelectedBusinessId((prev) => prev || data[0].id);
+            checkActiveSession(data[0].id);
+            return;
+          }
+        }
+
+        // Caso Offline o sin datos online: usamos RxDB y filtramos por IDs cacheados
+        if (db) {
+          const cachedIdsRaw = localStorage.getItem(
+            `${POS_BUSINESSES_CACHE_KEY}_ids`,
+          );
+          const cachedIds = cachedIdsRaw ? JSON.parse(cachedIdsRaw) : null;
+
+          const selector = { account_id: profile.account_id };
+          if (cachedIds && cachedIds.length > 0) {
+            selector.id = { $in: cachedIds };
+          }
+
+          const localBusinesses = await db.businesses
+            .find({
+              selector,
+            })
+            .exec();
+
+          const mapped = localBusinesses
+            .map((d) => d.toJSON())
+            .filter((b) => !(b.is_deleted ?? b.deleted ?? false));
+          if (mapped.length > 0) {
+            setBusinesses(mapped);
+            setSelectedBusinessId((prev) => prev || mapped[0].id);
+            return;
+          }
+        }
+
+        const rawCache = localStorage.getItem(POS_BUSINESSES_CACHE_KEY);
+        if (rawCache) {
+          const cachedBusinesses = JSON.parse(rawCache).filter(
+            (b) =>
+              b?.account_id === profile.account_id &&
+              !(b.is_deleted ?? b.deleted ?? false),
+          );
+          if (cachedBusinesses.length > 0) {
+            setBusinesses(cachedBusinesses);
+            setSelectedBusinessId((prev) => prev || cachedBusinesses[0].id);
+          }
+        }
+      } catch (err) {
+        console.error("POS businesses load error:", err);
+        if (syncService.isNetworkFailure(err?.message)) {
+          syncService.markNetworkDegraded();
+          setIsDegraded(true);
         }
       }
     };
-    if (profile?.account_id) fetchBusinesses();
-  }, [profile?.account_id, checkActiveSession]);
+    fetchBusinesses();
+  }, [
+    profile?.account_id,
+    profile?.id,
+    profile?.app_role,
+    checkActiveSession,
+    isEffectivelyOnline,
+    db,
+  ]);
 
   // Fetch items when business changes
   useEffect(() => {
@@ -294,58 +533,81 @@ export default function POS() {
 
   const filteredItems = items.filter(
     (item) =>
-      (item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.sku?.toLowerCase().includes(searchTerm.toLowerCase()))
+      item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.sku?.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   const handleCheckout = async () => {
     if (!selectedBusinessId) {
-      setSnackbar({ open: true, message: 'Por favor selecciona un negocio.', severity: 'error' });
+      setSnackbar({
+        open: true,
+        message: "Por favor selecciona un negocio.",
+        severity: "error",
+      });
       return;
     }
 
     const response = await createOrder({ business_id: selectedBusinessId });
     if (response.success) {
-      setOrderCreated({ 
-        id: response.orderId, 
+      setOrderCreated({
+        id: response.orderId,
         offline: !!response.offline,
         items: [...cart],
-        businessId: selectedBusinessId
+        businessId: selectedBusinessId,
       });
       setOpenPaymentDialog(true);
       setPaymentMethod(null);
-      
+
       setSnackbar({
         open: true,
-        message: response.offline ? 'Orden registrada localmente.' : 'Orden creada exitosamente.',
-        severity: response.offline ? 'warning' : 'success',
+        message: response.offline
+          ? "Orden registrada localmente."
+          : "Orden creada exitosamente.",
+        severity: response.offline ? "warning" : "success",
       });
     } else {
-      setSnackbar({ open: true, message: 'Error: ' + response.error, severity: 'error' });
+      setSnackbar({
+        open: true,
+        message: "Error: " + response.error,
+        severity: "error",
+      });
     }
   };
 
   const handleCancelOrder = async () => {
     if (!orderCreated) return;
-    
-    const res = await cancelOrder(orderCreated.id, orderCreated.businessId, orderCreated.items);
+
+    const res = await cancelOrder(
+      orderCreated.id,
+      orderCreated.businessId,
+      orderCreated.items,
+    );
     if (res.success) {
-      setSnackbar({ open: true, message: 'Orden cancelada y stock liberado.', severity: 'info' });
+      setSnackbar({
+        open: true,
+        message: "Orden cancelada y stock liberado.",
+        severity: "info",
+      });
       setOpenPaymentDialog(false);
       setOrderCreated(null);
     } else {
-      setSnackbar({ open: true, message: 'Error al cancelar: ' + res.error, severity: 'error' });
+      setSnackbar({
+        open: true,
+        message: "Error al cancelar: " + res.error,
+        severity: "error",
+      });
     }
   };
 
   const handleManualPayment = async (method) => {
     if (!orderCreated) return;
 
-    if (method === 'CASH' && !activeSession) {
-      setSnackbar({ 
-        open: true, 
-        message: 'No hay una sesión de caja abierta para este negocio. Debes abrir caja primero.', 
-        severity: 'error' 
+    if (method === "CASH" && !activeSession) {
+      setSnackbar({
+        open: true,
+        message:
+          "No hay una sesión de caja abierta para este negocio. Debes abrir caja primero.",
+        severity: "error",
       });
       return;
     }
@@ -353,56 +615,87 @@ export default function POS() {
     const res = await processManualPayment(orderCreated.id, {
       amount: calculateTotal(),
       method: method,
-      type: 'point'
+      type: "point",
     });
 
     if (res.success) {
-      setSnackbar({ open: true, message: 'Venta completada con éxito.', severity: 'success' });
+      setSnackbar({
+        open: true,
+        message: "Venta completada con éxito.",
+        severity: "success",
+      });
       handleClosePayment();
     } else {
-      setSnackbar({ open: true, message: 'Error al procesar pago: ' + res.error, severity: 'error' });
+      setSnackbar({
+        open: true,
+        message: "Error al procesar pago: " + res.error,
+        severity: "error",
+      });
     }
   };
 
   const handleSelectPaymentMethod = async (method) => {
     setPaymentMethod(method);
-    if (method === 'POINT_MP') {
+    if (method === "POINT_MP") {
       setIntentStatus(null);
       const { data, error } = await supabase
-        .schema('core')
-        .from('point_devices')
-        .select('id, name')
-        .eq('business_id', selectedBusinessId)
-        .eq('account_id', profile?.account_id)
-        .eq('status', 'ACTIVE')
-        .eq('is_deleted', false);
+        .schema("core")
+        .from("point_devices")
+        .select("id, name")
+        .eq("business_id", selectedBusinessId)
+        .eq("account_id", profile?.account_id)
+        .eq("status", "ACTIVE")
+        .eq("is_deleted", false);
 
       if (error) {
-        setSnackbar({ open: true, message: `Error al cargar dispositivos: ${error.message}`, severity: 'error' });
+        setSnackbar({
+          open: true,
+          message: `Error al cargar dispositivos: ${error.message}`,
+          severity: "error",
+        });
         return;
       }
-      
+
       setPointDevices(data);
       if (data.length > 0) {
         setSelectedPointDeviceId(data[0].id);
       } else {
-        setSnackbar({ open: true, message: 'No hay dispositivos Point activos para este negocio.', severity: 'warning' });
+        setSnackbar({
+          open: true,
+          message: "No hay dispositivos Point activos para este negocio.",
+          severity: "warning",
+        });
       }
     }
   };
 
   const handleSendPointIntent = async () => {
     if (!orderCreated?.id || !selectedPointDeviceId) {
-      setSnackbar({ open: true, message: 'Falta la orden o el dispositivo seleccionado.', severity: 'error' });
+      setSnackbar({
+        open: true,
+        message: "Falta la orden o el dispositivo seleccionado.",
+        severity: "error",
+      });
       return;
     }
-    setIntentStatus('WAITING');
-    const result = await createPointPaymentIntent(orderCreated.id, selectedPointDeviceId);
+    setIntentStatus("WAITING");
+    const result = await createPointPaymentIntent(
+      orderCreated.id,
+      selectedPointDeviceId,
+    );
     if (result.success) {
-      setSnackbar({ open: true, message: 'Cobro enviado a la terminal.', severity: 'info' });
+      setSnackbar({
+        open: true,
+        message: "Cobro enviado a la terminal.",
+        severity: "info",
+      });
     } else {
-      setIntentStatus('ERROR');
-      setSnackbar({ open: true, message: `Error al enviar cobro: ${result.error}`, severity: 'error' });
+      setIntentStatus("ERROR");
+      setSnackbar({
+        open: true,
+        message: `Error al enviar cobro: ${result.error}`,
+        severity: "error",
+      });
     }
   };
 
@@ -412,18 +705,62 @@ export default function POS() {
     clearCart();
     setPaymentMethod(null);
     setPointDevices([]);
-    setSelectedPointDeviceId('');
+    setSelectedPointDeviceId("");
     setIntentStatus(null);
   };
 
   return (
     <Box sx={{ flexGrow: 1 }}>
+      {/* Botón de Ayuda Contextual */}
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
+        <button
+          onClick={() => setRunTutorial(true)}
+          className="bg-gray-200 px-4 py-1.5 rounded-full hover:bg-gray-300 transition-colors flex items-center gap-1 text-sm font-medium"
+          title="Ayuda técnica"
+        >
+          ❓ Ayuda
+        </button>
+      </Box>
+      {/* El componente del Tour */}
+      <TutorialGuide
+        steps={stepsVentas}
+        run={runTutorial}
+        setRun={setRunTutorial}
+      />
+      {isOfflineMode && (
+        <Alert
+          severity="warning"
+          sx={{ mb: 2, display: "flex", alignItems: "center" }}
+          action={
+            <Button
+              color="inherit"
+              size="small"
+              variant="outlined"
+              onClick={() => setOpenQueueDialog(true)}
+            >
+              Ver cola ({syncQueueItems.length})
+            </Button>
+          }
+        >
+          Modo offline activo: las ventas se guardan localmente y se sincronizan
+          cuando vuelva la conexión.
+        </Alert>
+      )}
       <Grid container spacing={2}>
         {/* Catálogo de Productos */}
         <Grid item xs={12} md={8}>
-          <Paper sx={{ p: 2, height: 'calc(100vh - 120px)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-            <Box sx={{ mb: 2, display: 'flex', gap: 2 }}>
+          <Paper
+            sx={{
+              p: 2,
+              height: "calc(100vh - 120px)",
+              overflow: "hidden",
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            <Box sx={{ mb: 2, display: "flex", gap: 2 }}>
               <TextField
+                data-tour="paso2-buscar-items"
                 fullWidth
                 placeholder="Buscar productos por nombre o SKU..."
                 value={searchTerm}
@@ -437,6 +774,7 @@ export default function POS() {
                 }}
               />
               <TextField
+                data-tour="paso1-elegir-negocio"
                 select
                 sx={{ minWidth: 200 }}
                 label="Negocio / Local"
@@ -444,24 +782,86 @@ export default function POS() {
                 onChange={(e) => setSelectedBusinessId(e.target.value)}
               >
                 {businesses.map((b) => (
-                  <MenuItem key={b.id} value={b.id}>{b.name}</MenuItem>
+                  <MenuItem key={b.id} value={b.id}>
+                    {b.name}
+                  </MenuItem>
                 ))}
               </TextField>
             </Box>
 
             {inventoryLoading ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', p: 5 }}><CircularProgress /></Box>
+              <Box sx={{ display: "flex", justifyContent: "center", p: 5 }}>
+                <CircularProgress />
+              </Box>
             ) : (
-              <Box sx={{ flexGrow: 1, overflowY: 'auto' }}>
-                <Grid container spacing={1.5}>
+              <Box sx={{ flexGrow: 1, overflowY: "auto" }}>
+                <Grid container spacing={1.5} data-tour="paso3-elegir-items">
                   {filteredItems.map((item) => (
                     <Grid item xs={12} sm={6} md={4} key={item.id}>
-                      <Card variant="outlined">
-                        <CardActionArea onClick={() => addToCart(item)}>
-                          <CardContent sx={{ p: 1.5 }}>
-                            <Typography variant="subtitle2" noWrap sx={{ fontWeight: 600 }}>{item.name}</Typography>
-                            <Typography variant="body2" color="textSecondary">{item.sku || '-'}</Typography>
-                            <Typography variant="h6" sx={{ mt: 1, color: 'primary.main', fontWeight: 700 }}>
+                      <Card
+                        variant="outlined"
+                        sx={{
+                          height: "100%",
+                          display: "flex",
+                          flexDirection: "column",
+                        }}
+                      >
+                        <CardActionArea
+                          onClick={() => addToCart(item)}
+                          sx={{
+                            flexGrow: 1,
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "stretch",
+                          }}
+                        >
+                          {item.image_url ? (
+                            <CardMedia
+                              component="img"
+                              height="140"
+                              image={item.image_url}
+                              alt={item.name}
+                              sx={{
+                                objectFit: "contain",
+                                bgcolor: "#f8fafc",
+                                p: 1,
+                              }}
+                            />
+                          ) : (
+                            <Box
+                              sx={{
+                                height: 140,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                bgcolor: "#f1f5f9",
+                                color: "text.secondary",
+                              }}
+                            >
+                              <Typography variant="caption">
+                                Sin Imagen
+                              </Typography>
+                            </Box>
+                          )}
+                          <CardContent sx={{ p: 1.5, flexGrow: 1 }}>
+                            <Typography
+                              variant="subtitle2"
+                              noWrap
+                              sx={{ fontWeight: 600 }}
+                            >
+                              {item.name}
+                            </Typography>
+                            <Typography variant="body2" color="textSecondary">
+                              {item.sku || "-"}
+                            </Typography>
+                            <Typography
+                              variant="h6"
+                              sx={{
+                                mt: 1,
+                                color: "primary.main",
+                                fontWeight: 700,
+                              }}
+                            >
                               $ {item.selling_price.toFixed(2)}
                             </Typography>
                           </CardContent>
@@ -477,17 +877,29 @@ export default function POS() {
 
         {/* Carrito de Compras */}
         <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 2, height: 'calc(100vh - 120px)', display: 'flex', flexDirection: 'column' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+          <Paper
+            sx={{
+              p: 2,
+              height: "calc(100vh - 120px)",
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
               <Badge badgeContent={cart.length} color="primary" sx={{ mr: 2 }}>
                 <ShoppingCartIcon color="action" />
               </Badge>
-              <Typography variant="h6" sx={{ fontWeight: 600 }}>Carrito</Typography>
+              <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                Carrito
+              </Typography>
             </Box>
 
             <Divider />
 
-            <List sx={{ flexGrow: 1, overflowY: 'auto', py: 1 }}>
+            <List
+              sx={{ flexGrow: 1, overflowY: "auto", py: 1 }}
+              data-tour="paso4-definir-cantidad-items"
+            >
               {cart.map((item) => (
                 <ListItem key={item.id} divider disablePadding sx={{ py: 1 }}>
                   <ListItemText
@@ -495,15 +907,32 @@ export default function POS() {
                     secondary={`$ ${item.selling_price.toFixed(2)} x ${item.quantity}`}
                   />
                   <ListItemSecondaryAction>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <IconButton size="small" onClick={() => updateQuantity(item.id, item.quantity - 1)}>
+                    <Box sx={{ display: "flex", alignItems: "center" }}>
+                      <IconButton
+                        size="small"
+                        onClick={() =>
+                          updateQuantity(item.id, item.quantity - 1)
+                        }
+                      >
                         <RemoveIcon fontSize="small" />
                       </IconButton>
-                      <Typography sx={{ mx: 1, fontWeight: 600 }}>{item.quantity}</Typography>
-                      <IconButton size="small" onClick={() => updateQuantity(item.id, item.quantity + 1)}>
+                      <Typography sx={{ mx: 1, fontWeight: 600 }}>
+                        {item.quantity}
+                      </Typography>
+                      <IconButton
+                        size="small"
+                        onClick={() =>
+                          updateQuantity(item.id, item.quantity + 1)
+                        }
+                      >
                         <AddIcon fontSize="small" />
                       </IconButton>
-                      <IconButton edge="end" size="small" onClick={() => removeFromCart(item.id)} sx={{ ml: 1, color: 'error.main' }}>
+                      <IconButton
+                        edge="end"
+                        size="small"
+                        onClick={() => removeFromCart(item.id)}
+                        sx={{ ml: 1, color: "error.main" }}
+                      >
                         <DeleteIcon fontSize="small" />
                       </IconButton>
                     </Box>
@@ -511,24 +940,33 @@ export default function POS() {
                 </ListItem>
               ))}
               {cart.length === 0 && (
-                <Typography variant="body2" color="textSecondary" sx={{ textAlign: 'center', mt: 4 }}>
+                <Typography
+                  variant="body2"
+                  color="textSecondary"
+                  sx={{ textAlign: "center", mt: 4 }}
+                >
                   El carrito está vacío
                 </Typography>
               )}
             </List>
 
-            <Box sx={{ mt: 'auto', pt: 2, borderTop: '2px solid #e2e8f0' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+            <Box sx={{ mt: "auto", pt: 2, borderTop: "2px solid #e2e8f0" }}>
+              <Box
+                sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}
+                data-tour="paso5-buscar-crear-cliente"
+              >
                 <Autocomplete
                   fullWidth
                   options={customerOptions}
                   getOptionLabel={(option) => {
-                    const name = option.full_name || '';
-                    const doc = option.doc_number || '';
+                    const name = option.full_name || "";
+                    const doc = option.doc_number || "";
                     const displayDoc = doc.length > 3 ? doc.slice(-3) : doc;
                     return doc ? `${name} (${displayDoc})` : name;
                   }}
-                  isOptionEqualToValue={(option, value) => option.id === value.id}
+                  isOptionEqualToValue={(option, value) =>
+                    option.id === value.id
+                  }
                   value={selectedCustomer}
                   onChange={(event, newValue) => {
                     setSelectedCustomer(newValue || CONSUMIDOR_FINAL);
@@ -541,20 +979,29 @@ export default function POS() {
                   )}
                 />
                 <Tooltip title="Nuevo Cliente">
-                  <IconButton color="primary" onClick={() => setOpenCustomerModal(true)}>
+                  <IconButton
+                    color="primary"
+                    onClick={() => setOpenCustomerModal(true)}
+                  >
                     <PersonAddIcon />
                   </IconButton>
                 </Tooltip>
               </Box>
 
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+              <Box
+                sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}
+              >
                 <Typography variant="h6">Total:</Typography>
-                <Typography variant="h5" sx={{ fontWeight: 700, color: 'primary.main' }}>
+                <Typography
+                  variant="h5"
+                  sx={{ fontWeight: 700, color: "primary.main" }}
+                >
                   $ {calculateTotal().toFixed(2)}
                 </Typography>
               </Box>
 
               <Button
+                data-tour="paso6-confirmar-venta"
                 fullWidth
                 variant="contained"
                 size="large"
@@ -563,7 +1010,11 @@ export default function POS() {
                 onClick={handleCheckout}
                 sx={{ py: 1.5, fontWeight: 700 }}
               >
-                {posLoading ? <CircularProgress size={24} color="inherit" /> : 'Confirmar Venta'}
+                {posLoading ? (
+                  <CircularProgress size={24} color="inherit" />
+                ) : (
+                  "Confirmar Venta"
+                )}
               </Button>
               <Button
                 fullWidth
@@ -582,23 +1033,30 @@ export default function POS() {
       </Grid>
 
       {/* Modal de Nuevo Cliente */}
-      <Dialog open={openCustomerModal} onClose={() => setOpenCustomerModal(false)}>
+      <Dialog
+        open={openCustomerModal}
+        onClose={() => setOpenCustomerModal(false)}
+      >
         <DialogTitle>Registrar Nuevo Cliente</DialogTitle>
         <DialogContent>
-          <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Box sx={{ mt: 1, display: "flex", flexDirection: "column", gap: 2 }}>
             <TextField
               fullWidth
               label="Nombre Completo"
               value={newCustomer.full_name}
-              onChange={(e) => setNewCustomer({...newCustomer, full_name: e.target.value})}
+              onChange={(e) =>
+                setNewCustomer({ ...newCustomer, full_name: e.target.value })
+              }
             />
-            <Box sx={{ display: 'flex', gap: 2 }}>
+            <Box sx={{ display: "flex", gap: 2 }}>
               <TextField
                 select
                 sx={{ width: 120 }}
                 label="Tipo Doc"
                 value={newCustomer.doc_type}
-                onChange={(e) => setNewCustomer({...newCustomer, doc_type: e.target.value})}
+                onChange={(e) =>
+                  setNewCustomer({ ...newCustomer, doc_type: e.target.value })
+                }
               >
                 <MenuItem value="96">DNI</MenuItem>
                 <MenuItem value="80">CUIT</MenuItem>
@@ -607,26 +1065,34 @@ export default function POS() {
                 fullWidth
                 label="Nro Documento"
                 value={newCustomer.doc_number}
-                onChange={(e) => setNewCustomer({...newCustomer, doc_number: e.target.value})}
+                onChange={(e) =>
+                  setNewCustomer({ ...newCustomer, doc_number: e.target.value })
+                }
               />
             </Box>
             <TextField
               fullWidth
               label="Email (Opcional)"
               value={newCustomer.email}
-              onChange={(e) => setNewCustomer({...newCustomer, email: e.target.value})}
+              onChange={(e) =>
+                setNewCustomer({ ...newCustomer, email: e.target.value })
+              }
             />
             <TextField
               fullWidth
               label="Teléfono (Opcional)"
               value={newCustomer.phone_number}
-              onChange={(e) => setNewCustomer({...newCustomer, phone_number: e.target.value})}
+              onChange={(e) =>
+                setNewCustomer({ ...newCustomer, phone_number: e.target.value })
+              }
             />
           </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenCustomerModal(false)}>Cancelar</Button>
-          <Button onClick={handleQuickAddCustomer} variant="contained">Guardar y Seleccionar</Button>
+          <Button onClick={handleQuickAddCustomer} variant="contained">
+            Guardar y Seleccionar
+          </Button>
         </DialogActions>
       </Dialog>
 
@@ -635,39 +1101,101 @@ export default function POS() {
         <DialogTitle>Producto no encontrado localmente</DialogTitle>
         <DialogContent>
           <Typography>
-            El código <b>{lastScannedSku}</b> no se encontró en la base de datos local (RxDB).
+            El código <b>{lastScannedSku}</b> no se encontró en la base de datos
+            local (RxDB).
           </Typography>
           <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
-            ¿Deseas buscarlo en el servidor de Supabase? (Requiere conexión a internet)
+            ¿Deseas buscarlo en el servidor de Supabase? (Requiere conexión a
+            internet)
           </Typography>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenScanConfirm(false)}>Cancelar</Button>
-          <Button onClick={handleRemoteSearch} variant="contained" color="primary">
+          <Button
+            onClick={handleRemoteSearch}
+            variant="contained"
+            color="primary"
+          >
             Buscar en Servidor
           </Button>
         </DialogActions>
       </Dialog>
 
+      <Dialog
+        open={openQueueDialog}
+        onClose={() => setOpenQueueDialog(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>Cola de sincronización offline</DialogTitle>
+        <DialogContent dividers>
+          {syncQueueItems.length === 0 ? (
+            <Typography variant="body2" color="textSecondary">
+              No hay operaciones pendientes.
+            </Typography>
+          ) : (
+            <List>
+              {syncQueueItems.map((q) => (
+                <ListItem key={q.id} divider>
+                  <ListItemText
+                    primary={`${q.operation} en ${q.table_name} (${q.status})`}
+                    secondary={`${new Date(q.created_at).toLocaleString("es-AR")} - payload: ${JSON.stringify(q.payload).slice(0, 120)}`}
+                  />
+                </ListItem>
+              ))}
+            </List>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={loadSyncQueue}>Actualizar</Button>
+          <Button variant="contained" onClick={() => setOpenQueueDialog(false)}>
+            Cerrar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* Modal de Pago / Confirmación */}
-      <Dialog open={openPaymentDialog} onClose={() => {}} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ textAlign: 'center', fontWeight: 700 }}>
-          {orderCreated?.offline ? 'Venta Offline Registrada' : 'Finalizar Venta'}
+      <Dialog
+        open={openPaymentDialog}
+        onClose={() => {}}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle sx={{ textAlign: "center", fontWeight: 700 }}>
+          {orderCreated?.offline
+            ? "Venta Offline Registrada"
+            : "Finalizar Venta"}
         </DialogTitle>
         <DialogContent sx={{ pb: 4 }}>
           {orderCreated?.offline ? (
-            <Box sx={{ textAlign: 'center', py: 2 }}>
+            <Box sx={{ textAlign: "center", py: 2 }}>
               <CheckCircleIcon color="warning" sx={{ fontSize: 64, mb: 2 }} />
-              <Typography variant="h6" gutterBottom>Orden #{orderCreated.id.split('-')[0]}</Typography>
+              <Typography variant="h6" gutterBottom>
+                Orden #{orderCreated.id.split("-")[0]}
+              </Typography>
               <Typography variant="body1">
-                La venta se ha guardado localmente. Se sincronizará automáticamente cuando recuperes la conexión.
+                La venta se ha guardado localmente. Se sincronizará
+                automáticamente cuando recuperes la conexión.
               </Typography>
             </Box>
           ) : (
             <Box>
-              <Box sx={{ mb: 3, p: 2, bgcolor: '#f1f5f9', borderRadius: 2, textAlign: 'center' }}>
-                <Typography variant="subtitle2" color="textSecondary">Total a Cobrar:</Typography>
-                <Typography variant="h4" sx={{ fontWeight: 800, color: 'primary.main' }}>
+              <Box
+                sx={{
+                  mb: 3,
+                  p: 2,
+                  bgcolor: "#f1f5f9",
+                  borderRadius: 2,
+                  textAlign: "center",
+                }}
+              >
+                <Typography variant="subtitle2" color="textSecondary">
+                  Total a Cobrar:
+                </Typography>
+                <Typography
+                  variant="h4"
+                  sx={{ fontWeight: 800, color: "primary.main" }}
+                >
                   $ {calculateTotal().toFixed(2)}
                 </Typography>
               </Box>
@@ -675,71 +1203,143 @@ export default function POS() {
               {!paymentMethod ? (
                 <Grid container spacing={2}>
                   <Grid item xs={12}>
-                    <Button fullWidth variant="outlined" size="large" startIcon={<PaymentsIcon />} onClick={() => handleManualPayment('CASH')} sx={{ py: 2, justifyContent: 'flex-start', px: 3 }}>
+                    <Button
+                      fullWidth
+                      variant="outlined"
+                      size="large"
+                      startIcon={<PaymentsIcon />}
+                      onClick={() => handleManualPayment("CASH")}
+                      sx={{ py: 2, justifyContent: "flex-start", px: 3 }}
+                    >
                       Efectivo
                     </Button>
                   </Grid>
                   <Grid item xs={12}>
-                    <Button fullWidth variant="outlined" size="large" startIcon={<CreditCardIcon />} onClick={() => handleSelectPaymentMethod('POINT_MP')} sx={{ py: 2, justifyContent: 'flex-start', px: 3 }}>
+                    <Button
+                      fullWidth
+                      variant="outlined"
+                      size="large"
+                      startIcon={<CreditCardIcon />}
+                      onClick={() => handleSelectPaymentMethod("POINT_MP")}
+                      sx={{ py: 2, justifyContent: "flex-start", px: 3 }}
+                    >
                       MercadoPago Point (Terminal)
                     </Button>
                   </Grid>
                   <Grid item xs={12}>
-                    <Button fullWidth variant="contained" size="large" startIcon={<ShoppingCartIcon />} onClick={() => handleSelectPaymentMethod('ONLINE_MP')} sx={{ py: 2, justifyContent: 'flex-start', px: 3 }}>
+                    <Button
+                      fullWidth
+                      variant="contained"
+                      size="large"
+                      startIcon={<ShoppingCartIcon />}
+                      onClick={() => handleSelectPaymentMethod("ONLINE_MP")}
+                      sx={{ py: 2, justifyContent: "flex-start", px: 3 }}
+                    >
                       MercadoPago Online (Bricks)
                     </Button>
                   </Grid>
                 </Grid>
-              ) : paymentMethod === 'ONLINE_MP' ? (
+              ) : paymentMethod === "ONLINE_MP" ? (
                 <Box>
-                   <Button size="small" onClick={() => setPaymentMethod(null)} sx={{ mb: 2 }}>← Volver a opciones de pago</Button>
-                   <PaymentGateway 
+                  <Button
+                    size="small"
+                    onClick={() => setPaymentMethod(null)}
+                    sx={{ mb: 2 }}
+                  >
+                    ← Volver a opciones de pago
+                  </Button>
+                  <PaymentGateway
                     items={orderCreated?.items}
                     orderId={orderCreated?.id}
                     payerEmail={profile?.email}
-                    accountId={profile?.account_id} 
-                    onPaymentSuccess={handleClosePayment} 
+                    accountId={profile?.account_id}
+                    onPaymentSuccess={handleClosePayment}
                   />
                 </Box>
-              ) : paymentMethod === 'POINT_MP' && (
-                <Box>
-                  <Button size="small" onClick={() => setPaymentMethod(null)} sx={{ mb: 2 }}>← Volver a opciones de pago</Button>
-                  <Typography variant="h6" sx={{mb: 2}}>Pagar con Terminal Point</Typography>
-                  
-                  {intentStatus === 'WAITING' ? (
-                    <Box sx={{display: 'flex', flexDirection: 'column', alignItems: 'center', p: 4}}>
-                      <CircularProgress />
-                      <Typography variant="body1" sx={{mt: 2}}>Esperando pago en la terminal...</Typography>
-                      <Typography variant="body2" color="text.secondary">El estado se actualizará automáticamente.</Typography>
-                    </Box>
-                  ) : (
-                    <Grid container spacing={2}>
-                      <Grid item xs={12}>
-                        <TextField fullWidth select label="Seleccionar Terminal" value={selectedPointDeviceId} onChange={(e) => setSelectedPointDeviceId(e.target.value)} disabled={pointDevices.length === 0}>
-                          {pointDevices.map((d) => (
-                            <MenuItem key={d.id} value={d.id}>{d.name}</MenuItem>
-                          ))}
-                        </TextField>
+              ) : (
+                paymentMethod === "POINT_MP" && (
+                  <Box>
+                    <Button
+                      size="small"
+                      onClick={() => setPaymentMethod(null)}
+                      sx={{ mb: 2 }}
+                    >
+                      ← Volver a opciones de pago
+                    </Button>
+                    <Typography variant="h6" sx={{ mb: 2 }}>
+                      Pagar con Terminal Point
+                    </Typography>
+
+                    {intentStatus === "WAITING" ? (
+                      <Box
+                        sx={{
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          p: 4,
+                        }}
+                      >
+                        <CircularProgress />
+                        <Typography variant="body1" sx={{ mt: 2 }}>
+                          Esperando pago en la terminal...
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          El estado se actualizará automáticamente.
+                        </Typography>
+                      </Box>
+                    ) : (
+                      <Grid container spacing={2}>
+                        <Grid item xs={12}>
+                          <TextField
+                            fullWidth
+                            select
+                            label="Seleccionar Terminal"
+                            value={selectedPointDeviceId}
+                            onChange={(e) =>
+                              setSelectedPointDeviceId(e.target.value)
+                            }
+                            disabled={pointDevices.length === 0}
+                          >
+                            {pointDevices.map((d) => (
+                              <MenuItem key={d.id} value={d.id}>
+                                {d.name}
+                              </MenuItem>
+                            ))}
+                          </TextField>
+                        </Grid>
+                        <Grid item xs={12}>
+                          <Button
+                            fullWidth
+                            variant="contained"
+                            onClick={handleSendPointIntent}
+                            disabled={mpPointLoading || !selectedPointDeviceId}
+                          >
+                            {mpPointLoading ? (
+                              <CircularProgress size={24} />
+                            ) : (
+                              "Enviar Cobro a Terminal"
+                            )}
+                          </Button>
+                        </Grid>
+                        {intentStatus === "ERROR" && (
+                          <Grid item xs={12}>
+                            <Alert severity="error">{mpPointError}</Alert>
+                          </Grid>
+                        )}
                       </Grid>
-                      <Grid item xs={12}>
-                        <Button fullWidth variant="contained" onClick={handleSendPointIntent} disabled={mpPointLoading || !selectedPointDeviceId}>
-                          {mpPointLoading ? <CircularProgress size={24} /> : 'Enviar Cobro a Terminal'}
-                        </Button>
-                      </Grid>
-                      {intentStatus === 'ERROR' && <Grid item xs={12}><Alert severity="error">{mpPointError}</Alert></Grid>}
-                    </Grid>
-                  )}
-                </Box>
+                    )}
+                  </Box>
+                )
               )}
             </Box>
           )}
         </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 3, flexDirection: 'column', gap: 1 }}>
+        <DialogActions sx={{ px: 3, pb: 3, flexDirection: "column", gap: 1 }}>
           {!paymentMethod && !orderCreated?.offline && (
-            <Button 
-              onClick={handleCancelOrder} 
-              fullWidth 
-              variant="text" 
+            <Button
+              onClick={handleCancelOrder}
+              fullWidth
+              variant="text"
               color="error"
               startIcon={<CancelIcon />}
               disabled={posLoading}
@@ -748,14 +1348,19 @@ export default function POS() {
             </Button>
           )}
           {orderCreated?.offline && (
-             <Button onClick={handleClosePayment} fullWidth variant="contained">
-               Aceptar
-             </Button>
+            <Button onClick={handleClosePayment} fullWidth variant="contained">
+              Aceptar
+            </Button>
           )}
-          {(!orderCreated?.offline && !paymentMethod) && (
-             <Button onClick={() => setOpenPaymentDialog(false)} fullWidth variant="outlined" color="inherit">
-                Pagar Después
-             </Button>
+          {!orderCreated?.offline && !paymentMethod && (
+            <Button
+              onClick={() => setOpenPaymentDialog(false)}
+              fullWidth
+              variant="outlined"
+              color="inherit"
+            >
+              Pagar Después
+            </Button>
           )}
         </DialogActions>
       </Dialog>
@@ -765,7 +1370,10 @@ export default function POS() {
         autoHideDuration={6000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
       >
-        <Alert onClose={() => setSnackbar({ ...snackbar, open: false })} severity={snackbar.severity}>
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity}
+        >
           {snackbar.message}
         </Alert>
       </Snackbar>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../services/supabaseClient';
 import { useAuthStore } from '../stores/authStore';
+import { useOffline } from './useOffline';
 
 export const useBusinesses = () => {
   const { profile } = useAuthStore();
@@ -8,6 +9,7 @@ export const useBusinesses = () => {
   const [accountUsers, setAccountUsers] = useState([]); // Todos los usuarios de la cuenta
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const { db, isOnline } = useOffline();
 
   const fetchData = useCallback(async () => {
     if (!profile?.account_id) return;
@@ -15,6 +17,15 @@ export const useBusinesses = () => {
     setLoading(true);
     setError(null);
     try {
+      if (!isOnline && db) {
+        const localBusinesses = await db.businesses.find({
+          selector: { account_id: profile.account_id, is_deleted: false }
+        }).exec();
+        setBusinesses(localBusinesses.map((b) => ({ ...b.toJSON(), staff: [] })));
+        setAccountUsers([]);
+        return;
+      }
+
       // 1. Obtener los negocios de la cuenta
       const { data: bData, error: bError } = await supabase
         .schema('core')
@@ -61,13 +72,16 @@ export const useBusinesses = () => {
       }));
 
       setBusinesses(businessesWithStaff);
+      if (db && bData?.length) {
+        await db.businesses.bulkUpsert(bData);
+      }
     } catch (err) {
       console.error('Error en useBusinesses:', err.message);
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  }, [profile?.account_id]);
+  }, [profile?.account_id, isOnline, db]);
 
   // Función para asignar un usuario a un negocio
   const assignEmployee = async (userId, businessId) => {
@@ -129,6 +143,109 @@ export const useBusinesses = () => {
     }
   };
 
+  // Función para crear un negocio
+  const createBusiness = async (businessData) => {
+    try {
+      const { error } = await supabase
+        .schema('core')
+        .from('businesses')
+        .insert({
+          ...businessData,
+          account_id: profile.account_id
+        });
+      if (error) throw error;
+      await fetchData();
+      return { success: true };
+    } catch (err) {
+      return { success: false, message: err.message };
+    }
+  };
+
+  // Función para actualizar un negocio
+  const updateBusiness = async (id, businessData) => {
+    try {
+      const { error } = await supabase
+        .schema('core')
+        .from('businesses')
+        .update({
+          ...businessData,
+          updated_at: new Date()
+        })
+        .eq('id', id)
+        .eq('account_id', profile.account_id);
+      if (error) throw error;
+      await fetchData();
+      return { success: true };
+    } catch (err) {
+      return { success: false, message: err.message };
+    }
+  };
+
+  // Función para borrar (soft-delete) un negocio
+  const deleteBusiness = async (id) => {
+    try {
+      const { error } = await supabase
+        .schema('core')
+        .from('businesses')
+        .update({ is_deleted: true, updated_at: new Date() })
+        .eq('id', id)
+        .eq('account_id', profile.account_id);
+      if (error) throw error;
+      await fetchData();
+      return { success: true };
+    } catch (err) {
+      return { success: false, message: err.message };
+    }
+  };
+
+  // Función para actualizar un perfil de usuario (incluyendo rol)
+  const updateUserProfile = async (userId, profileData) => {
+    try {
+      const { error } = await supabase
+        .schema('core')
+        .from('user_profiles')
+        .update({
+          ...profileData,
+          updated_at: new Date()
+        })
+        .eq('id', userId)
+        .eq('account_id', profile.account_id);
+      if (error) throw error;
+      await fetchData();
+      return { success: true };
+    } catch (err) {
+      return { success: false, message: err.message };
+    }
+  };
+
+  // Función para borrar (soft-delete) un perfil de usuario
+  const deleteUserProfile = async (userId) => {
+    try {
+      // 1. Borrar perfil
+      const { error: pError } = await supabase
+        .schema('core')
+        .from('user_profiles')
+        .update({ is_deleted: true, updated_at: new Date() })
+        .eq('id', userId)
+        .eq('account_id', profile.account_id);
+      if (pError) throw pError;
+
+      // 2. Borrar sus asignaciones
+      const { error: aError } = await supabase
+        .schema('core')
+        .from('employee_assignments')
+        .update({ is_deleted: true, updated_at: new Date() })
+        .eq('user_id', userId)
+        .eq('account_id', profile.account_id);
+      if (aError) throw aError;
+
+      await fetchData();
+      return { success: true };
+    } catch (err) {
+      return { success: false, message: err.message };
+    }
+  };
+
   useEffect(() => {
     fetchData();
   }, [fetchData]);
@@ -138,6 +255,11 @@ export const useBusinesses = () => {
     accountUsers,
     loading,
     error,
+    createBusiness,
+    updateBusiness,
+    deleteBusiness,
+    updateUserProfile,
+    deleteUserProfile,
     assignEmployee,
     removeEmployee,
     refresh: fetchData

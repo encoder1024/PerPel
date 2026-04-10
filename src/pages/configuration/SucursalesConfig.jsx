@@ -27,57 +27,113 @@ import {
   Chip,
   Alert,
   CircularProgress,
-  Tooltip
+  Tooltip,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
+import EditIcon from '@mui/icons-material/Edit';
 import StoreIcon from '@mui/icons-material/Store';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import BusinessIcon from '@mui/icons-material/Business';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
+import PeopleIcon from '@mui/icons-material/People';
 import { useBusinesses } from '../../hooks/useBusinesses';
-import { supabase } from '../../services/supabaseClient';
 import { useAuthStore } from '../../stores/authStore';
 
 export default function SucursalesConfig() {
   const { profile } = useAuthStore();
-  const { businesses, accountUsers, loading, error, assignEmployee, removeEmployee, refresh } = useBusinesses();
+  const { 
+    businesses, 
+    accountUsers, 
+    loading, 
+    error, 
+    createBusiness,
+    updateBusiness,
+    deleteBusiness,
+    updateUserProfile,
+    deleteUserProfile,
+    assignEmployee, 
+    removeEmployee, 
+    refresh 
+  } = useBusinesses();
 
-  const [openAddBusiness, setOpenAddBusiness] = useState(false);
-  const [openAssignUser, setOpenAssignUser] = useState(false);
-  const [selectedBusiness, setSelectedBusiness] = useState(null);
-  const [selectedUserId, setSelectedUserId] = useState('');
-  const [actionLoading, setActionLoading] = useState(false);
-
-  // Form para nuevo negocio
-  const [newBusiness, setNewBusiness] = useState({
+  // Estados para Negocios
+  const [openBusinessDialog, setOpenBusinessDialog] = useState(false);
+  const [editingBusiness, setEditingBusiness] = useState(null);
+  const [businessForm, setBusinessForm] = useState({
     name: '',
     type: 'SALON',
     city: '',
     street: ''
   });
 
-  const handleAddBusiness = async () => {
-    setActionLoading(true);
-    try {
-      const { error } = await supabase
-        .schema('core')
-        .from('businesses')
-        .insert({
-          ...newBusiness,
-          account_id: profile.account_id
-        });
-      if (error) throw error;
-      setOpenAddBusiness(false);
-      setNewBusiness({ name: '', type: 'SALON', city: '', street: '' });
-      refresh();
-    } catch (err) {
-      alert("Error al crear sucursal: " + err.message);
-    } finally {
-      setActionLoading(false);
+  // Estados para Staff (Asignación)
+  const [openAssignUser, setOpenAssignUser] = useState(false);
+  const [selectedBusiness, setSelectedBusiness] = useState(null);
+  const [selectedUserId, setSelectedUserId] = useState('');
+
+  // Estados para Staff (CRUD de Usuarios)
+  const [openStaffManager, setOpenStaffManager] = useState(false);
+  const [openUserEditor, setOpenUserEditor] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
+  const [userForm, setUserForm] = useState({
+    full_name: '',
+    app_role: 'EMPLOYEE'
+  });
+
+  const [actionLoading, setActionLoading] = useState(false);
+
+  const canManageUsers = profile?.app_role === 'OWNER' || profile?.app_role === 'ADMIN';
+
+  // --- Handlers para Negocios ---
+  const handleOpenBusinessDialog = (business = null) => {
+    if (business) {
+      setEditingBusiness(business);
+      setBusinessForm({
+        name: business.name,
+        type: business.type,
+        city: business.city || '',
+        street: business.street || ''
+      });
+    } else {
+      setEditingBusiness(null);
+      setBusinessForm({ name: '', type: 'SALON', city: '', street: '' });
     }
+    setOpenBusinessDialog(true);
   };
 
+  const handleSaveBusiness = async () => {
+    setActionLoading(true);
+    let result;
+    if (editingBusiness) {
+      result = await updateBusiness(editingBusiness.id, businessForm);
+    } else {
+      result = await createBusiness(businessForm);
+    }
+
+    if (result.success) {
+      setOpenBusinessDialog(false);
+    } else {
+      alert("Error: " + result.message);
+    }
+    setActionLoading(false);
+  };
+
+  const handleDeleteBusiness = async (id, name) => {
+    if (!window.confirm(`¿Seguro que deseas eliminar la sucursal "${name}"?`)) return;
+    setActionLoading(true);
+    const result = await deleteBusiness(id);
+    if (!result.success) alert("Error: " + result.message);
+    setActionLoading(false);
+  };
+
+  // --- Handlers para Staff (Asignación) ---
   const handleAssignSubmit = async () => {
     if (!selectedUserId || !selectedBusiness) return;
     setActionLoading(true);
@@ -91,13 +147,41 @@ export default function SucursalesConfig() {
     setActionLoading(false);
   };
 
-  const handleRemoveClick = async (userId, businessId, userName) => {
+  const handleRemoveAssignment = async (userId, businessId, userName) => {
     if (!window.confirm(`¿Remover a ${userName} de esta sucursal?`)) return;
     setActionLoading(true);
     const result = await removeEmployee(userId, businessId);
-    if (!result.success) {
+    if (!result.success) alert("Error: " + result.message);
+    setActionLoading(false);
+  };
+
+  // --- Handlers para Staff (CRUD Usuarios) ---
+  const handleEditUser = (user) => {
+    setEditingUser(user);
+    setUserForm({
+      full_name: user.full_name || '',
+      app_role: user.app_role || 'EMPLOYEE'
+    });
+    setOpenUserEditor(true);
+  };
+
+  const handleSaveUser = async () => {
+    if (!editingUser) return;
+    setActionLoading(true);
+    const result = await updateUserProfile(editingUser.id, userForm);
+    if (result.success) {
+      setOpenUserEditor(false);
+    } else {
       alert("Error: " + result.message);
     }
+    setActionLoading(false);
+  };
+
+  const handleDeleteUser = async (userId, userName) => {
+    if (!window.confirm(`¿Seguro que deseas eliminar el usuario "${userName}" de esta cuenta? Se removerán todas sus asignaciones.`)) return;
+    setActionLoading(true);
+    const result = await deleteUserProfile(userId);
+    if (!result.success) alert("Error: " + result.message);
     setActionLoading(false);
   };
 
@@ -106,14 +190,23 @@ export default function SucursalesConfig() {
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h6">Gestión de Sucursales y Staff</Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => setOpenAddBusiness(true)}
-        >
-          Nueva Sucursal
-        </Button>
+        <Typography variant="h6">Configuración de Sucursales y Staff</Typography>
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <Button
+            variant="outlined"
+            startIcon={<PeopleIcon />}
+            onClick={() => setOpenStaffManager(true)}
+          >
+            Gestionar Staff
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => handleOpenBusinessDialog()}
+          >
+            Nueva Sucursal
+          </Button>
+        </Box>
       </Box>
 
       {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
@@ -123,25 +216,34 @@ export default function SucursalesConfig() {
           <Grid item xs={12} md={6} key={business.id}>
             <Card variant="outlined" sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
               <CardContent sx={{ flexGrow: 1 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2 }}>
                   <Avatar sx={{ bgcolor: 'primary.main', mr: 2 }}>
                     <StoreIcon />
                   </Avatar>
-                  <Box>
-                    <Typography variant="h6" component="div">
-                      {business.name}
-                    </Typography>
+                  <Box sx={{ flexGrow: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Typography variant="h6" component="div">
+                        {business.name}
+                      </Typography>
+                      <Chip 
+                        label={business.type} 
+                        size="small" 
+                        color={business.type === 'SALON' ? 'secondary' : 'primary'} 
+                      />
+                    </Box>
                     <Typography variant="caption" color="textSecondary" sx={{ display: 'flex', alignItems: 'center' }}>
                       <LocationOnIcon sx={{ fontSize: 14, mr: 0.5 }} />
                       {business.city ? `${business.street}, ${business.city}` : 'Dirección no definida'}
                     </Typography>
                   </Box>
-                  <Chip 
-                    label={business.type} 
-                    size="small" 
-                    sx={{ ml: 'auto' }} 
-                    color={business.type === 'SALON' ? 'secondary' : 'primary'} 
-                  />
+                  <Box>
+                    <IconButton size="small" onClick={() => handleOpenBusinessDialog(business)}>
+                      <EditIcon fontSize="small" />
+                    </IconButton>
+                    <IconButton size="small" color="error" onClick={() => handleDeleteBusiness(business.id, business.name)}>
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
                 </Box>
 
                 <Divider sx={{ my: 1.5 }} />
@@ -187,7 +289,7 @@ export default function SucursalesConfig() {
                             edge="end" 
                             size="small" 
                             color="error"
-                            onClick={() => handleRemoveClick(employee.id, business.id, employee.full_name || employee.email)}
+                            onClick={() => handleRemoveAssignment(employee.id, business.id, employee.full_name || employee.email)}
                             disabled={actionLoading}
                           >
                             <DeleteIcon sx={{ fontSize: 18 }} />
@@ -203,23 +305,23 @@ export default function SucursalesConfig() {
         ))}
       </Grid>
 
-      {/* Modal: Agregar Sucursal */}
-      <Dialog open={openAddBusiness} onClose={() => setOpenAddBusiness(false)} fullWidth maxWidth="xs">
-        <DialogTitle>Crear Nueva Sucursal</DialogTitle>
+      {/* Modal: Crear/Editar Sucursal */}
+      <Dialog open={openBusinessDialog} onClose={() => setOpenBusinessDialog(false)} fullWidth maxWidth="xs">
+        <DialogTitle>{editingBusiness ? 'Editar Sucursal' : 'Crear Nueva Sucursal'}</DialogTitle>
         <DialogContent>
           <Box sx={{ pt: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
             <TextField
               fullWidth
               label="Nombre del Local"
-              value={newBusiness.name}
-              onChange={(e) => setNewBusiness({ ...newBusiness, name: e.target.value })}
+              value={businessForm.name}
+              onChange={(e) => setBusinessForm({ ...businessForm, name: e.target.value })}
             />
             <FormControl fullWidth>
               <InputLabel>Tipo de Negocio</InputLabel>
               <Select
-                value={newBusiness.type}
+                value={businessForm.type}
                 label="Tipo de Negocio"
-                onChange={(e) => setNewBusiness({ ...newBusiness, type: e.target.value })}
+                onChange={(e) => setBusinessForm({ ...businessForm, type: e.target.value })}
               >
                 <MenuItem value="SALON">Peluquería / Salón</MenuItem>
                 <MenuItem value="PERFUMERY">Perfumería</MenuItem>
@@ -228,30 +330,30 @@ export default function SucursalesConfig() {
             <TextField
               fullWidth
               label="Ciudad"
-              value={newBusiness.city}
-              onChange={(e) => setNewBusiness({ ...newBusiness, city: e.target.value })}
+              value={businessForm.city}
+              onChange={(e) => setBusinessForm({ ...businessForm, city: e.target.value })}
             />
             <TextField
               fullWidth
               label="Dirección"
-              value={newBusiness.street}
-              onChange={(e) => setNewBusiness({ ...newBusiness, street: e.target.value })}
+              value={businessForm.street}
+              onChange={(e) => setBusinessForm({ ...businessForm, street: e.target.value })}
             />
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpenAddBusiness(false)}>Cancelar</Button>
+          <Button onClick={() => setOpenBusinessDialog(false)}>Cancelar</Button>
           <Button 
             variant="contained" 
-            onClick={handleAddBusiness} 
-            disabled={!newBusiness.name || actionLoading}
+            onClick={handleSaveBusiness} 
+            disabled={!businessForm.name || actionLoading}
           >
-            Crear
+            {editingBusiness ? 'Guardar Cambios' : 'Crear'}
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Modal: Asignar Usuario */}
+      {/* Modal: Asignar Usuario a Sucursal */}
       <Dialog open={openAssignUser} onClose={() => setOpenAssignUser(false)} fullWidth maxWidth="xs">
         <DialogTitle>Asignar Staff a {selectedBusiness?.name}</DialogTitle>
         <DialogContent>
@@ -285,6 +387,98 @@ export default function SucursalesConfig() {
             disabled={!selectedUserId || actionLoading}
           >
             Asignar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Modal: Gestionar Staff de la Cuenta (Full CRUD) */}
+      <Dialog open={openStaffManager} onClose={() => setOpenStaffManager(false)} fullWidth maxWidth="md">
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          Personal de la Cuenta
+          <Typography variant="caption" color="textSecondary">
+            Total Usuarios: {accountUsers.length}
+          </Typography>
+        </DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+            Aquí puedes editar los roles y perfiles de todos los usuarios vinculados a tu cuenta.
+            Para añadir nuevos usuarios, pídeles que se registren usando el código de tu cuenta.
+          </Typography>
+          <TableContainer component={Paper} variant="outlined">
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Nombre / Email</TableCell>
+                  <TableCell>Rol</TableCell>
+                  <TableCell align="right">Acciones</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {accountUsers.map((user) => (
+                  <TableRow key={user.id}>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontWeight: 500 }}>{user.full_name || 'Sin nombre'}</Typography>
+                      <Typography variant="caption" color="textSecondary">{user.email}</Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Chip label={user.app_role} size="small" variant="outlined" />
+                    </TableCell>
+                    <TableCell align="right">
+                      {canManageUsers && user.id !== profile.id && (
+                        <>
+                          <IconButton size="small" color="primary" onClick={() => handleEditUser(user)}>
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton size="small" color="error" onClick={() => handleDeleteUser(user.id, user.full_name || user.email)}>
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </>
+                      )}
+                      {user.id === profile.id && <Typography variant="caption" color="textSecondary">Tú (Owner)</Typography>}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenStaffManager(false)}>Cerrar</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Modal: Editor de Usuario */}
+      <Dialog open={openUserEditor} onClose={() => setOpenUserEditor(false)} fullWidth maxWidth="xs">
+        <DialogTitle>Editar Usuario</DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <TextField
+              fullWidth
+              label="Nombre Completo"
+              value={userForm.full_name}
+              onChange={(e) => setUserForm({ ...userForm, full_name: e.target.value })}
+            />
+            <FormControl fullWidth>
+              <InputLabel>Rol</InputLabel>
+              <Select
+                value={userForm.app_role}
+                label="Rol"
+                onChange={(e) => setUserForm({ ...userForm, app_role: e.target.value })}
+              >
+                <MenuItem value="OWNER">Owner (Dueño)</MenuItem>
+                <MenuItem value="ADMIN">Admin</MenuItem>
+                <MenuItem value="EMPLOYEE">Empleado</MenuItem>
+                <MenuItem value="AUDITOR">Auditor</MenuItem>
+                <MenuItem value="DEVELOPER">Developer</MenuItem>
+                <MenuItem value="CLIENT">Cliente</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenUserEditor(false)}>Cancelar</Button>
+          <Button variant="contained" onClick={handleSaveUser} disabled={actionLoading}>
+            Guardar Cambios
           </Button>
         </DialogActions>
       </Dialog>

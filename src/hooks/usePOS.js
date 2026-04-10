@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+﻿import { useState, useCallback } from 'react';
 import { supabase } from '../services/supabaseClient';
 import { useAuthStore } from '../stores/authStore';
 import { useOffline } from './useOffline';
@@ -12,6 +12,8 @@ export const usePOS = () => {
   const [error, setError] = useState(null);
   const { profile } = useAuthStore();
   const { isOnline, syncService, db } = useOffline();
+  const isRowDeleted = (row) => Boolean(row?.is_deleted ?? row?.deleted ?? false);
+  const isEffectivelyOnline = () => isOnline && !syncService.isNetworkDegraded();
 
   const fetchItemsForBusiness = useCallback(async (businessId) => {
     if (!profile?.account_id || !businessId) return;
@@ -19,8 +21,35 @@ export const usePOS = () => {
     setLoading(true);
     setError(null);
 
+    const loadLocalItems = async () => {
+      if (!db) return [];
+
+      const localItemsDocs = await db.inventory_items.find({
+        selector: { account_id: profile.account_id, item_status: 'ACTIVE' }
+      }).exec();
+      const localItems = localItemsDocs
+        .map((d) => d.toJSON())
+        .filter((i) => !isRowDeleted(i));
+      
+      const localStockDocs = await db.stock_levels.find({
+        selector: { account_id: profile.account_id, business_id: businessId }
+      }).exec();
+      const localStock = localStockDocs
+        .map((d) => d.toJSON())
+        .filter((s) => !isRowDeleted(s));
+
+      const stockMap = new Map(localStock.map((s) => [s.item_id, Number(s.quantity) || 0]));
+
+      return localItems.filter((i) => {
+        const hasStockRecord = stockMap.has(i.id);
+        if (!hasStockRecord) return false;
+        if (i.item_type === 'SERVICE') return true;
+        return (stockMap.get(i.id) || 0) > 0;
+      });
+    };
+
     try {
-      if (isOnline) {
+      if (isEffectivelyOnline()) {
         const { data, error: fetchError } = await supabase
           .schema('core')
           .from('inventory_items')
@@ -38,11 +67,34 @@ export const usePOS = () => {
           .filter('stock_levels.business_id', 'eq', businessId);
 
         if (fetchError) throw fetchError;
+        const safeData = data || [];
+        syncService.markNetworkHealthy();
+
+        if (db && safeData.length > 0) {
+          const itemsToCache = safeData.map(({ stock_levels, ...item }) => item);
+          await db.inventory_items.bulkUpsert(itemsToCache);
+
+          const stockToCache = safeData.flatMap((item) =>
+            (item.stock_levels || []).map((s) => ({
+              id: `${item.id}:${s.business_id}`,
+              account_id: profile.account_id,
+              item_id: item.id,
+              business_id: s.business_id,
+              quantity: Number(s.quantity) || 0,
+              is_deleted: false,
+              updated_at: new Date().toISOString(),
+            }))
+          );
+
+          if (stockToCache.length > 0) {
+            await db.stock_levels.bulkUpsert(stockToCache);
+          }
+        }
 
         // Map and filter items: 
         // 1. Must be a SERVICE assigned to the business
         // 2. OR be a PRODUCT with quantity > 0 in this business
-        const availableItems = data.filter(item => {
+        const availableItems = safeData.filter(item => {
           const stock = item.stock_levels?.find(s => s.business_id === businessId);
           if (!stock) return false; // Not assigned to this business
           
@@ -52,35 +104,28 @@ export const usePOS = () => {
 
         setItems(availableItems);
       } else {
-        // Offline logic: fetch from RxDB and filter
-        if (db) {
-          const localItems = await db.inventory_items.find({
-            selector: { account_id: profile.account_id, is_deleted: false, item_status: 'ACTIVE' }
-          }).exec();
-          
-          // Get all stock levels for this business
-          const localStock = await db.stock_levels.find({
-            selector: { account_id: profile.account_id, business_id: businessId }
-          }).exec();
-
-          const stockMap = new Map(localStock.map(s => [s.item_id, s.quantity]));
-          
-          const availableItems = localItems
-            .map(i => i.toJSON())
-            .filter(i => {
-              const hasStockRecord = stockMap.has(i.id);
-              if (!hasStockRecord) return false;
-
-              if (i.item_type === 'SERVICE') return true;
-              return (stockMap.get(i.id) || 0) > 0;
-            });
-
-          setItems(availableItems);
-        }
+        const availableItems = await loadLocalItems();
+        setItems(availableItems);
       }
     } catch (err) {
       console.error('Error fetching business items:', err.message);
-      setError(err.message);
+      if (syncService.isNetworkFailure(err.message)) {
+        syncService.markNetworkDegraded();
+      }
+      try {
+        // Fallback robusto para cortes de red parciales (DNS, gateway, etc.)
+        const availableItems = await loadLocalItems();
+        if (availableItems.length > 0) {
+          setItems(availableItems);
+          setError('Sin conexiÃ³n al servidor. Mostrando catÃ¡logo local.');
+        } else {
+          setItems([]);
+          setError(err.message);
+        }
+      } catch {
+        setItems([]);
+        setError(err.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -126,7 +171,7 @@ export const usePOS = () => {
     setError(null);
 
     try {
-      if (isOnline) {
+      if (isEffectivelyOnline()) {
         // 1. Release Stock in Supabase
         for (const item of orderItems) {
           // Solo liberar stock si es un PRODUCTO
@@ -137,7 +182,7 @@ export const usePOS = () => {
               p_account_id: profile.account_id,
               p_quantity_change: item.quantity, // Positive to release
               p_movement_type: 'RESERVE_RELEASE_IN',
-              p_reason: `Cancelación de orden POS: ${orderId}`,
+              p_reason: `CancelaciÃ³n de orden POS: ${orderId}`,
               p_user_id: profile.id
             });
 
@@ -178,15 +223,17 @@ export const usePOS = () => {
   };
 
   const createOrder = async (customerData) => {
-    if (cart.length === 0) return { success: false, error: 'El carrito está vacío.' };
+    if (cart.length === 0) return { success: false, error: 'El carrito estÃ¡ vacÃ­o.' };
     if (!profile?.account_id || !profile?.id || !customerData.business_id) {
-        return { success: false, error: 'Información de usuario o negocio incompleta para crear la orden.' };
+        return { success: false, error: 'InformaciÃ³n de usuario o negocio incompleta para crear la orden.' };
     }
 
     setLoading(true);
     setError(null);
     const orderId = uuidv4();
     const totalAmount = calculateTotal();
+    const shouldUseOnlineFlow = isEffectivelyOnline();
+    let committedOffline = false;
 
     // Support selected customer or manual data
     // If it's CONSUMIDOR_FINAL (id starts with 000...), we send null to the database
@@ -221,7 +268,7 @@ export const usePOS = () => {
     }));
 
     try {
-      if (isOnline) {
+      if (shouldUseOnlineFlow) {
         // --- STEP 1: Reserve Stock (Online Only) ---
         for (const item of cart) {
             // SOLO reservar stock si es un PRODUCTO
@@ -247,9 +294,11 @@ export const usePOS = () => {
 
         const { error: itemsError } = await supabase.schema('core').from('order_items').insert(orderItems);
         if (itemsError) throw itemsError;
+        syncService.markNetworkHealthy();
 
       } else {
         // --- OFFLINE FLOW ---
+        committedOffline = true;
         // 1. Update stock in RxDB (Offline reservation)
         for (const item of cart) {
             if (item.item_type === 'PRODUCT') {
@@ -267,9 +316,34 @@ export const usePOS = () => {
           await syncService.enqueueOperation('INSERT', 'order_items', item);
         }
       }
-      return { success: true, orderId };
+      return { success: true, orderId, offline: committedOffline };
     } catch (err) {
       console.error('Error creating order:', err.message);
+      const isNetworkFailure = /Failed to fetch|ERR_NAME_NOT_RESOLVED|NetworkError/i.test(err.message || '');
+      if (isNetworkFailure && db && shouldUseOnlineFlow) {
+        try {
+          syncService.markNetworkDegraded();
+          committedOffline = true;
+          // Fallback automático a flujo offline si la red se cayó en medio del checkout
+          for (const item of cart) {
+            if (item.item_type === 'PRODUCT') {
+              const stockId = `${item.id}:${customerData.business_id}`;
+              const stockItem = await db.stock_levels.findOne(stockId).exec();
+              if (stockItem) {
+                await stockItem.patch({ quantity: stockItem.quantity - item.quantity });
+              }
+            }
+          }
+          await syncService.enqueueOperation('INSERT', 'orders', order);
+          for (const item of orderItems) {
+            await syncService.enqueueOperation('INSERT', 'order_items', item);
+          }
+          return { success: true, orderId, offline: committedOffline };
+        } catch (offlineErr) {
+          setError(offlineErr.message);
+          return { success: false, error: offlineErr.message };
+        }
+      }
       setError(err.message);
       return { success: false, error: err.message };
     } finally {
@@ -298,7 +372,7 @@ export const usePOS = () => {
     };
 
     try {
-        if (isOnline) {
+        if (isEffectivelyOnline()) {
             const { error: insertError } = await supabase
                 .schema('core')
                 .from('customers')
@@ -340,7 +414,7 @@ export const usePOS = () => {
     };
 
     try {
-      if (isOnline) {
+      if (isEffectivelyOnline()) {
         // 1. Register Payment
         const { error: payError } = await supabase.schema('core').from('payments').insert(payment);
         if (payError) throw payError;
@@ -385,10 +459,10 @@ export const usePOS = () => {
         return { success: true, item: rxItem.toJSON(), source: 'local' };
       }
 
-      // 2. Si no está local, devolver que no se encontró para que la UI pregunte por búsqueda remota
+      // 2. Si no estÃ¡ local, devolver que no se encontrÃ³ para que la UI pregunte por bÃºsqueda remota
       return { success: false, code: 'NOT_FOUND_LOCAL' };
     } catch (err) {
-      console.error('Error en búsqueda local:', err.message);
+      console.error('Error en bÃºsqueda local:', err.message);
       return { success: false, error: err.message };
     } finally {
       setLoading(false);
@@ -396,7 +470,7 @@ export const usePOS = () => {
   };
 
   const findProductRemote = async (sku) => {
-    if (!isOnline) return { success: false, error: 'Sin conexión a internet.' };
+    if (!isEffectivelyOnline()) return { success: false, error: 'Sin conexión a internet.' };
     setLoading(true);
     setError(null);
 
@@ -417,7 +491,7 @@ export const usePOS = () => {
 
       return { success: true, item: data, source: 'remote' };
     } catch (err) {
-      console.error('Error en búsqueda remota:', err.message);
+      console.error('Error en bÃºsqueda remota:', err.message);
       return { success: false, error: err.message };
     } finally {
       setLoading(false);
@@ -452,3 +526,4 @@ export const usePOS = () => {
     createCustomer
   };
 };
+

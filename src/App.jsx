@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -19,6 +19,7 @@ import StockManagement from "./pages/inventory/StockManagement"; // Import Stock
 import POS from './pages/pos/POS';
 import CashRegister from './pages/pos/CashRegister';
 import Appointments from './pages/appointments/Appointments';
+import MonitoringPage from './pages/appointments/MonitoringPage';
 import Customers from './pages/customers/Customers';
 import Invoices from './pages/invoices/Invoices';
 import Dashboard from "./pages/dashboard/Dashboard";
@@ -42,15 +43,15 @@ import { notificationService } from "./services/notificationService";
 
 import { useAuthStore } from "./stores/authStore";
 
-// Páginas temporales para la Fase 2
+// PÃ¡ginas temporales para la Fase 2
 import { Perfil } from "./components/auth/Perfil";
 
-// Componente para redirección dinámica basada en el ROL (Fase 7 - Final)
+// Componente para redirecciÃ³n dinÃ¡mica basada en el ROL (Fase 7 - Final)
 const RoleRedirect = () => {
   const { user, profile, loading, authReady } = useAuthStore();
 
 // Mientras carga, puedes mostrar un spinner de MUI para que el usuario sepa que algo pasa
-  if (!authReady || loading || (user && !profile)) {
+  if (!authReady || loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
         <CircularProgress />
@@ -60,7 +61,7 @@ const RoleRedirect = () => {
 
   if (!user) return <Navigate to="/login" replace />;
 
-  // Si el perfil no cargó aún, mantenemos loader (no redirigimos)
+  // Si el perfil no cargÃ³ aÃºn, mantenemos loader (no redirigimos)
   if (!profile) return <Navigate to="/perfil" replace />;
 
   switch (profile?.app_role) {
@@ -83,19 +84,27 @@ function App() {
   const { user, profile } = useAuthStore();
 
   React.useEffect(() => {
-    // Inicializar el servicio de sincronización offline
+    // Inicializar el servicio de sincronizaciÃ³n offline
     syncService.init();
 
-    // Inicializar OneSignal
-    notificationService.init();
+    // Inicializar OneSignal solo si la red no estÃ¡ degradada
+    if (!syncService.isNetworkDegraded() && navigator.onLine) {
+      notificationService.init();
+    }
   }, []);
 
   // Efecto para vincular el player_id de OneSignal con el usuario logueado
   React.useEffect(() => {
-    if (user?.id) {
+    if (user?.id && !syncService.isNetworkDegraded() && navigator.onLine) {
       notificationService.linkUser(user.id);
     }
   }, [user?.id]);
+
+  React.useEffect(() => {
+    if (profile?.account_id && navigator.onLine && !syncService.isNetworkDegraded()) {
+      syncService.pullData(profile.account_id);
+    }
+  }, [profile?.account_id]);
 
   return (
     <ThemeProvider theme={theme}>
@@ -103,12 +112,12 @@ function App() {
       <AuthProvider>
         <Router>
           <Routes>
-            {/* Rutas de Autenticación */}
+            {/* Rutas de AutenticaciÃ³n */}
             <Route path="/login" element={<SignIn />} />
             <Route path="/register" element={<SignUp />} />
             <Route path="/oauth/callback" element={<OAuthCallback />} />
 
-            {/* Ruta Raíz con Redirección por Rol */}
+            {/* Ruta RaÃ­z con RedirecciÃ³n por Rol */}
             <Route path="/" element={<RoleRedirect />} />
 
             {/* Rutas Protegidas bajo el MainLayout */}
@@ -210,6 +219,17 @@ function App() {
             />
 
             <Route
+              path="/monitoreo"
+              element={
+                <ProtectedRoute allowedRoles={["OWNER", "ADMIN", "EMPLOYEE"]}>
+                  <MainLayout>
+                    <MonitoringPage />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
               path="/clientes"
               element={
                 <ProtectedRoute allowedRoles={["OWNER", "ADMIN", "EMPLOYEE"]}>
@@ -264,7 +284,7 @@ function App() {
               <Route path="ecommerce" element={<ECommerceConfig />} />
             </Route>
 
-            {/* Redirección por defecto para rutas inexistentes */}
+            {/* RedirecciÃ³n por defecto para rutas inexistentes */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Router>
@@ -274,3 +294,5 @@ function App() {
 }
 
 export default App;
+
+
