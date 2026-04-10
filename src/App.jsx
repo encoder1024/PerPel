@@ -19,6 +19,7 @@ import StockManagement from "./pages/inventory/StockManagement"; // Import Stock
 import POS from './pages/pos/POS';
 import CashRegister from './pages/pos/CashRegister';
 import Appointments from './pages/appointments/Appointments';
+import MonitoringPage from './pages/appointments/MonitoringPage';
 import Customers from './pages/customers/Customers';
 import Invoices from './pages/invoices/Invoices';
 import Dashboard from "./pages/dashboard/Dashboard";
@@ -212,6 +213,17 @@ function App() {
                 <ProtectedRoute allowedRoles={["OWNER", "ADMIN", "EMPLOYEE"]}>
                   <MainLayout>
                     <Appointments />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/monitoreo"
+              element={
+                <ProtectedRoute allowedRoles={["OWNER", "ADMIN", "EMPLOYEE"]}>
+                  <MainLayout>
+                    <MonitoringPage />
                   </MainLayout>
                 </ProtectedRoute>
               }

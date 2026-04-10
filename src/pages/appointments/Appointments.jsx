@@ -25,9 +25,14 @@ import WhatsAppIcon from "@mui/icons-material/WhatsApp";
 import SyncIcon from "@mui/icons-material/Sync";
 import LinkIcon from "@mui/icons-material/Link";
 import BugReportIcon from "@mui/icons-material/BugReport";
+import PlayArrowIcon from "@mui/icons-material/PlayArrow";
+import AddIcon from "@mui/icons-material/Add";
 import { useAppointments } from "../../hooks/useAppointments";
+import { useMonitoring } from "../../hooks/useMonitoring";
+import { useProfessionals } from "../../hooks/useProfessionals";
 import { supabase } from "../../services/supabaseClient";
 import { useAuthStore } from "../../stores/authStore";
+import { TextField } from "@mui/material";
 
 export default function Appointments() {
   const { profile } = useAuthStore();
@@ -40,13 +45,26 @@ export default function Appointments() {
     error,
     actionLoadingId,
     refresh, // Usamos la función de refresco del hook
-    markAttended,
     markCancelled,
     markNoShow,
     isOwnerAdmin,
     isFinalStatus,
     calcomExpired,
   } = useAppointments();
+
+  const { boxes, activeAppointments, startService, createSpontaneousAppointment } = useMonitoring(selectedBusinessId);
+  const { professionals } = useProfessionals();
+
+  // Estados para el modal de Iniciar Servicio
+  const [openStartDialog, setOpenStartDialog] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState(null);
+  const [selectedBoxId, setSelectedBoxId] = useState('');
+  const [selectedProfId, setSelectedProfId] = useState('');
+
+  // Estados para Turno Espontáneo
+  const [openSpontaneousDialog, setOpenSpontaneousDialog] = useState(false);
+  const [spontaneousData, setSpontaneousData] = useState({ client_name: '', service_id: '' });
+  const [services, setServices] = useState([]);
 
   // Estados para Diagnóstico y Conexión
   const [calcomStatus, setCalcomStatus] = useState('unknown'); 
@@ -111,6 +129,38 @@ export default function Appointments() {
       setOpenDebugModal(true);
     } finally {
       setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    const fetchServices = async () => {
+      const { data } = await supabase.schema('core').from('inventory_items').select('id, name').eq('account_id', profile.account_id).eq('item_type', 'SERVICE').eq('is_deleted', false);
+      setServices(data || []);
+    };
+    if (profile?.account_id) fetchServices();
+  }, [profile?.account_id]);
+
+  const handleMarkAttended = (appt) => {
+    setSelectedAppointment(appt);
+    setSelectedBoxId('');
+    setSelectedProfId('');
+    setOpenStartDialog(true);
+  };
+
+  const onConfirmStart = async () => {
+    const res = await startService(selectedAppointment.id, selectedBoxId, selectedProfId);
+    if (res.success) {
+      setOpenStartDialog(false);
+      refresh();
+    }
+  };
+
+  const handleCreateSpontaneous = async () => {
+    const res = await createSpontaneousAppointment(spontaneousData);
+    if (res.success) {
+      setOpenSpontaneousDialog(false);
+      setSpontaneousData({ client_name: '', service_id: '' });
+      refresh();
     }
   };
 
@@ -280,22 +330,32 @@ export default function Appointments() {
             <Typography variant="h6" sx={{ fontWeight: 600 }}>
               Próximos Turnos
             </Typography>
-            {businesses.length > 0 && (
-              <FormControl size="small" sx={{ minWidth: 220 }}>
-                <InputLabel>Negocio</InputLabel>
-                <Select
-                  label="Negocio"
-                  value={selectedBusinessId || ""}
-                  onChange={(e) => setSelectedBusinessId(e.target.value)}
-                >
-                  {businesses.map((b) => (
-                    <MenuItem key={b.id} value={b.id}>
-                      {b.name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            )}
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button 
+                variant="contained" 
+                startIcon={<AddIcon />} 
+                onClick={() => setOpenSpontaneousDialog(true)}
+                size="small"
+              >
+                Turno Espontáneo
+              </Button>
+              {businesses.length > 0 && (
+                <FormControl size="small" sx={{ minWidth: 220 }}>
+                  <InputLabel>Negocio</InputLabel>
+                  <Select
+                    label="Negocio"
+                    value={selectedBusinessId || ""}
+                    onChange={(e) => setSelectedBusinessId(e.target.value)}
+                  >
+                    {businesses.map((b) => (
+                      <MenuItem key={b.id} value={b.id}>
+                        {b.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              )}
+            </Box>
           </Box>
           <Paper
             sx={{ p: 2, height: "auto", maxHeight: 900, overflowY: "auto" }}
@@ -354,18 +414,19 @@ export default function Appointments() {
                           <Typography variant="caption" sx={{ display: "block", mb: 1 }}>
                             Cliente:{" "}
                             <strong>
-                              {appt.client_name + " " + appt.client_phone || "Desconocido"}
+                              {appt.client_name || "Desconocido"} {appt.client_phone || ""}
                             </strong>
                           </Typography>
                           <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
                             <Button
                               size="small"
                               variant="contained"
-                              color="success"
+                              color="primary"
+                              startIcon={<PlayArrowIcon />}
                               disabled={isFinal || actionLoadingId === appt.id}
-                              onClick={() => markAttended(appt.id)}
+                              onClick={() => handleMarkAttended(appt)}
                             >
-                              Asistió
+                              Asistió / Iniciar
                             </Button>
                             <Button
                               size="small"
@@ -419,6 +480,83 @@ export default function Appointments() {
           </Paper>
         </Grid>
       </Grid>
+
+      {/* Modal: Iniciar Servicio (Asignar Box y Profesional) */}
+      <Dialog open={openStartDialog} onClose={() => setOpenStartDialog(false)} fullWidth maxWidth="xs">
+        <DialogTitle>Iniciar Servicio: {selectedAppointment?.client_name}</DialogTitle>
+        <DialogContent>
+          <Box sx={{ py: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Typography variant="body2" gutterBottom>Seleccione los recursos para este servicio:</Typography>
+            <FormControl fullWidth>
+              <InputLabel>Box de Trabajo</InputLabel>
+              <Select 
+                value={selectedBoxId} 
+                label="Box de Trabajo" 
+                onChange={(e) => setSelectedBoxId(e.target.value)}
+              >
+                {boxes.map(box => {
+                  const isBusy = activeAppointments.some(a => a.box_id === box.id && a.status === 'IN_PROGRESS');
+                  return (
+                    <MenuItem key={box.id} value={box.id} disabled={isBusy}>
+                      {box.name} {isBusy ? '(OCUPADO)' : ''}
+                    </MenuItem>
+                  );
+                })}
+              </Select>
+            </FormControl>
+            <FormControl fullWidth>
+              <InputLabel>Profesional</InputLabel>
+              <Select 
+                value={selectedProfId} 
+                label="Profesional" 
+                onChange={(e) => setSelectedProfId(e.target.value)}
+              >
+                {professionals.map(p => {
+                  const isBusy = activeAppointments.some(a => a.professional_id === p.id && a.status === 'IN_PROGRESS');
+                  return (
+                    <MenuItem key={p.id} value={p.id} disabled={isBusy}>
+                      {p.full_name} {isBusy ? '(OCUPADO)' : ''}
+                    </MenuItem>
+                  );
+                })}
+              </Select>
+            </FormControl>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenStartDialog(false)}>Cancelar</Button>
+          <Button variant="contained" onClick={onConfirmStart} disabled={!selectedBoxId || !selectedProfId}>Poner en Marcha</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Modal: Turno Espontáneo */}
+      <Dialog open={openSpontaneousDialog} onClose={() => setOpenSpontaneousDialog(false)} fullWidth maxWidth="xs">
+        <DialogTitle>Registrar Turno Espontáneo</DialogTitle>
+        <DialogContent>
+          <Box sx={{ py: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <TextField 
+              fullWidth 
+              label="Nombre del Cliente" 
+              value={spontaneousData.client_name}
+              onChange={(e) => setSpontaneousData({ ...spontaneousData, client_name: e.target.value })}
+            />
+            <FormControl fullWidth>
+              <InputLabel>Servicio</InputLabel>
+              <Select 
+                value={spontaneousData.service_id} 
+                label="Servicio" 
+                onChange={(e) => setSpontaneousData({ ...spontaneousData, service_id: e.target.value })}
+              >
+                {services.map(s => <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>)}
+              </Select>
+            </FormControl>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenSpontaneousDialog(false)}>Cancelar</Button>
+          <Button variant="contained" onClick={handleCreateSpontaneous} disabled={!spontaneousData.client_name || !spontaneousData.service_id}>Registrar Turno</Button>
+        </DialogActions>
+      </Dialog>
 
       {/* MODAL DE DIAGNÓSTICO CAL.COM */}
       <Dialog open={openDebugModal} onClose={() => setOpenDebugModal(false)} maxWidth="md" fullWidth>

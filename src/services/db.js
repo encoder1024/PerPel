@@ -119,6 +119,41 @@ const businessesSchema = {
   required: ['id', 'account_id', 'name']
 };
 
+// Esquema para Boxes (Reflejo de core.work_boxes)
+const workBoxesSchema = {
+  title: 'work boxes schema',
+  version: 0,
+  primaryKey: 'id',
+  type: 'object',
+  properties: {
+    id: { type: 'string', maxLength: 100 },
+    account_id: { type: 'string' },
+    business_id: { type: 'string' },
+    name: { type: 'string' },
+    updated_at: { type: 'string' },
+    is_deleted: { type: 'boolean', default: false }
+  },
+  required: ['id', 'account_id', 'business_id', 'name']
+};
+
+// Esquema para Profesionales (Reflejo de core.professionals)
+const professionalsSchema = {
+  title: 'professionals schema',
+  version: 0,
+  primaryKey: 'id',
+  type: 'object',
+  properties: {
+    id: { type: 'string', maxLength: 100 },
+    account_id: { type: 'string' },
+    business_id: { type: 'string' },
+    full_name: { type: 'string' },
+    specialty: { type: 'string' },
+    updated_at: { type: 'string' },
+    is_deleted: { type: 'boolean', default: false }
+  },
+  required: ['id', 'account_id', 'business_id', 'full_name']
+};
+
 // Esquema para la Cola de Sincronización (Offline Sync Queue)
 const syncQueueSchema = {
   title: 'sync queue schema',
@@ -150,6 +185,8 @@ const _create = async () => {
     customers: { schema: customerSchema },
     appointments: { schema: appointmentsSchema },
     businesses: { schema: businessesSchema },
+    work_boxes: { schema: workBoxesSchema },
+    professionals: { schema: professionalsSchema },
     sync_queue: { schema: syncQueueSchema }
   });
 
