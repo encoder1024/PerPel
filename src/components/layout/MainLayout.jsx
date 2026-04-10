@@ -17,15 +17,18 @@ import {
   Menu,
   MenuItem,
   Tooltip,
+  Collapse,
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import AccountCircle from '@mui/icons-material/AccountCircle';
 import LogoutIcon from '@mui/icons-material/Logout';
+import ExpandLess from '@mui/icons-material/ExpandLess';
+import ExpandMore from '@mui/icons-material/ExpandMore';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
-import { navigationItems } from '../../utils/navigation';
+import { navigationGroups } from '../../utils/navigation';
 import clientLogo from '../../assets/logoAE_full.jpg';
 
 const drawerWidth = 240;
@@ -121,9 +124,26 @@ export default function MainLayout({ children }) {
     navigate('/login');
   };
 
-  const filteredNavItems = navigationItems.filter(
-    (item) => !item.roles || item.roles.includes(profile?.app_role)
-  );
+  // Filtrado de grupos y sus ítems por rol
+  const filteredGroups = navigationGroups
+    .map(group => ({
+      ...group,
+      items: group.items.filter(item => !item.roles || item.roles.includes(profile?.app_role))
+    }))
+    .filter(group => group.items.length > 0);
+
+  // Estado para manejar qué grupos están expandidos
+  const [expandedGroups, setExpandedGroups] = useState({});
+
+  const handleToggleGroup = (title) => {
+    if (!open) {
+      setOpen(true); // Abrir el drawer si está cerrado al clickear un grupo
+    }
+    setExpandedGroups(prev => ({
+      ...prev,
+      [title]: !prev[title]
+    }));
+  };
 
   return (
     <Box sx={{ display: 'flex' }}>
@@ -199,43 +219,78 @@ export default function MainLayout({ children }) {
           </IconButton>
         </DrawerHeader>
         <Divider sx={{ backgroundColor: 'rgba(255,255,255,0.12)' }} />
-        <List>
-          {filteredNavItems.map((item) => (
-            <ListItem key={item.text} disablePadding sx={{ display: 'block' }}>
-              <Tooltip title={!open ? item.text : ''} placement="right">
-                <ListItemButton
-                  onClick={() => navigate(item.path)}
-                  sx={{
-                    minHeight: 48,
-                    justifyContent: open ? 'initial' : 'center',
-                    px: 2.5,
-                    backgroundColor: location.pathname === item.path ? 'rgba(255,255,255,0.08)' : 'transparent',
-                    '&:hover': { backgroundColor: 'rgba(255,255,255,0.12)' },
-                  }}
-                >
-                  <ListItemIcon
+        <List sx={{ px: 0 }}>
+          {filteredGroups.map((group) => (
+            <React.Fragment key={group.title}>
+              <ListItem disablePadding sx={{ display: 'block' }}>
+                <Tooltip title={!open ? group.title : ''} placement="right">
+                  <ListItemButton
+                    onClick={() => handleToggleGroup(group.title)}
                     sx={{
-                      minWidth: 0,
-                      mr: open ? 3 : 'auto',
-                      justifyContent: 'center',
-                      color: location.pathname === item.path ? '#ffffff' : 'rgba(255,255,255,0.7)',
+                      minHeight: 48,
+                      justifyContent: open ? 'initial' : 'center',
+                      px: 2.5,
+                      '&:hover': { backgroundColor: 'rgba(255,255,255,0.12)' },
                     }}
                   >
-                    {item.icon}
-                  </ListItemIcon>
-                  <ListItemText 
-                    primary={item.text} 
-                    sx={{ 
-                      opacity: open ? 1 : 0,
-                      '& .MuiTypography-root': { 
-                        fontWeight: location.pathname === item.path ? 600 : 400,
-                        fontSize: '0.9rem'
-                      }
-                    }} 
-                  />
-                </ListItemButton>
-              </Tooltip>
-            </ListItem>
+                    <ListItemIcon
+                      sx={{
+                        minWidth: 0,
+                        mr: open ? 3 : 'auto',
+                        justifyContent: 'center',
+                        color: 'rgba(255,255,255,0.9)',
+                      }}
+                    >
+                      {group.icon}
+                    </ListItemIcon>
+                    <ListItemText 
+                      primary={group.title} 
+                      sx={{ 
+                        opacity: open ? 1 : 0,
+                        '& .MuiTypography-root': { fontWeight: 600, fontSize: '0.9rem' }
+                      }} 
+                    />
+                    {open && (expandedGroups[group.title] ? <ExpandLess /> : <ExpandMore />)}
+                  </ListItemButton>
+                </Tooltip>
+              </ListItem>
+              
+              <Collapse in={expandedGroups[group.title] && open} timeout="auto" unmountOnExit>
+                <List component="div" disablePadding>
+                  {group.items.map((item) => (
+                    <ListItemButton
+                      key={item.text}
+                      onClick={() => navigate(item.path)}
+                      sx={{
+                        minHeight: 40,
+                        pl: 4,
+                        backgroundColor: location.pathname === item.path ? 'rgba(255,255,255,0.15)' : 'transparent',
+                        '&:hover': { backgroundColor: 'rgba(255,255,255,0.12)' },
+                      }}
+                    >
+                      <ListItemIcon
+                        sx={{
+                          minWidth: 0,
+                          mr: 2,
+                          color: location.pathname === item.path ? '#ffffff' : 'rgba(255,255,255,0.6)',
+                        }}
+                      >
+                        {React.cloneElement(item.icon, { sx: { fontSize: '1.2rem' } })}
+                      </ListItemIcon>
+                      <ListItemText 
+                        primary={item.text} 
+                        sx={{ 
+                          '& .MuiTypography-root': { 
+                            fontWeight: location.pathname === item.path ? 600 : 400,
+                            fontSize: '0.85rem'
+                          }
+                        }} 
+                      />
+                    </ListItemButton>
+                  ))}
+                </List>
+              </Collapse>
+            </React.Fragment>
           ))}
         </List>
       </Drawer>
