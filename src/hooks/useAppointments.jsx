@@ -22,20 +22,40 @@ export const useAppointments = () => {
   const loadBusinesses = useCallback(async () => {
     if (!profile?.account_id || !profile?.id) return;
     setError(null);
+    setLoading(true);
     try {
+      // Consultar negocios que tienen credenciales de CAL_COM asignadas y activas
+      const { data: assignedCreds, error: credError } = await supabase
+        .schema("core")
+        .from("business_asign_credentials")
+        .select("business_id")
+        .eq("account_id", profile.account_id)
+        .eq("api_name", "CAL_COM")
+        .eq("is_active", true)
+        .eq("is_deleted", false);
+
+      if (credError) throw credError;
+      
+      const calcomBusinessIds = assignedCreds?.map(c => c.business_id) || [];
+
+      if (calcomBusinessIds.length === 0) {
+        setBusinesses([]);
+        setLoading(false);
+        return;
+      }
+
+      let fetchedBusinesses = [];
       if (isOwnerAdmin) {
         const { data, error: bError } = await supabase
           .schema("core")
           .from("businesses")
           .select("id, name")
           .eq("account_id", profile.account_id)
+          .in("id", calcomBusinessIds)
           .eq("is_deleted", false)
           .order("name");
         if (bError) throw bError;
-        setBusinesses(data || []);
-        if (!selectedBusinessId && data?.length) {
-          setSelectedBusinessId(data[0].id);
-        }
+        fetchedBusinesses = data || [];
       } else {
         const { data, error: aError } = await supabase
           .schema("core")
@@ -43,23 +63,36 @@ export const useAppointments = () => {
           .select("business:businesses (id, name)")
           .eq("account_id", profile.account_id)
           .eq("user_id", profile.id)
+          .in("business_id", calcomBusinessIds)
           .eq("is_deleted", false);
         if (aError) throw aError;
-        const mapped =
-          data?.map((row) => row.business).filter(Boolean) ?? [];
-        setBusinesses(mapped);
-        if (!selectedBusinessId && mapped.length) {
-          setSelectedBusinessId(mapped[0].id);
+        fetchedBusinesses = data?.map((row) => row.business).filter(Boolean) ?? [];
+      }
+
+      setBusinesses(fetchedBusinesses);
+      if (fetchedBusinesses.length > 0) {
+        if (!selectedBusinessId || !fetchedBusinesses.find(b => b.id === selectedBusinessId)) {
+          setSelectedBusinessId(fetchedBusinesses[0].id);
         }
+      } else {
+        setSelectedBusinessId("");
+        setLoading(false);
       }
     } catch (err) {
       console.error("Error loading businesses:", err.message);
-      setError("No se pudieron cargar los negocios.");
+      setError("No se pudieron cargar los negocios con agenda habilitada.");
+      setLoading(false);
     }
   }, [profile?.account_id, profile?.id, isOwnerAdmin, selectedBusinessId]);
 
   const loadAppointments = useCallback(async () => {
-    if (!profile?.account_id || !selectedBusinessId) return;
+    if (!profile?.account_id) return;
+    if (!selectedBusinessId) {
+      setAppointments([]);
+      setLoading(false);
+      return;
+    }
+    
     setLoading(true);
     setError(null);
     try {

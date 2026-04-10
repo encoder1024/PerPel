@@ -1,0 +1,1671 @@
+{
+  "version": "6.1",
+  "id": "gtrs7cw7az3hh3v8t41m86y9",
+  "name": "Product Recommendation",
+  "events": [
+    {
+      "id": "af8ny8rpbejnlkitr2s29ro1",
+      "outgoingEdgeId": "aj9vphwwva87uh9f1w7mm999",
+      "graphCoordinates": { "x": -78.1, "y": 36.33 },
+      "type": "start"
+    }
+  ],
+  "groups": [
+    {
+      "id": "buk5exhk13g3npkaiaw87tvs",
+      "title": "City",
+      "graphCoordinates": { "x": 367.82, "y": 175.39 },
+      "blocks": [
+        {
+          "id": "ub5tforva9nlqky5lbrfrsdb",
+          "type": "text",
+          "content": {
+            "richText": [
+              {
+                "id": "A-1TRgahcr",
+                "type": "p",
+                "children": [{ "text": "Bienvenid@ {{Name}}!!!" }]
+              }
+            ]
+          }
+        },
+        {
+          "id": "jaj0pyfmlf4hb4suglr3v0be",
+          "type": "text",
+          "content": {
+            "richText": [
+              {
+                "id": "NbWO47zeA6",
+                "type": "p",
+                "children": [
+                  {
+                    "text": "Como todos nuestros productos y servicios no están disponibles para todas las ciudades, necesito saber tu provincia, ciudad y barrio..."
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "x6lj1mhze2xtc0h3ln42xg84",
+          "type": "text",
+          "content": {
+            "richText": [
+              {
+                "id": "RVagV3NexY",
+                "type": "p",
+                "children": [{ "text": "Donde vives?" }]
+              }
+            ]
+          }
+        },
+        {
+          "id": "lwtynqjykiem5zdtns3fwhu2",
+          "outgoingEdgeId": "fmcz78d8lfpq9v2ibw1bxgnd",
+          "type": "choice input",
+          "items": [
+            {
+              "id": "b6mg694wlrmx4k1fgc46co57",
+              "content": "Córdoba, B° San Vicente"
+            },
+            {
+              "id": "fpey0ohbvgvg7b86y4ol8wr7",
+              "content": "Córdoba, B° Maipú"
+            },
+            { "id": "pqkxu6x6sdmd1vnol0utbncd", "content": "Córdoba Capital" },
+            { "id": "vbw91ct1wib6zgga7xstu00y", "content": "Córdoba" },
+            { "id": "hvyi4svixb5hdl40fkn09km5", "content": "Otra Provincia" }
+          ],
+          "options": { "variableId": "vma96g9rw8oaosc0ei2iacqig" }
+        }
+      ]
+    },
+    {
+      "id": "gafkgilrandk3cwydpzq21oy",
+      "title": "Name",
+      "graphCoordinates": { "x": 21.64, "y": 176.32 },
+      "blocks": [
+        {
+          "id": "mu6ygqqpi48dacy1n4xj6x4y",
+          "type": "text",
+          "content": {
+            "richText": [
+              {
+                "id": "Fu0-qLBitp",
+                "type": "p",
+                "children": [
+                  {
+                    "text": "Hola! vamos a ver juntos que es lo mejor para vos..."
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "w9rc4yf0ytnzqy16r938h094",
+          "type": "text",
+          "content": {
+            "richText": [
+              {
+                "id": "p6W-nBonYC",
+                "type": "p",
+                "children": [{ "text": "Cual es tu nombre?" }]
+              }
+            ]
+          }
+        },
+        {
+          "id": "xobx3g928f9zj220n5qe1ih6",
+          "outgoingEdgeId": "gnh6uloe0a8ciwahgq0gnx4k",
+          "type": "text input",
+          "options": { "variableId": "vp1r2yrb6xgmi2aq3x6x73vaz" }
+        }
+      ]
+    },
+    {
+      "id": "z40ynhndj5r4038u3ha39c14",
+      "title": "RequestType",
+      "graphCoordinates": { "x": 1166.57, "y": 626.9 },
+      "blocks": [
+        {
+          "id": "xpbrytz3gucp0xzf1qs8mlwe",
+          "type": "text",
+          "content": {
+            "richText": [
+              {
+                "id": "-szOszhVvp",
+                "type": "p",
+                "children": [
+                  {
+                    "text": "Necesitas un perfume o un tratamiento capilar o corte de cabello?"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "zesp4ro7ltjmh64sn8d4912c",
+          "type": "picture choice input",
+          "items": [
+            {
+              "id": "l4y5s4rz63g3kl91sq5h6401",
+              "outgoingEdgeId": "vkihgy98u0z5ino6gijb9057",
+              "pictureSrc": "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w0MjU2MDR8MHwxfHNlYXJjaHwyfHxiZWF1dHl8ZW58MHwwfHx8MTc3NDEzNjY1M3ww&ixlib=rb-4.1.0&q=80&w=1080",
+              "title": "Maquillaje"
+            },
+            {
+              "id": "urqlzmsiixatiamg06pexhsn",
+              "outgoingEdgeId": "zmq05fxy6kd0y9yw4f2iwi4z",
+              "pictureSrc": "https://images.unsplash.com/photo-1635796332668-78830169097d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w0MjU2MDR8MHwxfHNlYXJjaHw1fHxwZXJmdW1lcnl8ZW58MHwwfHx8MTc3NDEzNjYwNHww&ixlib=rb-4.1.0&q=80&w=1080",
+              "title": "Perfumería"
+            },
+            {
+              "id": "go2ko2zs5haeairrtfw7jqb2",
+              "outgoingEdgeId": "l1651ebcq8z6bu4ekivvlmdi",
+              "pictureSrc": "https://images.unsplash.com/photo-1559599101-f09722fb4948?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w0MjU2MDR8MHwxfHNlYXJjaHwyOXx8c2Fsb258ZW58MHwwfHx8MTc3NDEzNjc0MXww&ixlib=rb-4.1.0&q=80&w=1080",
+              "title": "Peluquería"
+            },
+            {
+              "id": "ctvsb2gsogkbaj9sxsgw25p9",
+              "outgoingEdgeId": "bxnqtu3kdtihvw8ceoluaeix",
+              "pictureSrc": "https://images.unsplash.com/photo-1769029257460-7052dc5c1731?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w0MjU2MDR8MHwxfHNlYXJjaHwxfHxoYWlyJTIwaGVhbHRofGVufDB8MHx8fDE3NzQxMzY4Nzd8MA&ixlib=rb-4.1.0&q=80&w=1080",
+              "title": "Tratamientos"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mncr0l180vs07gc1difaovjx",
+      "title": "Gender",
+      "graphCoordinates": { "x": 743.57, "y": 178.44 },
+      "blocks": [
+        {
+          "id": "ahuasm8oa058gl4np96qadox",
+          "type": "text",
+          "content": {
+            "richText": [
+              {
+                "id": "Gsm3-7CLNt",
+                "type": "p",
+                "children": [{ "text": "Excelente! 😎" }]
+              }
+            ]
+          }
+        },
+        {
+          "id": "phbeq3fg1jp2ktmz2blr6bzf",
+          "type": "text",
+          "content": {
+            "richText": [
+              {
+                "id": "KYC24GV-0T",
+                "type": "p",
+                "children": [{ "text": "Cúal es tu genero?" }]
+              }
+            ]
+          }
+        },
+        {
+          "id": "mfz600vwgfjcisahf5tdnz7l",
+          "type": "choice input",
+          "items": [
+            {
+              "id": "zv2np66vgqoruntfh9h9vidx",
+              "outgoingEdgeId": "heko5w74lak4xq4dy8xuc7pj",
+              "content": "♂️ Hombre"
+            },
+            {
+              "id": "w5e2h4n10u1l2pap1vtm68ma",
+              "outgoingEdgeId": "axt4i9lp2yukpdl49o1e17kf",
+              "content": "♀️ Mujer"
+            },
+            { "id": "m1t9qrfs4z998ogqd4ttueus", "content": "⚧️ Otro" }
+          ],
+          "options": { "variableId": "imhauqde1xaf8x4yi5ekldgp" }
+        }
+      ]
+    },
+    {
+      "id": "kkmwfcxcatu3n75jfcxhw7am",
+      "title": "Calcom Peluquería AE San Vicente",
+      "graphCoordinates": { "x": 1853.4, "y": -156.19 },
+      "blocks": [
+        {
+          "id": "wezdbhazdiqau7esz4g8r9t3",
+          "type": "cal-com",
+          "options": {
+            "action": "Book event",
+            "link": "https://cal.com/andres-ferrer-yknamm/62edd46d-ec20-4178-b7d0-48ba8b080586",
+            "layout": "Weekly",
+            "name": "{{Name}}",
+            "email": "{{email}}",
+            "phone": "{{phone}}",
+            "anyPrefilledInformations": [
+              { "questionId": "Phone", "value": "{{phone}}" }
+            ],
+            "saveBookedDateInVariableId": "v832nxmzxufeyizb34v1bwn8"
+          }
+        },
+        {
+          "id": "xa16hrsf1nk2a7g55aqq821l",
+          "outgoingEdgeId": "qln4enqi0a8u7xjqa1ojnl32",
+          "type": "Webhook",
+          "options": {
+            "variablesForTest": [
+              {
+                "id": "hsxdfz1mo2kv9r0wlitdlfqf",
+                "variableId": "vp1r2yrb6xgmi2aq3x6x73vaz",
+                "value": "Andrés"
+              },
+              {
+                "id": "pde7eewp408d4rkoed1x183l",
+                "variableId": "hyibj73cwewry21sroq0u5b6",
+                "value": "3513854913"
+              },
+              {
+                "id": "cd5m4zjrzalkbe60tojmcjo7",
+                "variableId": "qokqyv67k7qns6fib6jnp9x8",
+                "value": "andresferrer256@gmail.com"
+              }
+            ],
+            "responseVariableMapping": [
+              {
+                "id": "w3oyv2braipdr59luz8cyy5y",
+                "variableId": "n2eo6wmbj65ndqxxrpee8jzi",
+                "bodyPath": "data.orderId"
+              },
+              {
+                "id": "in0d7prdvdu2nonyo1bjyhns",
+                "variableId": "uinvbcxs2igrkexsw5p62cuq",
+                "bodyPath": "data.initPoint"
+              }
+            ],
+            "isCustomBody": true,
+            "isExecutedOnClient": false,
+            "webhook": {
+              "headers": [
+                {
+                  "id": "s90fzwh4015e1n88ze95nafr",
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "id": "nvhh8c3yhbe6przisd56bpc0",
+                  "key": "Authorization",
+                  "value": "Bearer sb_publishable_dPeBnZZydo575VLD1zQcNQ_ytnGXY4N"
+                },
+                {
+                  "id": "vryp19dxew8qpz68n50fubpg",
+                  "key": "apikey",
+                  "value": "sb_publishable_dPeBnZZydo575VLD1zQcNQ_ytnGXY4N"
+                }
+              ],
+              "url": "https://wpwmcikdclulxuhpijri.supabase.co/functions/v1/typebot-create-reserve-payment",
+              "body": "{\n  \"account_id\": \"6363deb3-1239-49a0-8bdf-39100aab6a79\",\n  \"business_id\": \"62edd46d-ec20-4178-b7d0-48ba8b080586\",\n  \"item_sku\": \"8000-0001\",\n  \"total_amount\": 5000,\n  \"name\": \"{{Name}}\",\n  \"phone\": \"{{phone}}\",\n  \"email\": \"{{email}}\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "xuwp8anuf35eoz0sljwz2vfj",
+      "title": "RequestType",
+      "graphCoordinates": { "x": 1160.58, "y": -93.41 },
+      "blocks": [
+        {
+          "id": "p6lpxccxdg2ir6f87o9fvnlo",
+          "type": "text",
+          "content": {
+            "richText": [
+              {
+                "id": "-szOszhVvp",
+                "type": "p",
+                "children": [
+                  {
+                    "text": "Necesitas un perfume o un tratamiento capilar o corte de cabello?"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "fdb8sozh3e10s62y1dsf9dd9",
+          "type": "picture choice input",
+          "items": [
+            {
+              "id": "lcfihxkd1oetkj6u6305gsx8",
+              "pictureSrc": "https://images.unsplash.com/photo-1635796332668-78830169097d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w0MjU2MDR8MHwxfHNlYXJjaHw1fHxwZXJmdW1lcnl8ZW58MHwwfHx8MTc3NDEzNjYwNHww&ixlib=rb-4.1.0&q=80&w=1080",
+              "title": "Perfumería"
+            },
+            {
+              "id": "qoqhc34m1dbedh99d4yvv3h9",
+              "outgoingEdgeId": "uh105mbiardk8hfs1x03cg1b",
+              "pictureSrc": "https://images.unsplash.com/photo-1654097803253-d481b6751f29?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w0MjU2MDR8MHwxfHNlYXJjaHwxfHxtYW4lMjBoYWlyJTIwY3V0fGVufDB8MHx8fDE3NzQxMzg0NTh8MA&ixlib=rb-4.1.0&q=80&w=1080",
+              "title": "Peluquería"
+            },
+            {
+              "id": "zyjjgz7hvtlsk09ml0xsf90n",
+              "outgoingEdgeId": "h4cfnpe23h7qhxc4m70pofgv",
+              "pictureSrc": "https://images.unsplash.com/photo-1444820518794-41bbbccf4ccd?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w0MjU2MDR8MHwxfHNlYXJjaHwyNnx8bWFuJTIwaGFpciUyMGN1dHxlbnwwfDB8fHwxNzc0MTM4NDU4fDA&ixlib=rb-4.1.0&q=80&w=1080",
+              "title": "Tratamientos"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "x51y2al9n1tsf3o5mmaxkyoz",
+      "title": "TN maquillajes",
+      "graphCoordinates": { "x": 2232.66, "y": 799.65 },
+      "blocks": [
+        {
+          "id": "e35joas65115e31xt4pvfcss",
+          "type": "Redirect",
+          "options": {
+            "url": "https://perpeldemo.mitiendanube.com/cosmetica-y-maquillaje/"
+          }
+        }
+      ]
+    },
+    {
+      "id": "r5xolcddiqnmyaa4gpco6xfu",
+      "title": "Query maquillajes",
+      "graphCoordinates": { "x": 2225.17, "y": 609.37 },
+      "blocks": [
+        {
+          "id": "blgny8lsgnesc7bcimcnqh5n",
+          "type": "text input",
+          "options": { "labels": { "placeholder": "Dime tu pregunta..." } }
+        },
+        { "id": "p1s8b3l0w5qdg2pqwxzmen3w", "type": "Webhook" }
+      ]
+    },
+    {
+      "id": "vlse7dkjty4p07rksyzlb7tv",
+      "title": "Group #23",
+      "graphCoordinates": { "x": 1864.82, "y": 614.5 },
+      "blocks": [
+        {
+          "id": "jyb8g2ohq27aek7ijy23y8bd",
+          "type": "choice input",
+          "items": [
+            {
+              "id": "kv5pkvsl8c2th4n659xt77e2",
+              "outgoingEdgeId": "n6hlipn902uh8o937sr9oxe9",
+              "content": "Quieres hacerme una consulta sobre maquillajes?"
+            },
+            {
+              "id": "ltgiqzfvt0kg20fs8daah50z",
+              "outgoingEdgeId": "zyjbkragzgavpshi9loqpjkz",
+              "content": "Quieres ir a nuestra tienda  a elegir maquillajes?"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mtivn6uld2hxk8wqpothm9fj",
+      "title": "TN perfumes",
+      "graphCoordinates": { "x": 2202.25, "y": 1155.83 },
+      "blocks": [
+        {
+          "id": "ypw73alnxt11xq6t9v6dqz2b",
+          "type": "Redirect",
+          "options": {
+            "url": "https://perpeldemo.mitiendanube.com/fragancias/"
+          }
+        }
+      ]
+    },
+    {
+      "id": "shglc7gyxshrgkpaw42mtlfk",
+      "title": "Query perfumes",
+      "graphCoordinates": { "x": 2202.07, "y": 968.38 },
+      "blocks": [
+        {
+          "id": "tjpxc0kq69a7t9af9jw9gxbi",
+          "type": "text input",
+          "options": { "labels": { "placeholder": "Dime tu pregunta..." } }
+        },
+        { "id": "am28m8dy6b5jblfzhlnkpizn", "type": "Webhook" }
+      ]
+    },
+    {
+      "id": "aueft5dea62of6k2ylv2dzy0",
+      "title": "Perfumes",
+      "graphCoordinates": { "x": 1863.27, "y": 973.51 },
+      "blocks": [
+        {
+          "id": "z17zvve1logszactbt1m0ga4",
+          "type": "choice input",
+          "items": [
+            {
+              "id": "fe8odd524alfq4nd9kzveg9x",
+              "outgoingEdgeId": "b4alsmsgh4kcf910abgk5kd6",
+              "content": "Quieres hacerme una consulta sobre perfumes?"
+            },
+            {
+              "id": "pntky0x4f46zulek37b51amo",
+              "outgoingEdgeId": "y0s5y4h0t9sjljj4l5xuf0p7",
+              "content": "Quieres ir a nuestra tienda  a elegir perfumes?"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ylcg230f778048vojm4mxw3f",
+      "title": "Group #25",
+      "graphCoordinates": { "x": 2192.15, "y": -158.85 },
+      "blocks": [
+        {
+          "id": "a4n2xn2rgs9bj7jzi3dxyqya",
+          "type": "text",
+          "content": {
+            "richText": [
+              {
+                "id": "YrICJQ_owN",
+                "type": "p",
+                "children": [
+                  {
+                    "text": "Utiliza este link para pagar y confirmar tu reserva..."
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "zc6su9s2xzfz15rv6jj5iam4",
+          "type": "text",
+          "content": {
+            "richText": [
+              {
+                "id": "S9zPP3XdFj",
+                "type": "p",
+                "children": [{ "text": "{{ReserveInitPointPayment}}" }]
+              }
+            ]
+          }
+        },
+        {
+          "id": "gcbmyl2jnjiw74dgpc6s1zvb",
+          "type": "embed",
+          "content": { "url": "{{ReserveInitPointPayment}}" }
+        }
+      ]
+    },
+    {
+      "id": "kowi90bkj8arplnmbtihpc1o",
+      "title": "Group #25",
+      "graphCoordinates": { "x": 1511.89, "y": -160.47 },
+      "blocks": [
+        {
+          "id": "nf5bhim9nx7pk7q3bww3dry5",
+          "type": "text",
+          "content": {
+            "richText": [
+              {
+                "id": "el1qhEhpS-",
+                "type": "p",
+                "children": [
+                  {
+                    "text": "Dime tu email y movil por favor para coordinar la reserva..."
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "evsmnk24joeljp9r6dkvq63s",
+          "type": "phone number input",
+          "options": {
+            "variableId": "hyibj73cwewry21sroq0u5b6",
+            "defaultCountryCode": "AR"
+          }
+        },
+        {
+          "id": "czsbcgbuxiz3xd6rk3gjfgpd",
+          "outgoingEdgeId": "pcwefapfg4ydhn7v3zdcu6f8",
+          "type": "email input",
+          "options": { "variableId": "qokqyv67k7qns6fib6jnp9x8" }
+        }
+      ]
+    },
+    {
+      "id": "kcp35o2rt1j052t09qlgf1jb",
+      "title": "Calcom Peluquería AE San Vicente",
+      "graphCoordinates": { "x": 1878.1, "y": 256.21 },
+      "blocks": [
+        {
+          "id": "jl9pf4hnhdz4h0lgbszknzc9",
+          "type": "cal-com",
+          "options": {
+            "action": "Book event",
+            "link": "https://cal.com/andres-ferrer-yknamm/62edd46d-ec20-4178-b7d0-48ba8b080586",
+            "layout": "Weekly",
+            "name": "{{Name}}",
+            "email": "{{email}}",
+            "phone": "{{phone}}",
+            "saveBookedDateInVariableId": "v832nxmzxufeyizb34v1bwn8"
+          }
+        },
+        {
+          "id": "aw5vngesn4ii2u289hs771iu",
+          "outgoingEdgeId": "i4ibu3npml40so43rmd46dmb",
+          "type": "Webhook",
+          "options": {
+            "variablesForTest": [
+              {
+                "id": "hsxdfz1mo2kv9r0wlitdlfqf",
+                "variableId": "vp1r2yrb6xgmi2aq3x6x73vaz",
+                "value": "Andrés"
+              },
+              {
+                "id": "pde7eewp408d4rkoed1x183l",
+                "variableId": "hyibj73cwewry21sroq0u5b6",
+                "value": "3513854913"
+              },
+              {
+                "id": "cd5m4zjrzalkbe60tojmcjo7",
+                "variableId": "qokqyv67k7qns6fib6jnp9x8",
+                "value": "andresferrer256@gmail.com"
+              }
+            ],
+            "responseVariableMapping": [
+              {
+                "id": "w3oyv2braipdr59luz8cyy5y",
+                "variableId": "n2eo6wmbj65ndqxxrpee8jzi",
+                "bodyPath": "data.orderId"
+              },
+              {
+                "id": "in0d7prdvdu2nonyo1bjyhns",
+                "variableId": "uinvbcxs2igrkexsw5p62cuq",
+                "bodyPath": "data.initPoint"
+              }
+            ],
+            "isCustomBody": true,
+            "isExecutedOnClient": false,
+            "webhook": {
+              "headers": [
+                {
+                  "id": "s90fzwh4015e1n88ze95nafr",
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "id": "nvhh8c3yhbe6przisd56bpc0",
+                  "key": "Authorization",
+                  "value": "Bearer sb_publishable_dPeBnZZydo575VLD1zQcNQ_ytnGXY4N"
+                },
+                {
+                  "id": "vryp19dxew8qpz68n50fubpg",
+                  "key": "apikey",
+                  "value": "sb_publishable_dPeBnZZydo575VLD1zQcNQ_ytnGXY4N"
+                }
+              ],
+              "url": "https://wpwmcikdclulxuhpijri.supabase.co/functions/v1/typebot-create-reserve-payment",
+              "body": "{\n  \"account_id\": \"6363deb3-1239-49a0-8bdf-39100aab6a79\",\n  \"business_id\": \"62edd46d-ec20-4178-b7d0-48ba8b080586\",\n  \"item_sku\": \"8000-0001\",\n  \"total_amount\": 5000,\n  \"name\": \"{{Name}}\",\n  \"phone\": \"{{phone}}\",\n  \"email\": \"{{email}}\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "pok33p67t689764eawm73id2",
+      "title": "Group #25",
+      "graphCoordinates": { "x": 2216.85, "y": 253.55 },
+      "blocks": [
+        {
+          "id": "u37oyuq1grp13ljpfwd2xyuo",
+          "type": "text",
+          "content": {
+            "richText": [
+              {
+                "id": "YrICJQ_owN",
+                "type": "p",
+                "children": [
+                  {
+                    "text": "Utiliza este link para pagar y confirmar tu reserva..."
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "igr2kooxrsyloy706kebkk45",
+          "type": "text",
+          "content": {
+            "richText": [
+              {
+                "id": "S9zPP3XdFj",
+                "type": "p",
+                "children": [{ "text": "{{ReserveInitPointPayment}}" }]
+              }
+            ]
+          }
+        },
+        {
+          "id": "rdjx900u5auea1qjk0yg8j41",
+          "type": "embed",
+          "content": { "url": "{{ReserveInitPointPayment}}" }
+        }
+      ]
+    },
+    {
+      "id": "koeb5xl7gu7f11w2njbirhhr",
+      "title": "Group #25",
+      "graphCoordinates": { "x": 1536.59, "y": 251.93 },
+      "blocks": [
+        {
+          "id": "ascwm29celf517qufnzei0n9",
+          "type": "text",
+          "content": {
+            "richText": [
+              {
+                "id": "el1qhEhpS-",
+                "type": "p",
+                "children": [
+                  {
+                    "text": "Dime tu email y movil por favor para coordinar la reserva..."
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "hgv7wv924mnzgai2alrc728z",
+          "type": "phone number input",
+          "options": {
+            "variableId": "hyibj73cwewry21sroq0u5b6",
+            "defaultCountryCode": "AR"
+          }
+        },
+        {
+          "id": "hp29dms3r388ckgwyvit2uws",
+          "outgoingEdgeId": "x21jq7xa8xp85dgx2fhffduv",
+          "type": "email input",
+          "options": { "variableId": "qokqyv67k7qns6fib6jnp9x8" }
+        }
+      ]
+    },
+    {
+      "id": "flij9a0cpvu7vsu8r90sr1a0",
+      "title": "Calcom Peluquería AE San Vicente",
+      "graphCoordinates": { "x": 2853.54, "y": 1319.25 },
+      "blocks": [
+        {
+          "id": "dnvokl7p8wi14i9l1wp1the5",
+          "type": "cal-com",
+          "options": {
+            "action": "Book event",
+            "link": "https://cal.com/andres-ferrer-yknamm/62edd46d-ec20-4178-b7d0-48ba8b080586",
+            "layout": "Weekly",
+            "name": "{{Name}}",
+            "email": "{{email}}",
+            "phone": "{{phone}}",
+            "saveBookedDateInVariableId": "v832nxmzxufeyizb34v1bwn8"
+          }
+        },
+        {
+          "id": "eq6edqgc5k8t6403hqbmbgzs",
+          "outgoingEdgeId": "xa2rln4s2sa3tv9xa4bu9bbr",
+          "type": "Webhook",
+          "options": {
+            "variablesForTest": [
+              {
+                "id": "hsxdfz1mo2kv9r0wlitdlfqf",
+                "variableId": "vp1r2yrb6xgmi2aq3x6x73vaz",
+                "value": "Andrés"
+              },
+              {
+                "id": "pde7eewp408d4rkoed1x183l",
+                "variableId": "hyibj73cwewry21sroq0u5b6",
+                "value": "3513854913"
+              },
+              {
+                "id": "cd5m4zjrzalkbe60tojmcjo7",
+                "variableId": "qokqyv67k7qns6fib6jnp9x8",
+                "value": "andresferrer256@gmail.com"
+              }
+            ],
+            "responseVariableMapping": [
+              {
+                "id": "w3oyv2braipdr59luz8cyy5y",
+                "variableId": "n2eo6wmbj65ndqxxrpee8jzi",
+                "bodyPath": "data.orderId"
+              },
+              {
+                "id": "in0d7prdvdu2nonyo1bjyhns",
+                "variableId": "uinvbcxs2igrkexsw5p62cuq",
+                "bodyPath": "data.initPoint"
+              }
+            ],
+            "isCustomBody": true,
+            "isExecutedOnClient": false,
+            "webhook": {
+              "headers": [
+                {
+                  "id": "s90fzwh4015e1n88ze95nafr",
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "id": "nvhh8c3yhbe6przisd56bpc0",
+                  "key": "Authorization",
+                  "value": "Bearer sb_publishable_dPeBnZZydo575VLD1zQcNQ_ytnGXY4N"
+                },
+                {
+                  "id": "vryp19dxew8qpz68n50fubpg",
+                  "key": "apikey",
+                  "value": "sb_publishable_dPeBnZZydo575VLD1zQcNQ_ytnGXY4N"
+                }
+              ],
+              "url": "https://wpwmcikdclulxuhpijri.supabase.co/functions/v1/typebot-create-reserve-payment",
+              "body": "{\n  \"account_id\": \"6363deb3-1239-49a0-8bdf-39100aab6a79\",\n  \"business_id\": \"62edd46d-ec20-4178-b7d0-48ba8b080586\",\n  \"item_sku\": \"8000-0001\",\n  \"total_amount\": 5000,\n  \"name\": \"{{Name}}\",\n  \"phone\": \"{{phone}}\",\n  \"email\": \"{{email}}\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "lusb78s5dw4qeg5puajpm2cp",
+      "title": "Group #25",
+      "graphCoordinates": { "x": 3196.72, "y": 1323.27 },
+      "blocks": [
+        {
+          "id": "xr2fz1h1s8l68j7lvigxw12w",
+          "type": "text",
+          "content": {
+            "richText": [
+              {
+                "id": "YrICJQ_owN",
+                "type": "p",
+                "children": [
+                  {
+                    "text": "Utiliza este link para pagar y confirmar tu reserva..."
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "qtb5k9w19s37vpopsxyzru1t",
+          "type": "text",
+          "content": {
+            "richText": [
+              {
+                "id": "S9zPP3XdFj",
+                "type": "p",
+                "children": [{ "text": "{{ReserveInitPointPayment}}" }]
+              }
+            ]
+          }
+        },
+        {
+          "id": "boreubaimq30sciy9waf96fs",
+          "type": "embed",
+          "content": { "url": "{{ReserveInitPointPayment}}" }
+        }
+      ]
+    },
+    {
+      "id": "ytt8d8ag4730qsoip0xmvecz",
+      "title": "Group #25",
+      "graphCoordinates": { "x": 2482.08, "y": 1324.23 },
+      "blocks": [
+        {
+          "id": "enke8g4xmi0y7nj2iq0f75pz",
+          "type": "text",
+          "content": {
+            "richText": [
+              {
+                "id": "el1qhEhpS-",
+                "type": "p",
+                "children": [
+                  {
+                    "text": "Dime tu email y movil por favor para coordinar la reserva..."
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "rnuplvtdj2a0a3g17c3060qb",
+          "type": "phone number input",
+          "options": {
+            "variableId": "hyibj73cwewry21sroq0u5b6",
+            "defaultCountryCode": "AR"
+          }
+        },
+        {
+          "id": "vvj0gijppunpfk0inoh66eyw",
+          "outgoingEdgeId": "fm92yzfpobcpp3kwgp0xif9y",
+          "type": "email input",
+          "options": { "variableId": "qokqyv67k7qns6fib6jnp9x8" }
+        }
+      ]
+    },
+    {
+      "id": "irj2zpwedzn836xhkwp0qs1b",
+      "title": "Calcom Peluquería AE San Vicente",
+      "graphCoordinates": { "x": 1926.66, "y": 2549.03 },
+      "blocks": [
+        {
+          "id": "hor34r8kkslhw44l9uskydvz",
+          "type": "cal-com",
+          "options": {
+            "action": "Book event",
+            "link": "https://cal.com/andres-ferrer-yknamm/62edd46d-ec20-4178-b7d0-48ba8b080586",
+            "layout": "Weekly",
+            "name": "{{Name}}",
+            "email": "{{email}}",
+            "phone": "{{phone}}",
+            "saveBookedDateInVariableId": "v832nxmzxufeyizb34v1bwn8"
+          }
+        },
+        {
+          "id": "zy2l0yukmgykpakj4r2nw1uu",
+          "outgoingEdgeId": "c973jqgarvailqpijm6fv4gz",
+          "type": "Webhook",
+          "options": {
+            "variablesForTest": [
+              {
+                "id": "hsxdfz1mo2kv9r0wlitdlfqf",
+                "variableId": "vp1r2yrb6xgmi2aq3x6x73vaz",
+                "value": "Andrés"
+              },
+              {
+                "id": "pde7eewp408d4rkoed1x183l",
+                "variableId": "hyibj73cwewry21sroq0u5b6",
+                "value": "3513854913"
+              },
+              {
+                "id": "cd5m4zjrzalkbe60tojmcjo7",
+                "variableId": "qokqyv67k7qns6fib6jnp9x8",
+                "value": "andresferrer256@gmail.com"
+              }
+            ],
+            "responseVariableMapping": [
+              {
+                "id": "w3oyv2braipdr59luz8cyy5y",
+                "variableId": "n2eo6wmbj65ndqxxrpee8jzi",
+                "bodyPath": "data.orderId"
+              },
+              {
+                "id": "in0d7prdvdu2nonyo1bjyhns",
+                "variableId": "uinvbcxs2igrkexsw5p62cuq",
+                "bodyPath": "data.initPoint"
+              }
+            ],
+            "isCustomBody": true,
+            "isExecutedOnClient": false,
+            "webhook": {
+              "headers": [
+                {
+                  "id": "s90fzwh4015e1n88ze95nafr",
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "id": "nvhh8c3yhbe6przisd56bpc0",
+                  "key": "Authorization",
+                  "value": "Bearer sb_publishable_dPeBnZZydo575VLD1zQcNQ_ytnGXY4N"
+                },
+                {
+                  "id": "vryp19dxew8qpz68n50fubpg",
+                  "key": "apikey",
+                  "value": "sb_publishable_dPeBnZZydo575VLD1zQcNQ_ytnGXY4N"
+                }
+              ],
+              "url": "https://wpwmcikdclulxuhpijri.supabase.co/functions/v1/typebot-create-reserve-payment",
+              "body": "{\n  \"account_id\": \"6363deb3-1239-49a0-8bdf-39100aab6a79\",\n  \"business_id\": \"62edd46d-ec20-4178-b7d0-48ba8b080586\",\n  \"item_sku\": \"8000-0001\",\n  \"total_amount\": 5000,\n  \"name\": \"{{Name}}\",\n  \"phone\": \"{{phone}}\",\n  \"email\": \"{{email}}\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "czkwzl04nrehu9ie7h5y2tkd",
+      "title": "Group #25",
+      "graphCoordinates": { "x": 2265.41, "y": 2546.37 },
+      "blocks": [
+        {
+          "id": "bj0brsbu63t7vojghj4wpuv5",
+          "type": "text",
+          "content": {
+            "richText": [
+              {
+                "id": "YrICJQ_owN",
+                "type": "p",
+                "children": [
+                  {
+                    "text": "Utiliza este link para pagar y confirmar tu reserva..."
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "yrm8ew91bhg6ndxr0aqr7dam",
+          "type": "text",
+          "content": {
+            "richText": [
+              {
+                "id": "S9zPP3XdFj",
+                "type": "p",
+                "children": [{ "text": "{{ReserveInitPointPayment}}" }]
+              }
+            ]
+          }
+        },
+        {
+          "id": "cawe4bgkoro3c5qa1j21bt2e",
+          "type": "embed",
+          "content": { "url": "{{ReserveInitPointPayment}}" }
+        }
+      ]
+    },
+    {
+      "id": "essqrc6o5gojcpv9m63qawux",
+      "title": "Group #25",
+      "graphCoordinates": { "x": 1585.15, "y": 2544.75 },
+      "blocks": [
+        {
+          "id": "u1kwtem4rmg2um4abr3c6lrb",
+          "type": "text",
+          "content": {
+            "richText": [
+              {
+                "id": "el1qhEhpS-",
+                "type": "p",
+                "children": [
+                  {
+                    "text": "Dime tu email y movil por favor para coordinar la reserva..."
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "tsir8pq8trt2dm1msk8xlzw7",
+          "type": "phone number input",
+          "options": {
+            "variableId": "hyibj73cwewry21sroq0u5b6",
+            "defaultCountryCode": "AR"
+          }
+        },
+        {
+          "id": "cgdc2i7oes0pri0zgcdikwfi",
+          "outgoingEdgeId": "i9psopyc17lz3g6lz6s3vjxp",
+          "type": "email input",
+          "options": { "variableId": "qokqyv67k7qns6fib6jnp9x8" }
+        }
+      ]
+    },
+    {
+      "id": "t6m7wz9gwzkjuxt5pscv0025",
+      "title": "Group #35",
+      "graphCoordinates": { "x": 1884.03, "y": 1502.43 },
+      "blocks": [
+        {
+          "id": "f4od69cjwqomeyl6onnp87do",
+          "type": "choice input",
+          "items": [
+            {
+              "id": "lx71syupgj9oejvrmd1hvi8x",
+              "outgoingEdgeId": "iiwhgw1x7grlk594rg1ek6sl",
+              "content": "Color Crecimiento + nutrición + Brushing"
+            },
+            {
+              "id": "dy60ui3a49o3ct8fasoblww3",
+              "outgoingEdgeId": "dm5a0bf5olm6igmftoeiqy1k",
+              "content": "ALISADO PREMIUM MARROQUÍ"
+            },
+            {
+              "id": "vbyx99wyfzweyytmjt6ixcga",
+              "outgoingEdgeId": "d52zw7l8a98r5q7yx8o5vzdd",
+              "content": "\" Nanoplastia\" Cabello Más liso y Sedoso"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "iidjxop9s9vmew38rlitarh9",
+      "title": "Calcom Peluquería AE San Vicente",
+      "graphCoordinates": { "x": 2852.69, "y": 1688.76 },
+      "blocks": [
+        {
+          "id": "a3a5ydb0i95d6fo0jlnrv7jv",
+          "type": "cal-com",
+          "options": {
+            "action": "Book event",
+            "link": "https://cal.com/andres-ferrer-yknamm/62edd46d-ec20-4178-b7d0-48ba8b080586",
+            "layout": "Weekly",
+            "name": "{{Name}}",
+            "email": "{{email}}",
+            "phone": "{{phone}}",
+            "saveBookedDateInVariableId": "v832nxmzxufeyizb34v1bwn8"
+          }
+        },
+        {
+          "id": "stkxo2xmjcvixl64g4cmt1zt",
+          "outgoingEdgeId": "n4yfcti1i4mh9mirl0g4bonh",
+          "type": "Webhook",
+          "options": {
+            "variablesForTest": [
+              {
+                "id": "hsxdfz1mo2kv9r0wlitdlfqf",
+                "variableId": "vp1r2yrb6xgmi2aq3x6x73vaz",
+                "value": "Andrés"
+              },
+              {
+                "id": "pde7eewp408d4rkoed1x183l",
+                "variableId": "hyibj73cwewry21sroq0u5b6",
+                "value": "3513854913"
+              },
+              {
+                "id": "cd5m4zjrzalkbe60tojmcjo7",
+                "variableId": "qokqyv67k7qns6fib6jnp9x8",
+                "value": "andresferrer256@gmail.com"
+              }
+            ],
+            "responseVariableMapping": [
+              {
+                "id": "w3oyv2braipdr59luz8cyy5y",
+                "variableId": "n2eo6wmbj65ndqxxrpee8jzi",
+                "bodyPath": "data.orderId"
+              },
+              {
+                "id": "in0d7prdvdu2nonyo1bjyhns",
+                "variableId": "uinvbcxs2igrkexsw5p62cuq",
+                "bodyPath": "data.initPoint"
+              }
+            ],
+            "isCustomBody": true,
+            "isExecutedOnClient": false,
+            "webhook": {
+              "headers": [
+                {
+                  "id": "s90fzwh4015e1n88ze95nafr",
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "id": "nvhh8c3yhbe6przisd56bpc0",
+                  "key": "Authorization",
+                  "value": "Bearer sb_publishable_dPeBnZZydo575VLD1zQcNQ_ytnGXY4N"
+                },
+                {
+                  "id": "vryp19dxew8qpz68n50fubpg",
+                  "key": "apikey",
+                  "value": "sb_publishable_dPeBnZZydo575VLD1zQcNQ_ytnGXY4N"
+                }
+              ],
+              "url": "https://wpwmcikdclulxuhpijri.supabase.co/functions/v1/typebot-create-reserve-payment",
+              "body": "{\n  \"account_id\": \"6363deb3-1239-49a0-8bdf-39100aab6a79\",\n  \"business_id\": \"62edd46d-ec20-4178-b7d0-48ba8b080586\",\n  \"item_sku\": \"8000-0001\",\n  \"total_amount\": 5000,\n  \"name\": \"{{Name}}\",\n  \"phone\": \"{{phone}}\",\n  \"email\": \"{{email}}\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "lfk5bbjfjpcn0y045xwkcnfv",
+      "title": "Group #25",
+      "graphCoordinates": { "x": 3195.87, "y": 1692.78 },
+      "blocks": [
+        {
+          "id": "rua8r6d2y75dq07hntpww1sy",
+          "type": "text",
+          "content": {
+            "richText": [
+              {
+                "id": "YrICJQ_owN",
+                "type": "p",
+                "children": [
+                  {
+                    "text": "Utiliza este link para pagar y confirmar tu reserva..."
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "v5wx958jplktf6gfckveasib",
+          "type": "text",
+          "content": {
+            "richText": [
+              {
+                "id": "S9zPP3XdFj",
+                "type": "p",
+                "children": [{ "text": "{{ReserveInitPointPayment}}" }]
+              }
+            ]
+          }
+        },
+        {
+          "id": "p8wa6f40w7or3mghw0uq6vzo",
+          "type": "embed",
+          "content": { "url": "{{ReserveInitPointPayment}}" }
+        }
+      ]
+    },
+    {
+      "id": "ah50zzqrqnmt3jtoyfuvvnbb",
+      "title": "Group #25",
+      "graphCoordinates": { "x": 2481.23, "y": 1693.74 },
+      "blocks": [
+        {
+          "id": "y4xr1l2khg638vxwxc5d3szn",
+          "type": "text",
+          "content": {
+            "richText": [
+              {
+                "id": "el1qhEhpS-",
+                "type": "p",
+                "children": [
+                  {
+                    "text": "Dime tu email y movil por favor para coordinar la reserva..."
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "a59xwv3ij84nhksawvb1cjly",
+          "type": "phone number input",
+          "options": {
+            "variableId": "hyibj73cwewry21sroq0u5b6",
+            "defaultCountryCode": "AR"
+          }
+        },
+        {
+          "id": "iuhlpc864oj1x077bu7ed8ee",
+          "outgoingEdgeId": "ysf1099ysdziyz657fmvp99u",
+          "type": "email input",
+          "options": { "variableId": "qokqyv67k7qns6fib6jnp9x8" }
+        }
+      ]
+    },
+    {
+      "id": "stom8bpyvhaljxooqq7m2cce",
+      "title": "Calcom Peluquería AE San Vicente",
+      "graphCoordinates": { "x": 2855.04, "y": 2061.1 },
+      "blocks": [
+        {
+          "id": "jo2rnajgu4fx0z68sc3xrpdm",
+          "type": "cal-com",
+          "options": {
+            "action": "Book event",
+            "link": "https://cal.com/andres-ferrer-yknamm/62edd46d-ec20-4178-b7d0-48ba8b080586",
+            "layout": "Weekly",
+            "name": "{{Name}}",
+            "email": "{{email}}",
+            "phone": "{{phone}}",
+            "saveBookedDateInVariableId": "v832nxmzxufeyizb34v1bwn8"
+          }
+        },
+        {
+          "id": "y501zawkyvs9z8pafxvr27t1",
+          "outgoingEdgeId": "alpkmei5uigfqmw885ip0pf1",
+          "type": "Webhook",
+          "options": {
+            "variablesForTest": [
+              {
+                "id": "hsxdfz1mo2kv9r0wlitdlfqf",
+                "variableId": "vp1r2yrb6xgmi2aq3x6x73vaz",
+                "value": "Andrés"
+              },
+              {
+                "id": "pde7eewp408d4rkoed1x183l",
+                "variableId": "hyibj73cwewry21sroq0u5b6",
+                "value": "3513854913"
+              },
+              {
+                "id": "cd5m4zjrzalkbe60tojmcjo7",
+                "variableId": "qokqyv67k7qns6fib6jnp9x8",
+                "value": "andresferrer256@gmail.com"
+              }
+            ],
+            "responseVariableMapping": [
+              {
+                "id": "w3oyv2braipdr59luz8cyy5y",
+                "variableId": "n2eo6wmbj65ndqxxrpee8jzi",
+                "bodyPath": "data.orderId"
+              },
+              {
+                "id": "in0d7prdvdu2nonyo1bjyhns",
+                "variableId": "uinvbcxs2igrkexsw5p62cuq",
+                "bodyPath": "data.initPoint"
+              }
+            ],
+            "isCustomBody": true,
+            "isExecutedOnClient": false,
+            "webhook": {
+              "headers": [
+                {
+                  "id": "s90fzwh4015e1n88ze95nafr",
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "id": "nvhh8c3yhbe6przisd56bpc0",
+                  "key": "Authorization",
+                  "value": "Bearer sb_publishable_dPeBnZZydo575VLD1zQcNQ_ytnGXY4N"
+                },
+                {
+                  "id": "vryp19dxew8qpz68n50fubpg",
+                  "key": "apikey",
+                  "value": "sb_publishable_dPeBnZZydo575VLD1zQcNQ_ytnGXY4N"
+                }
+              ],
+              "url": "https://wpwmcikdclulxuhpijri.supabase.co/functions/v1/typebot-create-reserve-payment",
+              "body": "{\n  \"account_id\": \"6363deb3-1239-49a0-8bdf-39100aab6a79\",\n  \"business_id\": \"62edd46d-ec20-4178-b7d0-48ba8b080586\",\n  \"item_sku\": \"8000-0001\",\n  \"total_amount\": 5000,\n  \"name\": \"{{Name}}\",\n  \"phone\": \"{{phone}}\",\n  \"email\": \"{{email}}\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "w5iwexa1zgino7g7xo2vdu5h",
+      "title": "Group #25",
+      "graphCoordinates": { "x": 3198.22, "y": 2065.12 },
+      "blocks": [
+        {
+          "id": "xt4czrpc7xaoe0qu62z96hnd",
+          "type": "text",
+          "content": {
+            "richText": [
+              {
+                "id": "YrICJQ_owN",
+                "type": "p",
+                "children": [
+                  {
+                    "text": "Utiliza este link para pagar y confirmar tu reserva..."
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "kdt2cx6nzgnnudbd729l7qmt",
+          "type": "text",
+          "content": {
+            "richText": [
+              {
+                "id": "S9zPP3XdFj",
+                "type": "p",
+                "children": [{ "text": "{{ReserveInitPointPayment}}" }]
+              }
+            ]
+          }
+        },
+        {
+          "id": "mq3sicou4nmiib4fqn80x3pg",
+          "type": "embed",
+          "content": { "url": "{{ReserveInitPointPayment}}" }
+        }
+      ]
+    },
+    {
+      "id": "coc5z8e18rzkr2cmwsqkoh9b",
+      "title": "Group #25",
+      "graphCoordinates": { "x": 2483.58, "y": 2066.08 },
+      "blocks": [
+        {
+          "id": "e6fdfv2bgl0fc0zv4zv5nm7v",
+          "type": "text",
+          "content": {
+            "richText": [
+              {
+                "id": "el1qhEhpS-",
+                "type": "p",
+                "children": [
+                  {
+                    "text": "Dime tu email y movil por favor para coordinar la reserva..."
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "mtu0jv6kc8eyszxh5ezg51ef",
+          "type": "phone number input",
+          "options": {
+            "variableId": "hyibj73cwewry21sroq0u5b6",
+            "defaultCountryCode": "AR"
+          }
+        },
+        {
+          "id": "m3all65lmmchdk8vo4jvrolc",
+          "outgoingEdgeId": "y180egpkp7ttn8r0qu0wlkur",
+          "type": "email input",
+          "options": { "variableId": "qokqyv67k7qns6fib6jnp9x8" }
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "aj9vphwwva87uh9f1w7mm999",
+      "from": { "eventId": "af8ny8rpbejnlkitr2s29ro1" },
+      "to": { "groupId": "gafkgilrandk3cwydpzq21oy" }
+    },
+    {
+      "id": "gnh6uloe0a8ciwahgq0gnx4k",
+      "from": { "blockId": "xobx3g928f9zj220n5qe1ih6" },
+      "to": { "groupId": "buk5exhk13g3npkaiaw87tvs" }
+    },
+    {
+      "id": "fmcz78d8lfpq9v2ibw1bxgnd",
+      "from": { "blockId": "lwtynqjykiem5zdtns3fwhu2" },
+      "to": { "groupId": "mncr0l180vs07gc1difaovjx" }
+    },
+    {
+      "id": "axt4i9lp2yukpdl49o1e17kf",
+      "from": {
+        "blockId": "mfz600vwgfjcisahf5tdnz7l",
+        "itemId": "w5e2h4n10u1l2pap1vtm68ma"
+      },
+      "to": { "groupId": "z40ynhndj5r4038u3ha39c14" }
+    },
+    {
+      "id": "heko5w74lak4xq4dy8xuc7pj",
+      "from": {
+        "blockId": "mfz600vwgfjcisahf5tdnz7l",
+        "itemId": "zv2np66vgqoruntfh9h9vidx"
+      },
+      "to": { "groupId": "xuwp8anuf35eoz0sljwz2vfj" }
+    },
+    {
+      "id": "n6hlipn902uh8o937sr9oxe9",
+      "from": {
+        "blockId": "jyb8g2ohq27aek7ijy23y8bd",
+        "itemId": "kv5pkvsl8c2th4n659xt77e2"
+      },
+      "to": { "groupId": "r5xolcddiqnmyaa4gpco6xfu" }
+    },
+    {
+      "id": "zyjbkragzgavpshi9loqpjkz",
+      "from": {
+        "blockId": "jyb8g2ohq27aek7ijy23y8bd",
+        "itemId": "ltgiqzfvt0kg20fs8daah50z"
+      },
+      "to": { "groupId": "x51y2al9n1tsf3o5mmaxkyoz" }
+    },
+    {
+      "id": "vkihgy98u0z5ino6gijb9057",
+      "from": {
+        "blockId": "zesp4ro7ltjmh64sn8d4912c",
+        "itemId": "l4y5s4rz63g3kl91sq5h6401"
+      },
+      "to": { "groupId": "vlse7dkjty4p07rksyzlb7tv" }
+    },
+    {
+      "id": "b4alsmsgh4kcf910abgk5kd6",
+      "from": {
+        "blockId": "z17zvve1logszactbt1m0ga4",
+        "itemId": "fe8odd524alfq4nd9kzveg9x"
+      },
+      "to": { "groupId": "shglc7gyxshrgkpaw42mtlfk" }
+    },
+    {
+      "id": "y0s5y4h0t9sjljj4l5xuf0p7",
+      "from": {
+        "blockId": "z17zvve1logszactbt1m0ga4",
+        "itemId": "pntky0x4f46zulek37b51amo"
+      },
+      "to": { "groupId": "mtivn6uld2hxk8wqpothm9fj" }
+    },
+    {
+      "id": "zmq05fxy6kd0y9yw4f2iwi4z",
+      "from": {
+        "blockId": "zesp4ro7ltjmh64sn8d4912c",
+        "itemId": "urqlzmsiixatiamg06pexhsn"
+      },
+      "to": { "groupId": "aueft5dea62of6k2ylv2dzy0" }
+    },
+    {
+      "id": "uh105mbiardk8hfs1x03cg1b",
+      "from": {
+        "blockId": "fdb8sozh3e10s62y1dsf9dd9",
+        "itemId": "qoqhc34m1dbedh99d4yvv3h9"
+      },
+      "to": { "groupId": "kowi90bkj8arplnmbtihpc1o" }
+    },
+    {
+      "id": "pcwefapfg4ydhn7v3zdcu6f8",
+      "from": { "blockId": "czsbcgbuxiz3xd6rk3gjfgpd" },
+      "to": { "groupId": "kkmwfcxcatu3n75jfcxhw7am" }
+    },
+    {
+      "id": "qln4enqi0a8u7xjqa1ojnl32",
+      "from": { "blockId": "xa16hrsf1nk2a7g55aqq821l" },
+      "to": { "groupId": "ylcg230f778048vojm4mxw3f" }
+    },
+    {
+      "id": "i4ibu3npml40so43rmd46dmb",
+      "from": { "blockId": "aw5vngesn4ii2u289hs771iu" },
+      "to": { "groupId": "pok33p67t689764eawm73id2" }
+    },
+    {
+      "id": "x21jq7xa8xp85dgx2fhffduv",
+      "from": { "blockId": "hp29dms3r388ckgwyvit2uws" },
+      "to": { "groupId": "kcp35o2rt1j052t09qlgf1jb" }
+    },
+    {
+      "id": "h4cfnpe23h7qhxc4m70pofgv",
+      "from": {
+        "blockId": "fdb8sozh3e10s62y1dsf9dd9",
+        "itemId": "zyjjgz7hvtlsk09ml0xsf90n"
+      },
+      "to": { "groupId": "koeb5xl7gu7f11w2njbirhhr" }
+    },
+    {
+      "id": "xa2rln4s2sa3tv9xa4bu9bbr",
+      "from": { "blockId": "eq6edqgc5k8t6403hqbmbgzs" },
+      "to": { "groupId": "lusb78s5dw4qeg5puajpm2cp" }
+    },
+    {
+      "id": "fm92yzfpobcpp3kwgp0xif9y",
+      "from": { "blockId": "vvj0gijppunpfk0inoh66eyw" },
+      "to": { "groupId": "flij9a0cpvu7vsu8r90sr1a0" }
+    },
+    {
+      "id": "c973jqgarvailqpijm6fv4gz",
+      "from": { "blockId": "zy2l0yukmgykpakj4r2nw1uu" },
+      "to": { "groupId": "czkwzl04nrehu9ie7h5y2tkd" }
+    },
+    {
+      "id": "i9psopyc17lz3g6lz6s3vjxp",
+      "from": { "blockId": "cgdc2i7oes0pri0zgcdikwfi" },
+      "to": { "groupId": "irj2zpwedzn836xhkwp0qs1b" }
+    },
+    {
+      "id": "bxnqtu3kdtihvw8ceoluaeix",
+      "from": {
+        "blockId": "zesp4ro7ltjmh64sn8d4912c",
+        "itemId": "ctvsb2gsogkbaj9sxsgw25p9"
+      },
+      "to": { "groupId": "essqrc6o5gojcpv9m63qawux" }
+    },
+    {
+      "id": "iiwhgw1x7grlk594rg1ek6sl",
+      "from": {
+        "blockId": "f4od69cjwqomeyl6onnp87do",
+        "itemId": "lx71syupgj9oejvrmd1hvi8x"
+      },
+      "to": { "groupId": "ytt8d8ag4730qsoip0xmvecz" }
+    },
+    {
+      "id": "n4yfcti1i4mh9mirl0g4bonh",
+      "from": { "blockId": "stkxo2xmjcvixl64g4cmt1zt" },
+      "to": { "groupId": "lfk5bbjfjpcn0y045xwkcnfv" }
+    },
+    {
+      "id": "ysf1099ysdziyz657fmvp99u",
+      "from": { "blockId": "iuhlpc864oj1x077bu7ed8ee" },
+      "to": { "groupId": "iidjxop9s9vmew38rlitarh9" }
+    },
+    {
+      "id": "alpkmei5uigfqmw885ip0pf1",
+      "from": { "blockId": "y501zawkyvs9z8pafxvr27t1" },
+      "to": { "groupId": "w5iwexa1zgino7g7xo2vdu5h" }
+    },
+    {
+      "id": "y180egpkp7ttn8r0qu0wlkur",
+      "from": { "blockId": "m3all65lmmchdk8vo4jvrolc" },
+      "to": { "groupId": "stom8bpyvhaljxooqq7m2cce" }
+    },
+    {
+      "id": "dm5a0bf5olm6igmftoeiqy1k",
+      "from": {
+        "blockId": "f4od69cjwqomeyl6onnp87do",
+        "itemId": "dy60ui3a49o3ct8fasoblww3"
+      },
+      "to": { "groupId": "ah50zzqrqnmt3jtoyfuvvnbb" }
+    },
+    {
+      "id": "d52zw7l8a98r5q7yx8o5vzdd",
+      "from": {
+        "blockId": "f4od69cjwqomeyl6onnp87do",
+        "itemId": "vbyx99wyfzweyytmjt6ixcga"
+      },
+      "to": { "groupId": "coc5z8e18rzkr2cmwsqkoh9b" }
+    },
+    {
+      "id": "l1651ebcq8z6bu4ekivvlmdi",
+      "from": {
+        "blockId": "zesp4ro7ltjmh64sn8d4912c",
+        "itemId": "go2ko2zs5haeairrtfw7jqb2"
+      },
+      "to": {
+        "groupId": "t6m7wz9gwzkjuxt5pscv0025",
+        "blockId": "f4od69cjwqomeyl6onnp87do"
+      }
+    }
+  ],
+  "variables": [
+    {
+      "id": "uinvbcxs2igrkexsw5p62cuq",
+      "name": "ReserveInitPointPayment",
+      "isSessionVariable": true
+    },
+    {
+      "id": "n2eo6wmbj65ndqxxrpee8jzi",
+      "name": "ReserveOrderID",
+      "isSessionVariable": true
+    },
+    {
+      "id": "qokqyv67k7qns6fib6jnp9x8",
+      "name": "email",
+      "isSessionVariable": false
+    },
+    {
+      "id": "hyibj73cwewry21sroq0u5b6",
+      "name": "phone",
+      "isSessionVariable": false
+    },
+    {
+      "id": "aeo58j4tmy2yzodgzbbtvl8f",
+      "name": "ResultLinkCheckoutMP",
+      "isSessionVariable": false
+    },
+    {
+      "id": "v832nxmzxufeyizb34v1bwn8",
+      "name": "BookedDateMan",
+      "isSessionVariable": true
+    },
+    {
+      "id": "imhauqde1xaf8x4yi5ekldgp",
+      "name": "Genero",
+      "isSessionVariable": false
+    },
+    {
+      "id": "vp1r2yrb6xgmi2aq3x6x73vaz",
+      "name": "Name",
+      "isSessionVariable": false
+    },
+    {
+      "id": "vhbd5800sc98l1lk8wf7fe742",
+      "name": "Flavour",
+      "isSessionVariable": false
+    },
+    {
+      "id": "vma96g9rw8oaosc0ei2iacqig",
+      "name": "Continent",
+      "isSessionVariable": false
+    },
+    {
+      "id": "vlgo7i0r514jkd9a9f24otm4m",
+      "name": "Protein source",
+      "isSessionVariable": false
+    },
+    {
+      "id": "vgz8fr5u7q0p4jdef1krz2vm3",
+      "name": "Goals",
+      "isSessionVariable": false
+    },
+    {
+      "id": "vz4fqc40gkk99h0qeus2tjwhx",
+      "name": "Diet restrictions",
+      "isSessionVariable": false
+    }
+  ],
+  "theme": {
+    "general": {
+      "font": { "type": "Google", "family": "Montserrat" },
+      "background": {
+        "type": "Image",
+        "content": "https://images.unsplash.com/photo-1505870000807-1481b8924f11?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w0MjU2MDR8MHwxfHJhbmRvbXx8fHx8fHx8fDE3NzQyMDYzMjB8&ixlib=rb-4.1.0&q=80&w=1080"
+      },
+      "progressBar": { "isEnabled": false }
+    },
+    "chat": {
+      "hostAvatar": {
+        "isEnabled": true,
+        "url": "https://s3.typebot.io/public/workspaces/cmn0yffc6000604jr0zub8xfk/typebots/gtrs7cw7az3hh3v8t41m86y9/hostAvatar?v=1774206416516"
+      },
+      "guestAvatar": { "isEnabled": true, "url": "⚜️" },
+      "guestBubbles": {
+        "backgroundColor": "#FDDDBF",
+        "color": "#303235",
+        "border": { "color": "#ffc8b5" }
+      },
+      "buttons": { "backgroundColor": "#D27A7D" }
+    }
+  },
+  "selectedThemeTemplateId": "bright-rain",
+  "settings": {
+    "general": { "isBrandingEnabled": true },
+    "publicShare": { "isEnabled": true }
+  },
+  "createdAt": "2026-03-21T23:26:38.358Z",
+  "updatedAt": "2026-03-23T15:05:23.002Z",
+  "icon": "🍫",
+  "folderId": null,
+  "publicId": "product-recommendation-41m86y9",
+  "customDomain": null,
+  "workspaceId": "cmn0yffc6000604jr0zub8xfk",
+  "resultsTablePreferences": null,
+  "isArchived": false,
+  "isClosed": false,
+  "whatsAppCredentialsId": null,
+  "riskLevel": null
+}

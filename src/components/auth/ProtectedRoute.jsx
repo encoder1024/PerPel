@@ -6,7 +6,7 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
   const { user, profile, loading, authReady } = useAuthStore();
   const location = useLocation();
 
-  if (!authReady || (loading && !(user && profile))) {
+  if (!authReady || loading) {
 
     console.log("En protectedRoute: ", user, profile, loading);
 
@@ -20,6 +20,10 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
   if (!user) {
     // Redirect to login if not authenticated, storing the attempted location
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  if (!profile && location.pathname !== '/perfil') {
+    return <Navigate to="/perfil" state={{ from: location }} replace />;
   }
 
   // If roles are specified and the user does not have one of them

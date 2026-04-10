@@ -63,11 +63,18 @@ export default function StockManagement() {
     setOpenDialog(true);
     setQuantity('');
     setReason('');
-    // Default movement types based on role for the UI
+    const needsInitialStock = item.is_assigned && item.current_stock == null;
+    
+    // Determinar el tipo de movimiento inicial correcto
     if (profile?.app_role === 'EMPLOYEE') {
-      setMovementType('PURCHASE_IN'); // Default for ingress
+      setMovementType('PURCHASE_IN');
     } else {
-      setMovementType('ADJUSTMENT_IN'); // Default for Admin/Owner
+      // Si es Admin/Owner y el stock es NULL, forzamos INITIAL_STOCK
+      if (needsInitialStock) {
+        setMovementType('INITIAL_STOCK');
+      } else {
+        setMovementType('ADJUSTMENT_IN');
+      }
     }
   };
 
@@ -128,11 +135,14 @@ export default function StockManagement() {
   };
 
   const isEmployee = profile?.app_role === 'EMPLOYEE';
-  const isAdminOrOwner = ['ADMIN', 'OWNER'].includes(profile?.app_role);
+  const canManageInitialStock = ['ADMIN', 'OWNER', 'DEVELOPER'].includes(profile?.app_role);
 
   // Dynamically generate menu items based on role
   const getMovementTypeOptions = () => {
+    if (!selectedItem) return [];
+    
     const options = [];
+    const needsInitialStock = selectedItem.is_assigned && selectedItem.current_stock == null;
     if (isEmployee) {
       options.push(
         <MenuItem key="PURCHASE_IN" value="PURCHASE_IN">Ingreso (Compra/Entrada)</MenuItem>,
@@ -141,14 +151,20 @@ export default function StockManagement() {
         <MenuItem key="TESTING_STOCK" value="TESTING_STOCK">Egreso (Tester/Muestra)</MenuItem>,
       );
     }
-    if (isAdminOrOwner) {
-      options.push(
-        <MenuItem key="INITIAL_STOCK" value="INITIAL_STOCK">Carga Inicial de Stock</MenuItem>,
-        <MenuItem key="ADJUSTMENT_IN" value="ADJUSTMENT_IN">Ajuste Manual (Ingreso)</MenuItem>,
-        <MenuItem key="ADJUSTMENT_OUT" value="ADJUSTMENT_OUT">Ajuste Manual (Egreso)</MenuItem>,
-        <MenuItem key="RELOCATED_OUT" value="RELOCATED_OUT">Traslado (Salida)</MenuItem>,
-        <MenuItem key="PURCHASE_IN" value="PURCHASE_IN">Compra (Ingreso)</MenuItem>,
-      );
+    if (canManageInitialStock) {
+      // INITIAL_STOCK solo se muestra si el ítem está vinculado pero su stock es NULL
+      if (needsInitialStock) {
+        options.push(
+          <MenuItem key="INITIAL_STOCK" value="INITIAL_STOCK">Carga Inicial de Stock</MenuItem>
+        );
+      } else {
+        options.push(
+          <MenuItem key="ADJUSTMENT_IN" value="ADJUSTMENT_IN">Ajuste Manual (Ingreso)</MenuItem>,
+          <MenuItem key="ADJUSTMENT_OUT" value="ADJUSTMENT_OUT">Ajuste Manual (Egreso)</MenuItem>,
+          <MenuItem key="RELOCATED_OUT" value="RELOCATED_OUT">Traslado (Salida)</MenuItem>,
+          <MenuItem key="PURCHASE_IN" value="PURCHASE_IN">Compra (Ingreso)</MenuItem>
+        );
+      }
     }
     return options;
   };
@@ -224,8 +240,8 @@ export default function StockManagement() {
                   <TableCell>{item.category_name}</TableCell>
                   <TableCell align="right">
                     {item.item_type === 'PRODUCT' ? (
-                      <Typography variant="body1" sx={{ fontWeight: 700, color: (item.current_stock || 0) < 5 ? 'error.main' : 'inherit' }}>
-                        {item.is_assigned ? item.current_stock : '-'}
+                      <Typography variant="body1" sx={{ fontWeight: 700, color: item.is_uninitialized ? 'warning.main' : (item.current_stock || 0) < 5 ? 'error.main' : 'inherit' }}>
+                        {!item.is_assigned ? '-' : item.is_uninitialized ? 'No inicializado' : item.current_stock}
                       </Typography>
                     ) : (
                       <Typography variant="body2" color="text.secondary">N/A</Typography>
@@ -234,7 +250,7 @@ export default function StockManagement() {
                   <TableCell align="center">
                     <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
                       {item.item_type === 'PRODUCT' && (
-                        <Tooltip title={item.is_assigned ? "Realizar Ajuste de Stock" : "Primero debe vincular el producto"}>
+                        <Tooltip title={!item.is_assigned ? "Primero debe vincular el producto" : item.is_uninitialized ? "Registrar carga inicial de stock" : "Realizar ajuste de stock"}>
                           <span>
                             <IconButton 
                               size="small" 
@@ -274,64 +290,68 @@ export default function StockManagement() {
 
       {/* Adjustment Dialog */}
       <Dialog open={openDialog} onClose={handleCloseDialog} fullWidth maxWidth="xs">
-        <DialogTitle sx={{ fontWeight: 700 }}>
-          {selectedItem?.name}
-        </DialogTitle>
-        <DialogContent dividers>
-          <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <Typography variant="body2" color="text.secondary">
-              Stock actual: <strong>{selectedItem?.current_stock}</strong>
-            </Typography>
+        {selectedItem && (
+          <>
+            <DialogTitle sx={{ fontWeight: 700 }}>
+              {selectedItem.name}
+            </DialogTitle>
+            <DialogContent dividers>
+              <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <Typography variant="body2" color="text.secondary">
+                  Stock actual: <strong>{selectedItem.current_stock ?? 'No inicializado'}</strong>
+                </Typography>
 
-            <FormControl fullWidth size="small">
-              <InputLabel id="move-type-label">Tipo de Movimiento</InputLabel>
-              <Select
-                labelId="move-type-label"
-                value={movementType}
-                label="Tipo de Movimiento"
-                onChange={(e) => setMovementType(e.target.value)}
+                <FormControl fullWidth size="small">
+                  <InputLabel id="move-type-label">Tipo de Movimiento</InputLabel>
+                  <Select
+                    labelId="move-type-label"
+                    value={movementType}
+                    label="Tipo de Movimiento"
+                    onChange={(e) => setMovementType(e.target.value)}
+                  >
+                    <MenuItem value="">
+                      <em>Selecciona un tipo de movimiento</em>
+                    </MenuItem>
+                    {getMovementTypeOptions()}
+                  </Select>
+                </FormControl>
+
+                <TextField
+                  label="Cantidad"
+                  type="number"
+                  fullWidth
+                  size="small"
+                  value={quantity}
+                  onChange={(e) => setQuantity(e.target.value)}
+                  inputProps={{ min: 1 }}
+                  helperText="Indique el valor positivo del cambio."
+                />
+
+                <TextField
+                  label="Motivo / Nota"
+                  multiline
+                  rows={2}
+                  fullWidth
+                  size="small"
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  placeholder="Ej: Recepción de pedido #123"
+                />
+              </Box>
+            </DialogContent>
+            <DialogActions sx={{ px: 3, py: 2 }}>
+              <Button onClick={handleCloseDialog} color="inherit">Cancelar</Button>
+              <Button 
+                onClick={handleSubmit} 
+                variant="contained" 
+                disabled={submitting}
+                sx={{ minWidth: 100 }}
               >
-                <MenuItem value="">
-                  <em>Selecciona un tipo de movimiento</em>
-                </MenuItem>
-                {getMovementTypeOptions()} {/* Render dynamically generated options */}
-              </Select>
-            </FormControl>
-
-            <TextField
-              label="Cantidad"
-              type="number"
-              fullWidth
-              size="small"
-              value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
-              inputProps={{ min: 1 }}
-              helperText="Indique el valor positivo del cambio."
-            />
-
-            <TextField
-              label="Motivo / Nota"
-              multiline
-              rows={2}
-              fullWidth
-              size="small"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder="Ej: Recepción de pedido #123"
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, py: 2 }}>
-          <Button onClick={handleCloseDialog} color="inherit">Cancelar</Button>
-          <Button 
-            onClick={handleSubmit} 
-            variant="contained" 
-            disabled={submitting}
-            sx={{ minWidth: 100 }}
-          >
-            {submitting ? <CircularProgress size={24} /> : 'Guardar'}
-          </Button>
-        </DialogActions>
+                {submitting ? <CircularProgress size={24} /> : 'Guardar'}
+              </Button>
+            </DialogActions>
+          </>
+        )}
       </Dialog>
 
       <Snackbar 
